@@ -1,0 +1,7 @@
+telethon
+python-dotenv
+pillow
+pytesseract
+opencv-python
+sqlalchemy
+psycopg2-binary

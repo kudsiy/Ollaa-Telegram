@@ -1,0 +1,42 @@
+                                    Table "public.processed_listings"
+            Column            |            Type             | Collation | Nullable |       Default       
+------------------------------+-----------------------------+-----------+----------+---------------------
+ id                           | text                        |           | not null | 
+ intent                       | text                        |           |          | 
+ listing_class                | text                        |           |          | 
+ valuation_eligible           | boolean                     |           |          | 
+ sale_analytics_eligible      | boolean                     |           |          | 
+ developer_analytics_eligible | boolean                     |           |          | 
+ property_type                | text                        |           |          | 
+ location                     | text                        |           |          | 
+ plot_sqm                     | numeric                     |           |          | 
+ builtup_sqm                  | numeric                     |           |          | 
+ bedrooms                     | integer                     |           |          | 
+ bathrooms                    | integer                     |           |          | 
+ sale_price_birr              | bigint                      |           |          | 
+ rent_price_birr              | bigint                      |           |          | 
+ rent_advance_birr            | bigint                      |           |          | 
+ payment_type                 | text                        |           |          | 
+ bank_loan_pct                | integer                     |           |          | 
+ down_payment_pct             | integer                     |           |          | 
+ finish_state                 | text                        |           |          | 
+ developer                    | text                        |           |          | 
+ price_per_builtup_sqm        | numeric                     |           |          | 
+ price_per_plot_sqm           | numeric                     |           |          | 
+ confidence_json              | text                        |           |          | 
+ source_channel               | text                        |           |          | 
+ raw_text                     | text                        |           |          | 
+ created_at                   | timestamp without time zone |           |          | now()
+ contact_phone                | text                        |           |          | 
+ contact_username             | text                        |           |          | 
+ city                         | text                        |           |          | 'ADDIS_ABABA'::text
+ property_subtype             | text                        |           |          | 
+ price_currency               | text                        |           |          | 'ETB'::text
+ price_usd                    | numeric                     |           |          | 
+ floor_level                  | integer                     |           |          | 
+ posted_at                    | timestamp with time zone    |           |          | 
+ listing_age_days             | integer                     |           |          | 
+ listing_status               | text                        |           |          | 
+Indexes:
+    "processed_listings_pkey" PRIMARY KEY, btree (id)
+
