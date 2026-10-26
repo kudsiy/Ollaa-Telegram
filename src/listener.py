@@ -36,6 +36,7 @@ from topic_resolver import resolve_location, resolve_property_type
 from processor import parse_forum_topic_title
 from advert_classifier import classify_listing
 from channels import is_configured_chat
+from protection import PARSER_WRITE_SQL
 from settings import DB_URL
 
 
@@ -383,6 +384,7 @@ async def main() -> None:
 
             # For forum topics, switch to project-based UPSERT.
             with engine.begin() as conn:
+                conn.execute(text(PARSER_WRITE_SQL))
                 property_type = result.get("property_type")
                 # Crucial: media-only listings should be filterable later.
                 if has_attachment and (msg.message is None or msg.message.strip() == ""):

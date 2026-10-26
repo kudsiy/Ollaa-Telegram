@@ -8,7 +8,8 @@ from scraping to final report. One command does everything.
 Usage:
     python src\run_all.py              # full run
     python src\run_all.py --skip-scrape  # ETL only (no new scraping)
-    python src\run_all.py --reset        # wipe processed tables and rebuild
+
+To bring parser fixes to existing listings, use src\reprocess.py (--reset was removed).
 
 Steps:
     1. Scrape Telegram channels + forum groups
@@ -303,16 +304,16 @@ def main():
     parser = argparse.ArgumentParser(description="OLLAA master pipeline")
     parser.add_argument("--skip-scrape", action="store_true",
                         help="Skip Telegram scraping (ETL only)")
-    parser.add_argument("--reset", action="store_true",
-                        help="Wipe processed_listings and rental_listings before ETL")
+    parser.add_argument("--reset", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.reset:
+        sys.exit("--reset was removed: it deleted every processed listing, including hand repairs.\n"
+                 "To bring parser fixes to old listings, use: python src/reprocess.py")
 
     start = time.time()
     header("OLLAA PIPELINE STARTING")
     print(f"  Time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"  Mode: {'ETL only (skip scrape)' if args.skip_scrape else 'Full run'}")
-    if args.reset:
-        print(f"  Reset: YES — processed tables will be rebuilt from scratch")
 
     # ── STEP 1: SCRAPE ────────────────────────────────────────
     if not args.skip_scrape:
@@ -325,8 +326,7 @@ def main():
 
     # ── STEP 2: ETL ───────────────────────────────────────────
     step(2, "ETL: processing raw listings → processed_listings + rental_listings")
-    etl_args = ["--reset"] if args.reset else []
-    run_script("etl_runner.py", extra_args=etl_args, critical=True)
+    run_script("etl_runner.py", critical=True)
 
     # ── STEP 3: FIX EXTRACTION ────────────────────────────────
     step(3, "Fix extraction: recovering missing prices and areas")

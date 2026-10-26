@@ -6,18 +6,20 @@ and inserts structured results into:
   - processed_listings  (all intents: for valuation engine)
   - rental_listings     (RENT intent: for yield calculation)
 
-Safe to re-run: uses ON CONFLICT DO NOTHING.
+Safe to re-run: uses ON CONFLICT DO NOTHING, so it only adds new messages.
+Messages listed in processing_exclusions (deleted duplicates) are skipped.
+To bring parser fixes to listings that already exist, use reprocess.py.
 
 Usage:
     python src/etl_runner.py
     python src/etl_runner.py --limit 100
-    python src/etl_runner.py --reset      # clears both tables first
 """
 
 import argparse
 import json
 import sys
 from sqlalchemy import create_engine, text
+from protection import PARSER_WRITE_SQL
 from settings import DB_URL
 
 try:
@@ -152,20 +154,92 @@ def safe_divide(price, sqm):
     return None
 
 
-def run(limit=None, reset=False):
+def build_processed_values(pipeline, row):
+    """
+    Run the parser on one telegram_listings row and apply the channel rules.
+    Returns (values, blob, is_forum): values holds every processed_listings
+    column the ETL writes; blob is the text the parser saw. reprocess.py uses
+    this too, so both always produce the same values. Raises if the parser fails.
+    """
+    is_forum = getattr(row, "reply_to_top_id", None) is not None
+    processed_id = str(row.id)
+    if is_forum:
+        processed_id = f"{getattr(row, 'channel', None)}::topic::{int(row.reply_to_top_id)}"
+
+    # Include topic_title in the text blob so forum metadata can help extraction.
+    blob = (row.text or "")
+    if getattr(row, "topic_title", None):
+        blob = f"{row.topic_title}\n{blob}"
+
+    record = {"id": processed_id, "text": blob, "extracted_area": None}
+    result = pipeline.process(record)
+
+    # ── Post-classification overrides ─────────────────────────────
+    # Rule 1: Bet_afri family channels are rent-only sources.
+    _channel = getattr(row, "channel", None) or ""
+    if "Bet_afri" in _channel or "Betafrivip" in _channel:
+        result["intent"] = "RENT"
+        result["property_type"] = "SINGLE_ROOM"
+
+    # Rule 2: Single-room keyword signals (Amharic + hashtag forms).
+    _text = blob
+    if 'ክፍል' in _text and ('አንድ' in _text or '#1_' in _text):
+        result["property_type"] = "SINGLE_ROOM"
+
+    values = {
+        "id":                            result["id"],
+        "listing_status":                result.get("listing_status"),
+        "intent":                        result.get("intent"),
+        "listing_class":                 result.get("listing_class"),
+        "valuation_eligible":            result.get("valuation_eligible"),
+        "sale_analytics_eligible":       result.get("sale_analytics_eligible"),
+        "developer_analytics_eligible":  result.get("developer_analytics_eligible"),
+        "property_type":                 result.get("property_type"),
+        "property_subtype":              result.get("property_subtype"),
+        "location":                      result.get("location"),
+        "city":                          result.get("city"),
+        "plot_sqm":                      result.get("plot_sqm"),
+        "builtup_sqm":                   result.get("builtup_sqm"),
+        "bedrooms":                      result.get("bedrooms"),
+        "bathrooms":                     result.get("bathrooms"),
+        "sale_price_birr":               result.get("sale_price_birr"),
+        "rent_price_birr":               result.get("rent_price_birr"),
+        "rent_advance_birr":             result.get("rent_advance_birr"),
+        "payment_type":                  result.get("payment_type"),
+        "bank_loan_pct":                 result.get("bank_loan_pct"),
+        "down_payment_pct":              result.get("down_payment_pct"),
+        "finish_state":                  result.get("finish_state"),
+        "developer":                     result.get("developer"),
+        "price_currency":                result.get("price_currency"),
+        "price_usd":                     result.get("price_usd"),
+        "floor_level":                   result.get("floor_level"),
+        "contact_phone":                 result.get("contact_phone"),
+        "contact_username":              result.get("contact_username"),
+        "price_per_builtup_sqm":         safe_divide(result.get("sale_price_birr"), result.get("builtup_sqm")),
+        "price_per_plot_sqm":            safe_divide(result.get("sale_price_birr"), result.get("plot_sqm")),
+        "confidence_json":               json.dumps(result.get("confidence", {})),
+        "source_channel":                getattr(row, "channel", None),
+        "raw_text":                      (row.text or "")[:2000],
+        "posted_at":                     getattr(row, "posted_at", None),
+    }
+    return values, blob, is_forum
+
+
+def run(limit=None):
     pipeline = ValuationPipeline()
 
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE telegram_listings ADD COLUMN IF NOT EXISTS reply_to_top_id BIGINT;"))
         conn.execute(text("ALTER TABLE processed_listings ADD COLUMN IF NOT EXISTS listing_status TEXT;"))
         conn.execute(text("ALTER TABLE processed_listings ADD COLUMN IF NOT EXISTS rent_price_birr BIGINT;"))
-        if reset:
-            conn.execute(text("DELETE FROM processed_listings;"))
-            conn.execute(text("DELETE FROM rental_listings;"))
-            print("processed_listings and rental_listings cleared.")
 
-        # Fetch raw listings including posted_at
-        query = "SELECT id, text, channel, posted_at, reply_to_top_id, topic_title FROM telegram_listings"
+        # Fetch raw listings including posted_at, except messages deliberately
+        # kept out (deleted duplicates and clean-ups, see processing_exclusions).
+        query = """
+            SELECT id, text, channel, posted_at, reply_to_top_id, topic_title
+            FROM telegram_listings t
+            WHERE NOT EXISTS (SELECT 1 FROM processing_exclusions e WHERE e.raw_id = t.id)
+        """
         if limit:
             query += f" LIMIT {limit}"
         rows = conn.execute(text(query)).fetchall()
@@ -182,109 +256,49 @@ def run(limit=None, reset=False):
         if i % 100 == 0:
             print(f"  {i}/{total} processed | inserted={inserted} rental={rental} errors={errors}")
 
-        is_forum = getattr(row, "reply_to_top_id", None) is not None
-        processed_id = str(row.id)
-        if is_forum:
-            processed_id = f"{getattr(row, 'channel', None)}::topic::{int(row.reply_to_top_id)}"
-
-        # Include topic_title in the text blob so forum metadata can help extraction.
-        blob = (row.text or "")
-        if getattr(row, "topic_title", None):
-            blob = f"{row.topic_title}\n{blob}"
-
-        record = {"id": processed_id, "text": blob, "extracted_area": None}
-
         try:
-            result = pipeline.process(record)
+            values, blob, is_forum = build_processed_values(pipeline, row)
         except Exception as e:
             errors += 1
             continue
 
-        # ── Post-classification overrides ─────────────────────────────
-        # Rule 1: Bet_afri family channels are rent-only sources.
-        _channel = getattr(row, "channel", None) or ""
-        if "Bet_afri" in _channel or "Betafrivip" in _channel:
-            result["intent"] = "RENT"
-            result["property_type"] = "SINGLE_ROOM"
-
-        # Rule 2: Single-room keyword signals (Amharic + hashtag forms).
-        _text = blob
-        if 'ክፍል' in _text and ('አንድ' in _text or '#1_' in _text):
-            result["property_type"] = "SINGLE_ROOM"
-
-        price_per_built = safe_divide(result.get("sale_price_birr"), result.get("builtup_sqm"))
-        price_per_plot  = safe_divide(result.get("sale_price_birr"), result.get("plot_sqm"))
-        rent_per_sqm    = safe_divide(result.get("rent_price_birr"), result.get("builtup_sqm"))
+        rent_per_sqm = safe_divide(values["rent_price_birr"], values["builtup_sqm"])
 
         # ── Insert/Upsert into processed_listings (all records) ──────
         try:
             with engine.begin() as conn:
+                conn.execute(text(PARSER_WRITE_SQL))
                 stmt = UPSERT_FORUM_PROJECT if is_forum else INSERT_PROCESSED
-                conn.execute(text(stmt), {
-                    "id":                            result["id"],
-                    "listing_status":                result.get("listing_status"),
-                    "intent":                        result.get("intent"),
-                    "listing_class":                 result.get("listing_class"),
-                    "valuation_eligible":            result.get("valuation_eligible"),
-                    "sale_analytics_eligible":       result.get("sale_analytics_eligible"),
-                    "developer_analytics_eligible":  result.get("developer_analytics_eligible"),
-                    "property_type":                 result.get("property_type"),
-                    "property_subtype":              result.get("property_subtype"),
-                    "location":                      result.get("location"),
-                    "city":                          result.get("city"),
-                    "plot_sqm":                      result.get("plot_sqm"),
-                    "builtup_sqm":                   result.get("builtup_sqm"),
-                    "bedrooms":                      result.get("bedrooms"),
-                    "bathrooms":                     result.get("bathrooms"),
-                    "sale_price_birr":               result.get("sale_price_birr"),
-                    "rent_price_birr":               result.get("rent_price_birr"),
-                    "rent_advance_birr":             result.get("rent_advance_birr"),
-                    "payment_type":                  result.get("payment_type"),
-                    "bank_loan_pct":                 result.get("bank_loan_pct"),
-                    "down_payment_pct":              result.get("down_payment_pct"),
-                    "finish_state":                  result.get("finish_state"),
-                    "developer":                     result.get("developer"),
-                    "price_currency":                result.get("price_currency"),
-                    "price_usd":                     result.get("price_usd"),
-                    "floor_level":                   result.get("floor_level"),
-                    "contact_phone":                 result.get("contact_phone"),
-                    "contact_username":              result.get("contact_username"),
-                    "price_per_builtup_sqm":         price_per_built,
-                    "price_per_plot_sqm":            price_per_plot,
-                    "confidence_json":               json.dumps(result.get("confidence", {})),
-                    "source_channel":                getattr(row, "channel", None),
-                    "raw_text":                      (row.text or "")[:2000],
-                    "posted_at":                     getattr(row, "posted_at", None),
-                })
+                conn.execute(text(stmt), values)
                 inserted += 1
         except Exception as e:
             errors += 1
             continue
 
         # ── Insert into rental_listings (RENT intent only) ────
-        if result.get("intent") in ("RENT", "MIXED") and result.get("rent_price_birr") and result.get("property_type") != "ADVERTISEMENT":
+        if values["intent"] in ("RENT", "MIXED") and values["rent_price_birr"] and values["property_type"] != "ADVERTISEMENT":
             try:
                 with engine.begin() as conn:
                     conn.execute(text(INSERT_RENTAL), {
-                        "id":                  result["id"] + "_rent",
-                        "location":            result.get("location"),
-                        "city":                result.get("city"),
-                        "property_type":       result.get("property_type"),
-                        "property_subtype":    result.get("property_subtype"),
-                        "bedrooms":            result.get("bedrooms"),
-                        "bathrooms":           result.get("bathrooms"),
-                        "builtup_sqm":         result.get("builtup_sqm"),
-                        "plot_sqm":            result.get("plot_sqm"),
-                        "monthly_rent_birr":   result.get("rent_price_birr"),
-                        "rent_advance_birr":   result.get("rent_advance_birr"),
+                        "id":                  values["id"] + "_rent",
+                        "location":            values["location"],
+                        "city":                values["city"],
+                        "property_type":       values["property_type"],
+                        "property_subtype":    values["property_subtype"],
+                        "bedrooms":            values["bedrooms"],
+                        "bathrooms":           values["bathrooms"],
+                        "builtup_sqm":         values["builtup_sqm"],
+                        "plot_sqm":            values["plot_sqm"],
+                        "monthly_rent_birr":   values["rent_price_birr"],
+                        "rent_advance_birr":   values["rent_advance_birr"],
                         "rent_per_sqm":        rent_per_sqm,
-                        "finish_state":        result.get("finish_state"),
-                        "floor_level":         result.get("floor_level"),
-                        "contact_phone":       result.get("contact_phone"),
-                        "contact_username":    result.get("contact_username"),
-                        "source_channel":      getattr(row, "channel", None),
-                        "posted_at":           getattr(row, "posted_at", None),
-                        "raw_text":            record["text"][:2000],
+                        "finish_state":        values["finish_state"],
+                        "floor_level":         values["floor_level"],
+                        "contact_phone":       values["contact_phone"],
+                        "contact_username":    values["contact_username"],
+                        "source_channel":      values["source_channel"],
+                        "posted_at":           values["posted_at"],
+                        "raw_text":            blob[:2000],
                     })
                     rental += 1
             except Exception:
@@ -342,6 +356,9 @@ def run(limit=None, reset=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--reset", action="store_true")
+    parser.add_argument("--reset", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
-    run(limit=args.limit, reset=args.reset)
+    if args.reset:
+        sys.exit("--reset was removed: it deleted every processed listing, including hand repairs.\n"
+                 "To bring parser fixes to old listings, use: python src/reprocess.py")
+    run(limit=args.limit)

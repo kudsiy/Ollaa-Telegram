@@ -13,6 +13,7 @@ Values come from the .env file in the project root, which is never committed.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from urllib.parse import quote_plus
 
@@ -39,11 +40,14 @@ DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_NAME = os.getenv("DB_NAME", "ollaa")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = require_env("DB_PASSWORD")
+# The running script's name, so the database can tell who changed a listing
+# (shown in listing_overrides and processing_exclusions reasons).
+DB_APP_NAME = Path(sys.argv[0]).stem if sys.argv and sys.argv[0] else "python"
 
 # Explicit psycopg2 driver: SQLAlchemy 2.1 switched the default to psycopg (v3).
 DB_URL = (
     f"postgresql+psycopg2://{quote_plus(DB_USER)}:{quote_plus(DB_PASSWORD)}"
-    f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    f"@{DB_HOST}:{DB_PORT}/{DB_NAME}?application_name={quote_plus(DB_APP_NAME)}"
 )
 
 DB_CONFIG = {
@@ -52,6 +56,7 @@ DB_CONFIG = {
     "password": DB_PASSWORD,
     "host": DB_HOST,
     "port": DB_PORT,
+    "application_name": DB_APP_NAME,
 }
 
 # ── Telegram ──────────────────────────────────────────────────────

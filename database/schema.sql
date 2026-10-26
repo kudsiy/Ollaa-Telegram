@@ -140,6 +140,62 @@ CREATE FUNCTION public.get_comparables(p_location text, p_property_type text, p_
 $$;
 
 
+--
+-- Name: record_listing_override(); Type: FUNCTION; Schema: public
+--
+
+CREATE FUNCTION public.record_listing_override() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $_$
+DECLARE
+    i         integer;
+    f         text;
+    old_value text;
+    new_value text;
+BEGIN
+    -- The parser's own writes (etl_runner, listener, reprocess) are not repairs.
+    IF current_setting('ollaa.writer', true) = 'parser' THEN
+        RETURN NEW;
+    END IF;
+    FOR i IN 0 .. TG_NARGS - 1 LOOP
+        f := TG_ARGV[i];
+        EXECUTE format('SELECT ($1).%I::text, ($2).%I::text', f, f) INTO old_value, new_value USING OLD, NEW;
+        IF old_value IS DISTINCT FROM new_value THEN
+            INSERT INTO public.listing_overrides (listing_id, field, value, reason)
+            VALUES (NEW.id, f, new_value,
+                    'repair on ' || to_char(now(), 'YYYY-MM-DD') || ' by '
+                    || COALESCE(NULLIF(current_setting('application_name', true), ''), 'a script or by hand'))
+            ON CONFLICT (listing_id, field) DO UPDATE
+                SET value = EXCLUDED.value, reason = EXCLUDED.reason, created_at = now();
+        END IF;
+    END LOOP;
+    RETURN NEW;
+END;
+$_$;
+
+
+--
+-- Name: record_processing_exclusion(); Type: FUNCTION; Schema: public
+--
+
+CREATE FUNCTION public.record_processing_exclusion() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    -- A deleted listing must not come back when messages are processed again.
+    IF OLD.id ~ '^[0-9]{1,9}$' THEN
+        INSERT INTO public.processing_exclusions (raw_id, reason)
+        SELECT t.id, 'listing deleted on ' || to_char(now(), 'YYYY-MM-DD') || ' by '
+                     || COALESCE(NULLIF(current_setting('application_name', true), ''), 'a script or by hand')
+        FROM public.telegram_listings t
+        WHERE t.id = OLD.id::integer
+        ON CONFLICT (raw_id) DO NOTHING;
+    END IF;
+    RETURN OLD;
+END;
+$_$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -188,6 +244,26 @@ CREATE SEQUENCE public.developer_projects_id_seq
 --
 
 ALTER SEQUENCE public.developer_projects_id_seq OWNED BY public.developer_projects.id;
+
+
+--
+-- Name: listing_overrides; Type: TABLE; Schema: public
+--
+
+CREATE TABLE public.listing_overrides (
+    listing_id text NOT NULL,
+    field text NOT NULL,
+    value text,
+    reason text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE listing_overrides; Type: COMMENT; Schema: public
+--
+
+COMMENT ON TABLE public.listing_overrides IS 'Protected values: always win over the parser when listings are re-processed (src/protection.py).';
 
 
 --
@@ -429,6 +505,24 @@ CREATE SEQUENCE public.media_queue_id_seq
 --
 
 ALTER SEQUENCE public.media_queue_id_seq OWNED BY public.media_queue.id;
+
+
+--
+-- Name: processing_exclusions; Type: TABLE; Schema: public
+--
+
+CREATE TABLE public.processing_exclusions (
+    raw_id integer NOT NULL,
+    reason text NOT NULL,
+    excluded_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE processing_exclusions; Type: COMMENT; Schema: public
+--
+
+COMMENT ON TABLE public.processing_exclusions IS 'Telegram messages kept out of processed_listings on purpose, e.g. deleted duplicates (src/protection.py).';
 
 
 --
@@ -680,6 +774,14 @@ ALTER TABLE ONLY public.developer_projects
 
 
 --
+-- Name: listing_overrides listing_overrides_pkey; Type: CONSTRAINT; Schema: public
+--
+
+ALTER TABLE ONLY public.listing_overrides
+    ADD CONSTRAINT listing_overrides_pkey PRIMARY KEY (listing_id, field);
+
+
+--
 -- Name: listings listings_pkey; Type: CONSTRAINT; Schema: public
 --
 
@@ -717,6 +819,14 @@ ALTER TABLE ONLY public.media_queue
 
 ALTER TABLE ONLY public.processed_listings
     ADD CONSTRAINT processed_listings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: processing_exclusions processing_exclusions_pkey; Type: CONSTRAINT; Schema: public
+--
+
+ALTER TABLE ONLY public.processing_exclusions
+    ADD CONSTRAINT processing_exclusions_pkey PRIMARY KEY (raw_id);
 
 
 --
@@ -799,6 +909,36 @@ CREATE INDEX idx_scraped_at ON public.web_scraped_listings USING btree (scraped_
 --
 
 CREATE INDEX idx_source_name ON public.web_scraped_listings USING btree (source_name);
+
+
+--
+-- Name: processed_listings processed_listings_keep_deleted_out; Type: TRIGGER; Schema: public
+--
+
+CREATE TRIGGER processed_listings_keep_deleted_out AFTER DELETE ON public.processed_listings FOR EACH ROW EXECUTE FUNCTION public.record_processing_exclusion();
+
+
+--
+-- Name: processed_listings processed_listings_protect_repairs; Type: TRIGGER; Schema: public
+--
+
+CREATE TRIGGER processed_listings_protect_repairs AFTER UPDATE ON public.processed_listings FOR EACH ROW EXECUTE FUNCTION public.record_listing_override('listing_status', 'intent', 'listing_class', 'valuation_eligible', 'sale_analytics_eligible', 'developer_analytics_eligible', 'property_type', 'property_subtype', 'location', 'city', 'plot_sqm', 'builtup_sqm', 'bedrooms', 'bathrooms', 'sale_price_birr', 'rent_price_birr', 'rent_advance_birr', 'payment_type', 'bank_loan_pct', 'down_payment_pct', 'finish_state', 'developer', 'price_currency', 'price_usd', 'floor_level', 'contact_phone', 'contact_username');
+
+
+--
+-- Name: listing_overrides listing_overrides_listing_id_fkey; Type: FK CONSTRAINT; Schema: public
+--
+
+ALTER TABLE ONLY public.listing_overrides
+    ADD CONSTRAINT listing_overrides_listing_id_fkey FOREIGN KEY (listing_id) REFERENCES public.processed_listings(id) ON DELETE CASCADE;
+
+
+--
+-- Name: processing_exclusions processing_exclusions_raw_id_fkey; Type: FK CONSTRAINT; Schema: public
+--
+
+ALTER TABLE ONLY public.processing_exclusions
+    ADD CONSTRAINT processing_exclusions_raw_id_fkey FOREIGN KEY (raw_id) REFERENCES public.telegram_listings(id) ON DELETE CASCADE;
 
 
 --

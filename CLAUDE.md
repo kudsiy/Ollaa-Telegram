@@ -41,8 +41,20 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   `database/export_schema.py` from the live database; never edit it by hand. After any
   change to tables, views or functions, run `database\export_schema.py` and then
   `database\export_schema.py --check` (it must say "identical"), and commit both.
-- Never run `etl_runner.py --reset` or `run_all.py --reset`: they delete every processed
-  row, including hand repairs (finding 12 in `STATUS.md`).
+- Repairs and deletions are protected automatically (task S4, `src/protection.py`):
+  - Changing a parser field of a listing by anything other than the parser (a repair
+    script, pgAdmin, a hand-written UPDATE) is recorded in `listing_overrides`, and that
+    value then always wins over the parser. To undo a protection, delete its row there.
+  - Deleting a listing records its message in `processing_exclusions`, so it never comes
+    back. To let a message back in, delete its row there, then run `etl_runner.py`.
+  - Code that writes parser output must run `protection.PARSER_WRITE_SQL` first in its
+    transaction (as `etl_runner.py`, `listener.py` and `reprocess.py` do), or its writes
+    get recorded as repairs.
+  - If `TRACKED_FIELDS` in `src/protection.py` changes, the database trigger must be
+    updated to the same list; `reprocess.py` refuses to run until they match.
+- To bring parser fixes to existing listings, run `src\reprocess.py` (report only), read
+  the report, back up, then `src\reprocess.py --apply`. It never deletes listings.
+  `--reset` was removed from `etl_runner.py` and `run_all.py`: it deleted every listing.
 - Measure first: count the rows a change will touch, change them, count again, and
   report both numbers.
 
@@ -54,8 +66,10 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   `FORUM_GROUPS`). `src/telegram_scraper.py` reads exactly these into `telegram_listings`.
 - `src/listener.py` saves messages only from chats in `src/channels.py`, never from private
   chats. `tests/test_listener_privacy.py` checks this; run it after any listener change.
-- `src/etl_runner.py` runs `src/run_pipeline.py` (`ValuationPipeline`) on every raw
-  message and writes `processed_listings` and `rental_listings`.
+- `src/etl_runner.py` runs `src/run_pipeline.py` (`ValuationPipeline`) on new raw
+  messages (skipping `processing_exclusions`) and writes `processed_listings` and
+  `rental_listings`. It only adds listings; `src/reprocess.py` updates existing ones
+  with the same code (`build_processed_values`).
 - `src/listener.py` does the same live, as messages arrive (configured chats only).
 - `src/run_all.py` runs scrape → ETL → repair scripts → dedup → views → report.
 - `src/processor.py` holds shared price, area and label helpers used by the pipeline.
