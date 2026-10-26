@@ -76,6 +76,10 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   Price reading (decimals, spellings of "million", prices per m²) is checked by
   `tests/test_prices.py`; run it after any change to prices. After any parser change,
   also run the old and new parser on all listings and explain every difference, as S5 did.
+- Noise and photo-only rules (`is_strictly_noise` in `run_pipeline.py`, `is_photo_only` in
+  `processor.py`) are checked by `tests/test_classification.py`. A link never makes a
+  listing noise; a photo-only post is `MEDIA_PENDING`. Never run `src/fix_418.py` or
+  `upgrade_brain.py`: they overwrite `run_pipeline.py` with old rules.
 - `src/locations.py` is the only table of places. Every location code written anywhere
   must be a key of `PLACES` (or `noise` / `other_addis`). To add a place, add it to
   `PLACES` and its English and Amharic names to `ALIASES`, more specific names before the

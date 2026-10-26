@@ -534,7 +534,12 @@ STRICT_ANCHORED_PRICE_RE = re.compile(
     re.IGNORECASE,
 )
 
-MEDIA_LINK_RE = re.compile(r"^\s*http", re.IGNORECASE)
+# The scraper and the listener store "[MEDIA ONLY]" (or "[PDF ONLY] <file name>")
+# as the text of a post that has a photo or a file but no words.
+MEDIA_PLACEHOLDERS = ("[media only]", "[pdf only]")
+LINK_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+# A post with fewer characters than this (links left out) has nothing to read.
+MIN_READABLE_CHARS = 30
 VEHICLE_ADVERT_RE = re.compile(r"\b(?:toyota|yaris|suzuki|vitz)\b", re.IGNORECASE)
 CEREMONY_ADVERT_RE = re.compile(r"(?:expo|ቆይታ|ምስጋና)", re.IGNORECASE)
 
@@ -661,10 +666,23 @@ def strip_price_per_sqm(text: str) -> str:
     return PRICE_PER_SQM_RE.sub(lambda m: " " if _price_per_sqm_value(m) is not None else m.group(0), text)
 
 
+def is_photo_only(text: str) -> bool:
+    """A post with a photo or file and no words (see MEDIA_PLACEHOLDERS)."""
+    t = (text or "").lower()
+    return any(p in t for p in MEDIA_PLACEHOLDERS)
+
+
+def strip_links(text: str) -> str:
+    return LINK_RE.sub(" ", text or "")
+
+
 def is_media_link_text(text: str) -> bool:
+    """A photo-only post, or a post that is nothing but a link (a link inside a listing is fine)."""
     if not text:
         return False
-    return "[MEDIA ONLY]" in text or bool(MEDIA_LINK_RE.search(text))
+    if is_photo_only(text):
+        return True
+    return bool(LINK_RE.search(text)) and len(strip_links(text).strip()) < MIN_READABLE_CHARS
 
 
 def is_noise_advert(text: str) -> bool:

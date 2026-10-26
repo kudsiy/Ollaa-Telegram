@@ -385,10 +385,9 @@ async def main() -> None:
             # For forum topics, switch to project-based UPSERT.
             with engine.begin() as conn:
                 conn.execute(text(PARSER_WRITE_SQL))
+                # Media-only posts are filterable: the parser gives them
+                # listing_class MEDIA_PENDING, as the ETL does.
                 property_type = result.get("property_type")
-                # Crucial: media-only listings should be filterable later.
-                if has_attachment and (msg.message is None or msg.message.strip() == ""):
-                    property_type = "PENDING_MEDIA_REVIEW"
 
                 payload = {
                     "id": result["id"],

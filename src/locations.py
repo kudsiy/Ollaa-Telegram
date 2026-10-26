@@ -213,6 +213,7 @@ ALIASES: list[tuple[str, str]] = [
     ("sheraton", "kazanchis"), ("ሸራተን", "kazanchis"),
     ("chacha", "chacha"), ("ቻቻ", "chacha"),
     ("tafo ccd", "sheger_city"), ("ccd tafo", "sheger_city"), ("ጣፎ ccd", "sheger_city"),
+    ("legetafo ccd", "legetafo"), ("ለገጣፎ ccd", "legetafo"),
     ("ccd", "ayat_zone"), ("ሲሲዲ", "ayat_zone"),
     ("abo mazoriya", "mekanisa_abo"), ("አቦ ማዞሪያ", "mekanisa_abo"),
     ("mekanisa", "mekanisa_abo"), ("mekanissa", "mekanisa_abo"), ("መካኒሳ", "mekanisa_abo"),

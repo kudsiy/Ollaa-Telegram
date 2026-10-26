@@ -3,7 +3,7 @@ import json
 import unicodedata
 from datetime import datetime
 
-from locations import city_of, find_location
+from locations import NOISE, UNKNOWN, city_of, find_location
 from processor import (
     extract_bedrooms,
     extract_area_breakdown,
@@ -12,10 +12,13 @@ from processor import (
     extract_price_birr,
     extract_price_candidates_birr,
     find_price_per_sqm,
+    MIN_READABLE_CHARS,
     is_media_link_text,
+    is_photo_only,
     is_noise_advert,
     parse_forum_topic_title,
     parse_million_amount,
+    strip_links,
     strip_price_per_sqm,
 )
 
@@ -283,8 +286,10 @@ class ValuationPipeline:
         if '1 million homes' in text_lower: return True
         # Kill Holiday Greetings [cite: 1]
         if 'እንኳን አደረሳችሁ' in text_lower and 'apartment' not in text_lower: return True
-        # Kill short garbage and links [cite: 1]
-        if '[media only]' in text_lower or 'https://' in text_lower or len(text_lower) < 30: return True
+        # Kill short garbage, including posts that are only a link [cite: 1].
+        # A link inside a real listing does not make it noise (photo-only posts
+        # are handled before this, see process()).
+        if len(strip_links(text_lower).strip()) < MIN_READABLE_CHARS: return True
         return False
     def extract_g_plus_level(self, text):
         t = self._norm(text)
@@ -668,14 +673,21 @@ class ValuationPipeline:
     # ==========================================================
     def process(self, record):
         text = record["text"]
-        strict_noise = self.is_strictly_noise(text)
+        # A photo or file without words is not noise: it waits for the image to be
+        # read (media_queue). Its forum topic title, if any, can still name the place.
+        photo_only   = is_photo_only(text)
+        strict_noise = not photo_only and self.is_strictly_noise(text)
 
         listing_status = "ACTIVE"
         t0 = (text or "").strip().lower()
         if "(sold out)" in t0 or "(not active)" in t0 or t0.startswith("sold out") or t0.startswith("not active"):
             listing_status = "INACTIVE"
 
-        if strict_noise:
+        if photo_only:
+            intent, intent_conf = "UNKNOWN", 0.0
+            listing_class = "MEDIA_PENDING"
+            p_type, type_conf = "MEDIA_LINK", 0.99
+        elif strict_noise:
             intent, intent_conf = "ADVERT", 0.99
             listing_class = "ADVERTISEMENT"
             p_type, type_conf = ("MEDIA_LINK", 0.99) if is_media_link_text(text) else ("ADVERTISEMENT", 0.99)
@@ -709,7 +721,9 @@ class ValuationPipeline:
         contact_phone, contact_user = self.extract_contact(text)
         currency, price_usd         = self.detect_currency(text)
         floor_level                 = self.extract_floor_level(text)
-        location                    = "noise" if strict_noise else self.normalize_location(text)
+        location                    = NOISE if strict_noise else self.normalize_location(text)
+        if photo_only and location == UNKNOWN:
+            location = NOISE   # no words and no topic title naming a place
         city                        = self.classify_city(location)
 
         is_known_dev = dev in self.DEVELOPER_NAMES and dev_c >= 0.9
