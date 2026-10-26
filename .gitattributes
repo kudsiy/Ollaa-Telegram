@@ -1,0 +1,3 @@
+# Made by database/export_schema.py. Keep its bytes exactly: the function
+# bodies inside contain Windows line endings that must not be converted.
+database/schema.sql -text

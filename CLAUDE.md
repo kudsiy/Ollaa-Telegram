@@ -37,6 +37,10 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
 - Before any task that changes data, take a backup:
   `"C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -U postgres -Fc -f backups\ollaa_<date>.dump ollaa`
   (the password is `DB_PASSWORD` in `.env`; keep `backups\` out of git).
+- `database/schema.sql` rebuilds the whole structure (no data). It is made by
+  `database/export_schema.py` from the live database; never edit it by hand. After any
+  change to tables, views or functions, run `database\export_schema.py` and then
+  `database\export_schema.py --check` (it must say "identical"), and commit both.
 - Never run `etl_runner.py --reset` or `run_all.py --reset`: they delete every processed
   row, including hand repairs (finding 12 in `STATUS.md`).
 - Measure first: count the rows a change will touch, change them, count again, and
