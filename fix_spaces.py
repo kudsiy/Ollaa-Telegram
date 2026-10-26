@@ -29,9 +29,9 @@ def run_fix():
 
         # 2. MAP SPECIFIC LANDMARKS TO NEIGHBORHOODS [cite: 1, 2, 45, 46]
         mapping = {
-            "wollo_sefer": ["wollo sefer", "ወሎ ሰፈር"],
-            "22_area": [" 22 ", "ሀያ ሁለት", "አዲስ ሕይወት"],
-            "6_kilo": ["6 kilo", "ስድስት ኪሎ"],
+            "wello_sefer": ["wollo sefer", "ወሎ ሰፈር"],
+            "haya_hulet": ["22 mazoria", "ሀያ ሁለት", "አዲስ ሕይወት"],
+            "6kilo": ["6 kilo", "ስድስት ኪሎ"],
             "bulgaria": ["bulgaria", "ብልጋሪያ", "africa union", "አፍሪካ ህብረት"]
         }
         

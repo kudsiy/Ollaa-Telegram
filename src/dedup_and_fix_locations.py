@@ -10,11 +10,8 @@ JOB 1 — DEDUPLICATION
      (keeps the most recent entry)
 
 JOB 2 — LOCATION RECLASSIFICATION
-  Fixes rows currently tagged 'other_addis' by applying smarter
-  location rules including:
-  - Context-aware tafo detection (Sheger vs Addis)
-  - Missing Addis neighborhoods
-  - Sheger City locations
+  Fixes rows currently tagged 'other_addis' with the shared place table
+  in locations.py (the same one the parser uses).
 
 Run:
     python src/dedup_and_fix_locations.py --dry-run
@@ -24,162 +21,24 @@ Run:
 import re
 import argparse
 from sqlalchemy import create_engine, text
+from locations import match_text
 from settings import DB_URL
 
 engine = create_engine(DB_URL)
 
 
 # ================================================================
-# LOCATION RECLASSIFICATION RULES
-# Order matters — more specific rules first
+# LOCATION RECLASSIFICATION
+# Uses the shared place table in locations.py (the parser's own), so the
+# codes written here are the same as everywhere else.
 # ================================================================
 
 def classify_location(text):
     """
-    Returns a location key or None if no match found.
+    Returns a location code, or None if no place is named in the text.
     Applied only to rows currently tagged 'other_addis'.
     """
-    if not text:
-        return None
-
-    t = text.lower()
-
-    # ── SHEGER CITY (outside Addis) ──────────────────────────────
-    # Tafo with Sheger/Oromia/140 context = Sheger City
-    if re.search(r'tafo', t) and re.search(r'sheger|oromia|\b140\b', t):
-        return 'sheger_city'
-
-    if re.search(r'\bsheger\b', t):
-        return 'sheger_city'
-
-    if re.search(r'legetafo', t):
-        return 'sheger_city'
-
-    if re.search(r'tafo\s*ccd|ccd\s*tafo', t):
-        return 'sheger_city'
-
-    # ── ADDIS ABABA TAFO NEIGHBORHOODS ───────────────────────────
-    if re.search(r'ayat\s*tafo', t):
-        return 'ayat_zone'
-
-    if re.search(r'tafo\s*condomin', t):
-        return 'tafo_condominium'
-
-    # Tafo alone (no Sheger context) = Addis default
-    if re.search(r'\btafo\b', t):
-        return 'tafo_adebabay'
-
-    # ── ADDIS NEIGHBORHOODS MISSING FROM ORIGINAL MAP ────────────
-    if re.search(r'salite\s*mehret|salete\s*mihret|ሳልቴ\s*ምህረት', t):
-        return 'salite_mehret'
-
-    if re.search(r'teklehaimanot|tekle\s*haimanot|ጥቅለ\s*ሃይማኖት', t):
-        return 'teklehaimanot'
-
-    if re.search(r'\bpiassa\b|ፒያሳ', t):
-        return 'piyasa'
-
-    if re.search(r'kolfe|ኮልፌ', t):
-        return 'kolfe'
-
-    if re.search(r'nifas\s*silk|ንፋስ\s*ስልክ', t):
-        return 'nifas_silk'
-
-    if re.search(r'lideta|ልደታ', t):
-        return 'lideta'
-
-    if re.search(r'kirkos|ቂርቆስ', t):
-        return 'kirkos'
-
-    if re.search(r'yeka|የካ', t):
-        return 'yeka'
-
-    if re.search(r'arada|አራዳ', t):
-        return 'arada'
-
-    if re.search(r'addis\s*ketema|አዲስ\s*ከተማ', t):
-        return 'addis_ketema'
-
-    if re.search(r'lafto|ላፍቶ', t):
-        return 'lafto'
-
-    if re.search(r'akaki|አቃቂ', t):
-        return 'akaki_kality'
-
-    if re.search(r'bole\s*lemi|ቦሌ\s*ለሚ', t):
-        return 'bole_lemi'
-
-    if re.search(r'lemi\s*kura|ለሚ\s*ኩራ', t):
-        return 'lemi_kura'
-
-    if re.search(r'airport\s*road|አየር\s*ማረፊያ', t):
-        return 'bole_airport_road'
-
-    if re.search(r'imperial|ኢምፔሪያል', t):
-        return 'imperial'
-
-    if re.search(r'22\s*mazoria|22\s*ማዞሪያ|haya\s*hulet(?:\s*mazoria)?|ሃያ\s*ሁለት\s*ማዞሪያ|ሃያ\s*ሁለት', t):
-        return 'twenty_two'
-
-    if re.search(r'arabsa|አራብሳ|ሳይት\s*[1-5]', t):
-        return 'arabsa'
-
-    if re.search(r'gofa|ጎፋ', t):
-        return 'gofa'
-
-    if re.search(r'saris|ሳሪስ', t):
-        return 'saris'
-
-    if re.search(r'mikililand|ሚኪሊላንድ', t):
-        return 'mikililand'
-
-    if re.search(r'urael|ኡራኤል', t):
-        return 'urael'
-
-    if re.search(r'bambis|ባምቢስ', t):
-        return 'bambis'
-
-    if re.search(r'kaliti|ቃሊቲ', t):
-        return 'kality'
-
-    # ── INDUSTRIAL / WAREHOUSE ZONES ─────────────────────────────
-    if re.search(r'industry\s*zone|industrial\s*zone|ኢንዱስትሪ\s*ዞን', t):
-        return 'addis_industrial'
-
-    if re.search(r'kilinto|ቂሊንጦ', t):
-        return 'kilinto_industrial'
-
-    if re.search(r'bole\s*lemi\s*industrial|boli\s*lemi', t):
-        return 'bole_lemi_industrial'
-
-    if re.search(r'bisrate\s*gabriel|ብስራተ\s*ገብርኤል|ብስራተ\s*ገብሬል', t):
-        return 'bisrate_gabriel'
-
-    if re.search(r'summit|ሳሚት', t):
-        return 'summit'
-
-    if re.search(r'tulu\s*dimtu|ቱሉዱምቱ|ቱሉ\s*ዲምቱ', t):
-        return 'tulu_dimtu'
-
-    if re.search(r'bethel|ቤተል', t):
-        return 'bethel'
-
-    if re.search(r'kazanchis|ካሳንቺስ', t):
-        return 'kazanchis'
-
-    if re.search(r'gerji|ገርጂ', t):
-        return 'gerji'
-
-    if re.search(r'figa|ፊጋ', t):
-        return 'figa'
-
-    if re.search(r'wingate|ዊንጌት', t):
-        return 'wingate'
-
-    if re.search(r'addis\s*sefer|አዲስ\s*ሰፈር', t):
-        return 'addis_sefer'
-
-    return None  # still unknown
+    return match_text(text) if text else None
 
 
 # ================================================================

@@ -76,5 +76,9 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   Price reading (decimals, spellings of "million", prices per m²) is checked by
   `tests/test_prices.py`; run it after any change to prices. After any parser change,
   also run the old and new parser on all listings and explain every difference, as S5 did.
-- Location codes come from `LOCATION_MAP` in `src/run_pipeline.py`. `src/topic_resolver.py`
-  and `src/geocoder.py` use different codes for the same places until task S6 merges them.
+- `src/locations.py` is the only table of places. Every location code written anywhere
+  must be a key of `PLACES` (or `noise` / `other_addis`). To add a place, add it to
+  `PLACES` and its English and Amharic names to `ALIASES`, more specific names before the
+  wider area ("bole bulbula" before "bole"); to retire a code, add it to `RENAMED_CODES`
+  and rename it in the database. `tests/test_locations.py` checks the matching rules;
+  run it, and compare old and new parser output, after any change to places.

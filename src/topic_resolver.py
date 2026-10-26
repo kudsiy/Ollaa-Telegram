@@ -28,82 +28,10 @@ from psycopg2.extras import execute_values
 # ── Database ──────────────────────────────────────────────────────────────────
 from settings import DB_CONFIG
 
-# ── Location Patterns ─────────────────────────────────────────────────────────
-# Order matters — more specific patterns first
-LOCATION_PATTERNS = [
-    # Bole sub-areas first (before generic Bole match)
-    (r"bole\s*mes[kq]el|meskel\s*flower|meskel.?flower|meskelflower|መስቀል\s*ፍላወር|መስቀልፍላወር|meskel", "bole_meskel_flower"),
-    (r"bole\s*michael|bolemic|bole\s*mika[ei]l|ቦሌሚካኤል|bole_harmony", "bole_michael"),
-    (r"bole\s*arabsa|arabsa", "bole_arabsa"),
-    (r"bole\s*atlas|atlas", "bole_atlas"),
-    (r"bole\s*bulbula|bulbula", "bole_bulbula"),
-    (r"bole\s*japan|bolejapan", "bole_japan"),
-    (r"bole\s*gerji|bolegerji", "gerji"),
-    # Main areas
-    (r"ayat|አያት", "ayat"),
-    (r"summit|ሰሚት", "summit"),
-    (r"cmc|ሲኤምሲ", "cmc"),
-    (r"bethel|ቤተል", "bethel"),
-    (r"wollo\s*sefer|wolo\s*sefer|ወሎ\s*ሰፈር", "wollo_sefer"),
-    (r"figa|ፊጋ", "figa"),
-    (r"piassa|piaza|ፒያሳ", "piassa"),
-    (r"sarem|ሳሬም", "piassa"),
-    (r"kazanch[ie]s|ካዛንቺስ|kazanch", "kazanchis"),
-    (r"egziabher\s*ab|እግዚያራብ", "megenagna"),
-    (r"megenagna|megna|መገናኛ", "megenagna"),
-    (r"german|ጀርመን", "german_square"),
-    (r"gerji|ገርጂ", "gerji"),
-    (r"jemo|ጀሞ", "jemo"),
-    (r"\bbulbula\b|ቡልቡላ", "bulbula"),
-    (r"lebu|ለቡ", "lebu"),
-    (r"varnero|ቫርኔሮ", "lebu_varnero"),
-    (r"jarsso|jarso|ጃርሶ", "jarsso"),
-    (r"tuludimtu|tulu.?dimtu|ቱሉ\s*ዲምቱ", "tuludimtu"),
-    (r"kotebe|ቆጠቤ|ቆተቤ", "kotebe"),
-    (r"ferensay|ferensai|ፈረንሳይ", "ferensay"),
-    (r"lideta|ልደታ", "lideta"),
-    (r"mexico|ሜክሲኮ", "mexico"),
-    (r"sengatera|ሰንጋተራ", "mexico_sengatera"),
-    (r"sarbet|ሳርቤት", "sarbet"),
-    (r"tor.?hayloch|torha[yi]|ጦርሃይሎች|ጦር\s*ሃይሎች", "tor_hayloch"),
-    (r"old.?airport|oldairport|ድሮ\s*አየር", "old_airport"),
-    (r"4.?kilo|4ኪሎ|አራት\s*ኪሎ", "4_kilo"),
-    (r"6.?kilo|ስድስት\s*ኪሎ", "6_kilo"),
-    (r"stadium|ስታድዬም", "stadium"),
-    (r"gotera|ጎተራ", "gotera"),
-    (r"saris|ሳሪስ", "saris"),
-    (r"kolfe|ቆልፌ", "kolfe"),
-    (r"shola|ሾላ", "sholla"),
-    (r"ayer.?tena|ayertena|አየር\s*ጤና", "ayer_tena"),
-    (r"wesen|ወሰን", "wesen"),
-    (r"haya.?hulet|hayahulet|22|ሃያ\s*ሁለት", "haya_hulet"),
-    (r"sebategna|7.?kilo|ሰባት\s*ኪሎ", "7_kilo"),
-    (r"lafto|laphto|ላፍቶ", "lafto"),
-    (r"nifas.?silk|nifassilk|ንፋስ\s*ስልክ", "nifas_silk"),
-    (r"akaki|አቃቂ", "akaki"),
-    (r"kaliti|ቃሊቲ", "kaliti"),
-    (r"lamberet|ላምበረት", "lamberet"),
-    (r"winget|ዊንጌት", "winget"),
-    (r"bambis|ባምቢስ", "bambis"),
-    (r"friend.?ship|friendship", "friendship"),
-    (r"pastor|ፓስተር", "pastor_medhanialem"),
-    (r"enk[uo]lal.?fabrica|enkuklal", "enkulal_fabrica"),
-    (r"awareness|አዌርነስ", "awareness"),
-    (r"lem[ei].?bole|lemibole", "lemi_bole"),
-    (r"imperial|ኢምፔሪያል", "imperial"),
-    # Generic Bole last (after all sub-areas)
-    (r"bole|ቦሌ", "bole_main"),
-    # Sheger City locations
-    (r"legetafo|legetaffo|ለጌጣፎ", "legetafo"),
-    (r"burayu|ቡራዩ", "burayu"),
-    (r"sebeta|ሰበታ", "sebeta"),
-    (r"sululta|ሱሉልታ", "sululta"),
-    (r"gelan|ገላን", "gelan"),
-    (r"holeta|ሆለታ", "holeta"),
-    (r"chancho|ጫንጮ", "chancho"),
-]
-
-SHEGER_LOCATIONS = {"legetafo", "burayu", "sebeta", "sululta", "gelan", "holeta", "chancho"}
+# ── Locations ─────────────────────────────────────────────────────────────────
+# Topic titles are matched against the shared place table in locations.py
+# (the same one the parser uses), so both give the same codes.
+from locations import city_of, match_text
 
 # ── Property Type Patterns ────────────────────────────────────────────────────
 PROPERTY_TYPE_PATTERNS = [
@@ -141,7 +69,6 @@ DEVELOPER_TYPE_HINTS = {
 }
 
 # ── Compile all patterns ──────────────────────────────────────────────────────
-LOCATION_RE = [(re.compile(p, re.IGNORECASE), loc) for p, loc in LOCATION_PATTERNS]
 PROPERTY_RE = [(re.compile(p, re.IGNORECASE), pt) for p, pt in PROPERTY_TYPE_PATTERNS]
 DEVELOPER_RE = [(re.compile(p, re.IGNORECASE), pt) for p, pt in DEVELOPER_TYPE_HINTS.items()]
 
@@ -150,10 +77,9 @@ def resolve_location(topic_title: str):
     """Extract location slug from topic_title. Returns (location_slug, city) or (None, None)."""
     if not topic_title:
         return None, None
-    for pattern, location in LOCATION_RE:
-        if pattern.search(topic_title):
-            city = "SHEGER_CITY" if location in SHEGER_LOCATIONS else "ADDIS_ABABA"
-            return location, city
+    location = match_text(topic_title)
+    if location:
+        return location, city_of(location)
     return None, None
 
 

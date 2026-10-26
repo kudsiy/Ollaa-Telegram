@@ -29,6 +29,7 @@ from collections import Counter, defaultdict
 from sqlalchemy import create_engine, text
 
 from etl_runner import build_processed_values, price_per_sqm_values
+from locations import city_of
 from protection import (DERIVED_FIELDS, LEGACY_REASON, PARSER_WRITE_SQL, TRACKED_FIELDS,
                         from_text, same_value)
 from run_pipeline import ValuationPipeline
@@ -104,6 +105,9 @@ def plan(conn):
             else:
                 holding[field] += 1
             final[field] = value
+        # A protected location brings its own city, unless the city is protected too.
+        if "location" in overrides.get(pid, {}) and "city" not in overrides.get(pid, {}):
+            final["city"] = city_of(final["location"])
         final["price_per_builtup_sqm"], final["price_per_plot_sqm"] = price_per_sqm_values(final)
 
         old = stored[pid]
