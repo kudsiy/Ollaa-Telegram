@@ -29,6 +29,9 @@ The audit found three kinds of problems:
 | `rental_listings` | 177 |
 | `web_scraped_listings` | 76 |
 
+These are the counts at the time of the audit. After the S2 and S11 clean-ups:
+5,091 raw messages, 4,276 processed listings, 172 rental listings.
+
 ## Findings and how many listings each affects
 
 Counts come from running the project's own parser against the stored raw text, once
@@ -51,8 +54,8 @@ as it is and once with the single bug patched out, and comparing with what is st
 | 13 | No script creates the two main tables from scratch | `database/schema.sql` was empty; nothing had `CREATE TABLE telegram_listings` or `processed_listings` | fixed by S3: `database/schema.sql` now rebuilds the whole structure |
 | 14 | The live listener saves **all** your Telegram chats, including private ones | `listener.py`: `@client.on(events.NewMessage)` has no `chats=` filter | every message you receive while it runs; the database already holds **237** messages from **3** chats that are not on the channel list (saved 28 Dec 2025 to 3 Jan 2026) |
 | 15 | `test_db.py` fails with SQLAlchemy 2.1, which changed its default PostgreSQL driver to `psycopg` (v3, not installed) | `test_db.py` uses `postgresql://` with no driver; versions not pinned | fails on the office PC; works here only because this laptop still has SQLAlchemy 2.0.45 |
-| 16 | The live listener cannot save any message: its save command needs a "one row per channel + message" rule that `telegram_listings` does not have (found during S3) | `listener.py` uses `ON CONFLICT (channel, message_id)`; the table only has a primary key on `id` | every message the listener receives fails with "no unique or exclusion constraint matching the ON CONFLICT specification" (shown on a test copy); the table already holds **409** messages saved more than once (**1,143** extra copies) |
-| 17 | `dedup_fast.py` would fail when it first runs (found during S3) | it adds `duplicate_of INTEGER REFERENCES processed_listings(id)`, but `processed_listings.id` is text | the script stops before deduplicating |
+| 16 | The live listener cannot save any message: its save command needs a "one row per channel + message" rule that `telegram_listings` does not have (found during S3) | `listener.py` uses `ON CONFLICT (channel, message_id)`; the table only has a primary key on `id` | every message the listener receives fails with "no unique or exclusion constraint matching the ON CONFLICT specification" (shown on a test copy); the table already holds **409** messages saved more than once (**1,143** extra copies). Fixed by S11 |
+| 17 | `dedup_fast.py` would fail when it first runs (found during S3) | it adds `duplicate_of INTEGER REFERENCES processed_listings(id)`, but `processed_listings.id` is text | the script stops before deduplicating. Fixed by S11 (column is now `TEXT`) |
 
 ### Other things noticed
 
@@ -61,6 +64,8 @@ as it is and once with the single bug patched out, and comparing with what is st
   more than once. Only the last copy is used, so the earlier ones are misleading.
 - `listener.py` step 3 updates `processed_listings` by `str(tl_id)`, but forum rows are
   stored under `channel::topic::N`, so the topic-based fix never reaches them.
+- `dedup_fast.py` picks the "older" listing with `min()` on ids, but ids are text, so
+  "1000" counts as older than "999". Fix before relying on it (S9).
 - `etl_runner.py` hides every error (`except Exception: errors += 1; continue`).
 - `extract_images.py` reads images from `C:\Projects\ollaa\data\...`, which does not
   exist on this laptop (the images are in `data\images\telegram`, 747 files).
@@ -100,7 +105,7 @@ changes data, take a database backup (see CLAUDE.md).
 | Task | What | Status |
 |---|---|---|
 | S1 | Move all passwords and keys into `.env` through one settings helper (`src/settings.py`); add `.env.example`; keep `.env` out of git; pin package versions (SQLAlchemy 2.0.55); change the database passwords | done 26 Oct 2026 |
-| S2 | Listener privacy: only save messages from the configured channels; review and delete the 237 messages from the 3 unlisted chats | listener fixed 26 Oct 2026 (channel list now in `src/channels.py`, checked by `tests/test_listener_privacy.py`). The 237 messages turned out to come from 3 public business channels, not private chats (Bamacon 100, Champion 80, a furniture market 57). Owner's decision: kept Bamacon and Champion (real property adverts, channel list unchanged); deleted the 57 furniture-market messages and their 22 processed rows after a backup (`backups/ollaa_2026-10-26_before_S2.dump`). Totals now 6,234 raw / 4,288 processed. Done 26 Oct 2026. Note: the listener still cannot save anything until S11 (finding 16) |
+| S2 | Listener privacy: only save messages from the configured channels; review and delete the 237 messages from the 3 unlisted chats | listener fixed 26 Oct 2026 (channel list now in `src/channels.py`, checked by `tests/test_listener_privacy.py`). The 237 messages turned out to come from 3 public business channels, not private chats (Bamacon 100, Champion 80, a furniture market 57). Owner's decision: kept Bamacon and Champion (real property adverts, channel list unchanged); deleted the 57 furniture-market messages and their 22 processed rows after a backup (`backups/ollaa_2026-10-26_before_S2.dump`). Totals now 6,234 raw / 4,288 processed. Done 26 Oct 2026. The listener could not save anything until S11 fixed finding 16 |
 | S3 | Write `database/schema.sql` that creates every table, view and index from scratch (taken from the live database) | done 26 Oct 2026: made by `database/export_schema.py`; `--check` rebuilt an empty database from it that is identical to the live one (8 tables, 2 views, 2 materialized views, 2 functions, 6 indexes, 6 sequences); the ETL ran on it with 0 errors |
 | S4 | Safe re-processing: replace `DO NOTHING` / `--reset` with an update that refreshes parser fields but keeps hand repairs and deletions (record each repair as a rule that is re-applied) | to do |
 | S5 | Prices: keep decimals; detect per-m² prices and store them as price per m², not as the total | to do |
@@ -109,4 +114,4 @@ changes data, take a database backup (see CLAUDE.md).
 | S8 | Re-run the fixed parser on old rows with S4's safe method, then re-count findings 3 to 12 (they should drop to 0) | to do |
 | S9 | Clean-ups: remove duplicate functions and `.txt` code copies, fill or delete empty files, make the ETL report its errors, use a limited database login instead of `postgres` | to do |
 | S10 | Optional: remove the old secrets from the GitHub history | to do |
-| S11 | Do before S4 (it blocks the listener): after a backup and the owner's decision, remove the 1,143 duplicate raw messages, then add a unique rule on `telegram_listings (channel, message_id)` so the listener can save; re-run `database/export_schema.py`. Also fix the column type in `dedup_fast.py` (finding 17) | to do |
+| S11 | Do before S4 (it blocks the listener): after a backup and the owner's decision, remove the 1,143 duplicate raw messages, then add a unique rule on `telegram_listings (channel, message_id)` so the listener can save; re-run `database/export_schema.py`. Also fix the column type in `dedup_fast.py` (finding 17) | done 26 Oct 2026. All duplicates came from the scraper's first runs (28 Dec 2025 three times, 3 Jan 2026). Kept, per message, the copy its processed listing uses; for 3 ads the broker had edited, the kept copy got the newest text (owner's choice; their processed listings still show the old text until S8). Removed 1,143 raw copies, 12 duplicate processed listings (none valuation-eligible) and 5 duplicate rental rows, after a backup (`backups/ollaa_2026-10-26_before_S11.dump`). Added `UNIQUE (channel, message_id)`; the listener's and scraper's save commands now store each message once (tested on the live table in a rolled-back transaction). Totals now 5,091 raw / 4,276 processed / 172 rental |

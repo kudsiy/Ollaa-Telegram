@@ -728,6 +728,14 @@ ALTER TABLE ONLY public.rental_listings
 
 
 --
+-- Name: telegram_listings telegram_listings_channel_message_id_key; Type: CONSTRAINT; Schema: public
+--
+
+ALTER TABLE ONLY public.telegram_listings
+    ADD CONSTRAINT telegram_listings_channel_message_id_key UNIQUE (channel, message_id);
+
+
+--
 -- Name: telegram_listings telegram_listings_pkey; Type: CONSTRAINT; Schema: public
 --
 

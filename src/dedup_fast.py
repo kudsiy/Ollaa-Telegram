@@ -57,7 +57,7 @@ def ensure_columns(conn):
         """)
         cur.execute("""
             ALTER TABLE processed_listings
-            ADD COLUMN IF NOT EXISTS duplicate_of INTEGER REFERENCES processed_listings(id);
+            ADD COLUMN IF NOT EXISTS duplicate_of TEXT REFERENCES processed_listings(id);
         """)
         conn.commit()
     print("  ✅ Columns is_duplicate, duplicate_of ensured.")
