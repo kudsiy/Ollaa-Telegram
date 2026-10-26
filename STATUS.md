@@ -12,7 +12,7 @@ The audit found three kinds of problems:
 
 1. **Secrets were written inside the code.** The database password was in 26 files on
    GitHub (28 on this laptop) and a Gemini API key was in `extract_images.py`. The GitHub
-   repository is public, so both were visible to anyone. Task S1 fixes this.
+   repository is public, so both were visible to anyone. Task S1 fixed this.
 2. **The parser misreads some messages.** Some prices lose their decimals, some
    per-square-metre prices are saved as the full price, and some locations are wrong.
    The numbers below say how many of your listings each problem touches.
@@ -77,8 +77,12 @@ as it is and once with the single bug patched out, and comparing with what is st
 - The GitHub repository `kudsiy/Ollaa-Telegram` is **public**. Since 21 May 2026 its
   history has contained the old database password and an old Gemini key.
 - The old Gemini keys have been deleted by the owner. A new key is kept only in `.env`.
-- The database passwords are changed in task S1, so the copies in the GitHub history no
-  longer work. Removing them from the history is optional (task S10).
+- Both database passwords (`postgres` and `ollaa_user`) were changed on 26 October 2026
+  (task S1) to long random ones kept only in `.env`. The old ones are rejected, so the
+  copies in the GitHub history no longer work. Removing them from the history is
+  optional (task S10).
+- Three old copies of the ollaa-web project (`C:\Projects\New folder`, `New folder (2)`,
+  `New folder (4)`) still contain the old password and would need the new one if run.
 - `.env`, Telegram `*.session` files and the large text dumps (which contain other
   people's phone numbers) are ignored by git and must never be committed.
 
@@ -89,7 +93,7 @@ changes data, take a database backup (see CLAUDE.md).
 
 | Task | What | Status |
 |---|---|---|
-| S1 | Move all passwords and keys into `.env` through one settings helper (`src/settings.py`); add `.env.example`; keep `.env` out of git; pin package versions (SQLAlchemy 2.0.55); change the database passwords | to do |
+| S1 | Move all passwords and keys into `.env` through one settings helper (`src/settings.py`); add `.env.example`; keep `.env` out of git; pin package versions (SQLAlchemy 2.0.55); change the database passwords | done 26 Oct 2026 |
 | S2 | Listener privacy: only save messages from the configured channels; review and delete the 237 messages from the 3 unlisted chats | to do |
 | S3 | Write `database/schema.sql` that creates every table, view and index from scratch (taken from the live database) | to do |
 | S4 | Safe re-processing: replace `DO NOTHING` / `--reset` with an update that refreshes parser fields but keeps hand repairs and deletions (record each repair as a rule that is re-applied) | to do |
