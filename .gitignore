@@ -4,6 +4,7 @@
 .env
 *.env
 .env.*
+!.env.example
 
 # Telegram session files (contain authentication tokens!)
 *.session
@@ -33,6 +34,8 @@ ENV/
 # Data / Large export files (not suitable for git)
 # ============================================================
 data/
+backups/
+*.dump
 *.csv
 *.db
 *.sqlite

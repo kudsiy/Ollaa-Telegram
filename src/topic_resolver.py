@@ -26,13 +26,7 @@ import psycopg2
 from psycopg2.extras import execute_values
 
 # ── Database ──────────────────────────────────────────────────────────────────
-DB_CONFIG = {
-    "dbname": "ollaa",
-    "user": "postgres",
-    "password": "REMOVED_OLD_PASSWORD",
-    "host": "localhost",
-    "port": 5432,
-}
+from settings import DB_CONFIG
 
 # ── Location Patterns ─────────────────────────────────────────────────────────
 # Order matters — more specific patterns first

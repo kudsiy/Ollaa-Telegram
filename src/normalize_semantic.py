@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 import re
 from sqlalchemy import create_engine, text
+from settings import DB_URL
 
 # =========================
 # DATABASE CONNECTION
 # =========================
 # Ensure your PostgreSQL service is running and credentials match
-engine = create_engine("postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost/ollaa")
+engine = create_engine(DB_URL)
 
 # =========================
 # AMHARIC & ENGLISH TOKENS

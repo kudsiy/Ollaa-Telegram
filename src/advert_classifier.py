@@ -41,13 +41,7 @@ import sys
 import psycopg2
 from typing import Optional
 
-DB_CONFIG = {
-    "dbname": "ollaa",
-    "user": "postgres",
-    "password": "REMOVED_OLD_PASSWORD",
-    "host": "localhost",
-    "port": 5432,
-}
+from settings import DB_CONFIG
 
 # ── Property content guard ────────────────────────────────────────────────────
 PROPERTY_SIGNALS = [re.compile(p, re.IGNORECASE) for p in [

@@ -21,6 +21,7 @@ import sys
 import time
 import numpy as np
 from sqlalchemy import create_engine, text
+from settings import DB_URL
 
 def _force_utf8_stdio() -> None:
     """
@@ -53,7 +54,6 @@ except ImportError:
     print("Run: pip install ollama")
     raise
 
-DB_URL = "postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa"
 engine = create_engine(DB_URL)
 
 SIMILARITY_THRESHOLD = 0.92   # pairs above this are considered duplicates

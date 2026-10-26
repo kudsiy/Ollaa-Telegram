@@ -1,11 +1,7 @@
 import re
 from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
-import os
+from settings import DB_URL
 
-load_dotenv()
-
-DB_URL = os.getenv("DATABASE_URL")
 engine = create_engine(DB_URL)
 
 PRICE_REGEX = re.compile(r'(\$|usd|birr|etb)?\s*([\d,]{4,})', re.I)

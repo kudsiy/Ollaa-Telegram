@@ -1,7 +1,6 @@
 import re
 from sqlalchemy import create_engine, text
-
-DB_URL = "postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa"
+from settings import DB_URL
 
 engine = create_engine(DB_URL)
 

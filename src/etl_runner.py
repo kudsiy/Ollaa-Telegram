@@ -18,6 +18,7 @@ import argparse
 import json
 import sys
 from sqlalchemy import create_engine, text
+from settings import DB_URL
 
 try:
     from run_pipeline import ValuationPipeline
@@ -25,7 +26,6 @@ except ImportError:
     print("ERROR: run_pipeline.py not found.")
     sys.exit(1)
 
-DB_URL = "postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa"
 engine = create_engine(DB_URL)
 
 # ── processed_listings insert ─────────────────────────────────

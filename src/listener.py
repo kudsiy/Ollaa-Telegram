@@ -13,7 +13,7 @@ Env:
   TG_API_ID, TG_API_HASH (required)
   TG_PHONE (optional; used if session isn't authorized)
   TG_SESSION_NAME (optional; overrides session file path/name)
-  DB_URL (optional; defaults to local ollaa)
+  DB_PASSWORD and the other DB_* settings come from .env (see settings.py)
 """
 
 from __future__ import annotations
@@ -34,6 +34,7 @@ from run_pipeline import ValuationPipeline
 from topic_resolver import resolve_location, resolve_property_type
 from processor import parse_forum_topic_title
 from advert_classifier import classify_listing
+from settings import DB_URL
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -85,7 +86,6 @@ def safe_divide(price, sqm):
     return None
 
 
-DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa")
 engine = create_engine(DB_URL)
 
 INSERT_TL_SQL = text("""

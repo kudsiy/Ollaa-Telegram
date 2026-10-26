@@ -20,18 +20,17 @@ Run:
   python src/deep_clean.py --apply  # apply updates
 
 Env:
-  DB_URL (optional) defaults to local ollaa
+  DB_PASSWORD and the other DB_* settings come from .env (see settings.py)
 """
 
 from __future__ import annotations
 
-import os
 import re
 import sys
 from sqlalchemy import create_engine, text
+from settings import DB_URL
 
 
-DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa")
 engine = create_engine(DB_URL)
 
 

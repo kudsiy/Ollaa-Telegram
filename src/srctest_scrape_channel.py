@@ -1,7 +1,9 @@
 from telethon import TelegramClient
 
-api_id = 123456        # <-- your api_id
-api_hash = "your_hash"
+from settings import TG_API_ID, TG_API_HASH
+
+api_id = int(TG_API_ID)
+api_hash = TG_API_HASH
 
 channel = "ETHIOhouseagents"
 

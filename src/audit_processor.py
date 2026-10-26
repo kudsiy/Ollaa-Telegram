@@ -15,12 +15,11 @@ Run:
   python src/audit_processor.py
 
 Env:
-  DB_URL (optional) defaults to local ollaa
+  DB_PASSWORD and the other DB_* settings come from .env (see settings.py)
 """
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Optional
 
@@ -28,9 +27,9 @@ from sqlalchemy import create_engine, text
 
 from processor import DOWNPAYMENT_RE, extract_bedrooms, extract_price_birr, parse_million_amount
 from run_pipeline import ValuationPipeline
+from settings import DB_URL
 
 
-DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa")
 engine = create_engine(DB_URL)
 
 

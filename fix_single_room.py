@@ -1,6 +1,11 @@
 import psycopg2
+import sys
+from pathlib import Path
 
-conn = psycopg2.connect(dbname='ollaa', user='postgres', password='REMOVED_OLD_PASSWORD')
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+from settings import DB_CONFIG
+
+conn = psycopg2.connect(**DB_CONFIG)
 cur = conn.cursor()
 
 cur.execute("""

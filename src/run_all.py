@@ -28,6 +28,7 @@ import sys
 import time
 from pathlib import Path
 from sqlalchemy import create_engine, text
+from settings import DB_URL
 
 def _force_utf8_stdio() -> None:
     """
@@ -53,7 +54,6 @@ def _force_utf8_stdio() -> None:
 
 _force_utf8_stdio()
 
-DB_URL   = "postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa"
 SRC_DIR  = Path(__file__).resolve().parent
 engine   = create_engine(DB_URL)
 

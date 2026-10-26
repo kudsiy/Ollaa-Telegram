@@ -1,11 +1,16 @@
 import os
+import sys
 import time
 import random
+from pathlib import Path
 from google import genai
 from google.genai import types
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+from settings import require_env
+
 # 1. SETUP
-API_KEY = "REMOVED_OLD_GEMINI_KEY"
+API_KEY = require_env("GEMINI_API_KEY")
 client = genai.Client(api_key=API_KEY)
 
 # 2. UPDATED MODEL ID (April 27, 2026 Version)

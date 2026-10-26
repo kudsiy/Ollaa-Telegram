@@ -14,6 +14,8 @@ from telethon.errors import (
     FloodWaitError, SessionRevokedError,
 )
 
+from settings import DB_URL
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(BASE_DIR / ".env")
 
@@ -71,7 +73,6 @@ api_id   = int(require_env("TG_API_ID"))
 api_hash = require_env("TG_API_HASH")
 phone    = os.getenv("TG_PHONE")
 
-DB_URL       = os.getenv("DB_URL", "postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa")
 FETCH_LIMIT  = int(os.getenv("TG_FETCH_LIMIT", "720"))
 SESSION_NAME = resolve_session_name()
 SESSION_FILE = SESSION_NAME.with_suffix(".session")

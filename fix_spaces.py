@@ -1,9 +1,9 @@
 import psycopg2
+import sys
+from pathlib import Path
 
-DB_CONFIG = {
-    "dbname": "ollaa", "user": "postgres", "password": "REMOVED_OLD_PASSWORD",
-    "host": "localhost", "port": "5432"
-}
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+from settings import DB_CONFIG
 
 def run_fix():
     try:

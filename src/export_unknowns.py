@@ -11,24 +11,23 @@ Run:
   python src/export_unknowns.py
 
 Env:
-  DB_URL (optional) defaults to local ollaa
+  DB_PASSWORD and the other DB_* settings come from .env (see settings.py)
 """
 
 from __future__ import annotations
 
 import csv
-import os
 import re
 from collections import Counter
 from pathlib import Path
 
 from sqlalchemy import create_engine, text
+from settings import DB_URL
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 OUT_CSV = BASE_DIR / "unresolved_samples.csv"
 
-DB_URL = os.getenv("DB_URL", "postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa")
 engine = create_engine(DB_URL)
 
 

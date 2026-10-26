@@ -1,6 +1,12 @@
+import sys
+from pathlib import Path
+
 from sqlalchemy import create_engine, text
 
-engine = create_engine("postgresql+psycopg2://postgres:REMOVED_OLD_PASSWORD@localhost:5432/ollaa")
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+from settings import DB_URL
+
+engine = create_engine(DB_URL)
 
 query = """
 SELECT

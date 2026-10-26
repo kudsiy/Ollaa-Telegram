@@ -1,7 +1,15 @@
-telethon
-python-dotenv
-pillow
-pytesseract
-opencv-python
-sqlalchemy
-psycopg2-binary
+# Versions are pinned so every computer gets the same setup.
+# Install with: venv\Scripts\python.exe -m pip install -r requirements.txt
+telethon==1.43.0
+python-dotenv==1.2.1
+pillow==12.0.0
+pytesseract==0.3.13
+opencv-python==4.12.0.88
+numpy==2.2.6
+# Stay on 2.0: SQLAlchemy 2.1 changed the default PostgreSQL driver.
+sqlalchemy==2.0.55
+psycopg2-binary==2.9.11
+google-genai==1.73.1
+pydantic==2.12.5
+rapidfuzz==3.14.6
+ollama==0.6.1
