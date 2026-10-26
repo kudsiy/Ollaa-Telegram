@@ -62,6 +62,10 @@ as it is and once with the single bug patched out, and comparing with what is st
 - `etl_runner.py` hides every error (`except Exception: errors += 1; continue`).
 - `extract_images.py` reads images from `C:\Projects\ollaa\data\...`, which does not
   exist on this laptop (the images are in `data\images\telegram`, 747 files).
+- `extract_images.py` uses the preview model `gemini-3.1-flash-lite-preview`. On
+  26 October 2026 it answered every request with "503 high demand", while the new Gemini
+  key worked at once with `gemini-2.5-flash`. A stable `gemini-3.1-flash-lite` is now
+  available and is the likely replacement.
 - `requirements.txt` had no versions and was missing `google-genai`, `pydantic`,
   `rapidfuzz`, `ollama` and `numpy`.
 - Empty placeholder files: `database/schema.sql`, `config/telegram_channels.py`,
