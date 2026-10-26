@@ -10,6 +10,7 @@ so the listener/ETL share consistent parsing rules.
 from __future__ import annotations
 
 import re
+from decimal import Decimal
 from typing import Optional
 
 
@@ -174,13 +175,11 @@ def extract_area_breakdown(text: str) -> tuple[Optional[int], Optional[int]]:
 # Examples:
 #   "12 ሚሊዮን" -> 12,000,000
 #   "8.5 ሚ"     -> 8,500,000
-MILLION_RE = re.compile(
-    r"(?P<num>\d+(?:\.\d+)?)\s*(?:"
-    r"mil(?:lion)?|"
-    r"ሚሊዮን|ሚሊየን|million|"
-    r"ሚ\b|ሚ\.)",
-    re.IGNORECASE,
-)
+# Listings spell "million" many ways: ሚልዮን (the most common), ሚሊዮን, ሚሊየን,
+# ሚልየን, ሚሊዬን, ሚለን, ሚሊ, or just ሚ. ("ሚሊትር", millilitre, is not one.)
+MILLION_WORD = (r"(?:mil(?:lion)?|million|ሚ[ሊል][ዮየዬ]ን|ሚለን"
+                r"|ሚሊ(?![ሀ-፿])|ሚ(?![ሀ-፿])|ሚ\.)")
+MILLION_RE = re.compile(r"(?P<num>\d+(?:\.\d+)?)\s*" + MILLION_WORD, re.IGNORECASE)
 
 
 def parse_million_amount(text: str) -> Optional[int]:
@@ -220,7 +219,7 @@ BIRR_TAG_RE = re.compile(r"(\d[\d,\.]*)\s*(?:ብር|birr|etb)\b", re.IGNORECASE)
 PLAIN_BIG_NUMBER_RE = re.compile(r"\b(\d{7,12})\b")  # 1,000,000+ without commas
 PLAIN_BIG_NUMBER_COMMA_RE = re.compile(r"\b(\d{1,3}(?:,\d{3}){2,})\b")  # 1,000,000+
 DOWNPAYMENT_RE = re.compile(
-    r"(\d{1,3})\s*%\s*=\s*(\d+(?:\.\d+)?)\s*(?:mil(?:lion)?|ሚ\b|ሚ\.|ሚሊዮን|ሚሊየን)",
+    r"(\d{1,3})\s*%\s*=\s*(\d+(?:\.\d+)?)\s*" + MILLION_WORD,
     re.IGNORECASE,
 )
 
@@ -255,6 +254,22 @@ def _to_int_num(raw: str) -> Optional[int]:
         return None
 
 
+def _to_number(raw: str) -> Optional[Decimal]:
+    """Like _to_int_num, but keeps decimals: "5.5" stays 5.5, "12,800,000" is 12800000."""
+    if not raw:
+        return None
+    s = raw.strip().rstrip(".")
+    if " " in s:
+        return None
+    whole = s.split(".", 1)[0]
+    if "," in whole and not THOUSANDS_RE.match(whole):
+        return None
+    s2 = s.replace(",", "")
+    if not DECIMAL_RE.match(s2):
+        return None
+    return Decimal(s2)
+
+
 def is_invalid_sale_price(price: Optional[int]) -> bool:
     """
     Reject obviously bad extracted prices:
@@ -276,7 +291,7 @@ def normalize_sale_price(price: Optional[int]) -> Optional[int]:
 
 
 PRICE_ANCHOR_RE = re.compile(
-    r"(?:ብር|birr|etb|ዋጋ|price|mil(?:lion)?|million|ሚሊዮን|ሚሊየን)",
+    r"(?:ብር|birr|etb|ዋጋ|price|" + MILLION_WORD + ")",
     re.IGNORECASE,
 )
 
@@ -511,8 +526,11 @@ STRICT_AREA_BEFORE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# "ዋጋ 5.5 ሚሊየን", "ጠቅላላ ዋጋ = 5.3 ሚልዮን", "Price: 12,800,000", "Price: 3.9M"
+# (right after a price word, "M" alone also means million).
 STRICT_ANCHORED_PRICE_RE = re.compile(
-    r"(?:asking\s*price|መሸጫ\s*ዋጋ|ጠቅላላ\s*ዋጋ|price|ዋጋ|birr|etb)\s*[:፦-]?\s*(?P<num>\d[\d,\.]*)\s*(?P<million>mil(?:lion)?|million|ሚሊየን|ሚሊዮን|ሚ\b|ሚ\.)?",
+    r"(?:asking\s*price|መሸጫ\s*ዋጋ|ጠቅላላ\s*ዋጋ|price|ዋጋ|birr|etb)\s*[:፦=\-]{0,2}\s*(?P<num>\d[\d,\.]*)\s*"
+    r"(?P<million>" + MILLION_WORD + r"|m(?![\w²]))?",
     re.IGNORECASE,
 )
 
@@ -548,14 +566,15 @@ def _extract_first_anchored_price(text: str) -> Optional[int]:
         raw = match.group("num")
         if is_likely_phone(raw):
             continue
-        value = _to_int_num(raw)
+        value = _to_number(raw)
         if value is None:
             continue
+        # Multiply before rounding, so "5.5 ሚሊየን" is 5,500,000 and not 5,000,000.
         if match.group("million") and value < 1000:
             value *= 1_000_000
-        elif "ዋጋ" in match.group(0) and re.search(r"(?:ሚሊየን|ሚሊዮን|ሚ\b|ሚ\.)", match.group(0), re.IGNORECASE) and value < 1000:
-            value *= 1_000_000
-        normalized = normalize_sale_price(value)
+        elif value < 1000:
+            continue  # "ዋጋ 9.5", "ዋጋ 100%": no property sells for under 1,000 birr
+        normalized = normalize_sale_price(int(round(value)))
         if normalized is not None:
             return normalized
     return None
@@ -580,6 +599,66 @@ def extract_price_candidates_birr(text: str) -> list[int]:
     cleaned = re.sub(r"\b0[79]\d{8}\b", " ", cleaned)
     anchored = _extract_first_anchored_price(cleaned)
     return [anchored] if anchored is not None else []
+
+
+# --- Price per square metre ---------------------------------------------------
+# Developers often give a price per m² instead of a total: "በካሬ 85,000 ብር",
+# "Price: 110,000 Birr per sqm", "75,000 Birr/sqm", "በካሬ 110ሺ" (ሺ = thousand).
+# Such a number is neither the total price nor a size.
+_PSQM_NUM = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
+_PSQM_THOUSAND = r"\s*(?:ሺ|k\b)"
+_PSQM_CURRENCY = r"(?:\s*(?:ብር|birr|etb))?"
+_PSQM_UNIT = r"(?:sqm|sq\.?\s*m\b|m2|m²|square\s*met(?:er|re)|ካሬ(?:\s*ሜትር)?)"
+_PSQM_RANGE = r"(?:\s*(?:[-–—]+|to)\s*(?:" + _PSQM_NUM + r")(?P<RANGE_K>" + _PSQM_THOUSAND + r")?" + _PSQM_CURRENCY + r")?"
+PRICE_PER_SQM_RE = re.compile(
+    # Words first: "በካሬ 85,000 ብር", "ለ1 ካሬ 95,000", "price per sqm: 119,395", "በካሬ ዋጋ ከ115,000",
+    # "የካሬ ዋጋ=61,750ብር", "ካሬ ዋጋ Semi 105 - 120ሺ", "በካ.ሜ 150,000".
+    # "1 ካሬ" must not be the end of a size such as "81 ካሬ", and "74 ካሬ ዋጋ 5.5 ሚሊየን"
+    # (74 m², price 5.5 million) is a size followed by a total.
+    r"(?:በ\s*ካሬ(?:\s*ሜትር)?|በካ\.\s*ሜ\.?|(?:ለ|በ)\s*(?:1|አንድ)\s*ካሬ|(?<![\d.,])1\s*ካሬ"
+    r"|(?<!\d)(?<!\d )(?:የ)?ካሬ\s*(?:ሜ(?:ትር)?\s*)?ዋጋ|per\s*" + _PSQM_UNIT + r")"
+    r"[^\d\n]{0,12}?(?P<before>" + _PSQM_NUM + r")(?P<before_k>" + _PSQM_THOUSAND + r")?" + _PSQM_CURRENCY
+    + _PSQM_RANGE.replace("RANGE_K", "before_range_k")
+    # Number first: "75,000 Birr/sqm", "95,000 – 110,000 Birr per sqm" (a range keeps its first number),
+    # "120,000 ብር በካሬ".
+    + r"|(?P<after>" + _PSQM_NUM + r")(?P<after_k>" + _PSQM_THOUSAND + r")?" + _PSQM_CURRENCY
+    + _PSQM_RANGE.replace("RANGE_K", "after_range_k")
+    + r"\s*(?:(?:/|per)\s*" + _PSQM_UNIT + r"|በካ\.\s*ሜ\.?|በካሬ)",
+    re.IGNORECASE,
+)
+# A rent per m² ("በወር በካሬ 5,000") is not a sale price per m².
+RENT_WORDS_RE = re.compile(r"በወር|ወርሃዊ|ኪራይ|ታከራ|per\s*month|monthly|/\s*month|\brent", re.IGNORECASE)
+PRICE_PER_SQM_MIN, PRICE_PER_SQM_MAX = 1_000, 1_500_000
+
+
+def _price_per_sqm_value(m) -> Optional[int]:
+    value = _to_number(m.group("before") or m.group("after"))
+    if value is None:
+        return None
+    # "110ሺ", or a range whose last number carries the ሺ: "105 - 120ሺ".
+    if any(m.group(g) for g in ("before_k", "after_k", "before_range_k", "after_range_k")):
+        value *= 1000
+    return int(round(value)) if PRICE_PER_SQM_MIN <= value <= PRICE_PER_SQM_MAX else None
+
+
+def find_price_per_sqm(text: str) -> Optional[int]:
+    """The first sale price per m² in the text (birr), or None."""
+    if not text:
+        return None
+    for m in PRICE_PER_SQM_RE.finditer(text):
+        if RENT_WORDS_RE.search(text[max(0, m.start() - 40): m.end() + 40]):
+            continue
+        value = _price_per_sqm_value(m)
+        if value is not None:
+            return value
+    return None
+
+
+def strip_price_per_sqm(text: str) -> str:
+    """The text without its prices per m² (sale or rent), so they are not read as totals or sizes."""
+    if not text:
+        return text
+    return PRICE_PER_SQM_RE.sub(lambda m: " " if _price_per_sqm_value(m) is not None else m.group(0), text)
 
 
 def is_media_link_text(text: str) -> bool:

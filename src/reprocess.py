@@ -28,7 +28,7 @@ from collections import Counter, defaultdict
 
 from sqlalchemy import create_engine, text
 
-from etl_runner import build_processed_values, safe_divide
+from etl_runner import build_processed_values, price_per_sqm_values
 from protection import (DERIVED_FIELDS, LEGACY_REASON, PARSER_WRITE_SQL, TRACKED_FIELDS,
                         from_text, same_value)
 from run_pipeline import ValuationPipeline
@@ -104,8 +104,7 @@ def plan(conn):
             else:
                 holding[field] += 1
             final[field] = value
-        final["price_per_builtup_sqm"] = safe_divide(final["sale_price_birr"], final["builtup_sqm"])
-        final["price_per_plot_sqm"] = safe_divide(final["sale_price_birr"], final["plot_sqm"])
+        final["price_per_builtup_sqm"], final["price_per_plot_sqm"] = price_per_sqm_values(final)
 
         old = stored[pid]
         diff = {f: (getattr(old, f), final[f]) for f in WRITE_FIELDS

@@ -73,5 +73,8 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
 - `src/listener.py` does the same live, as messages arrive (configured chats only).
 - `src/run_all.py` runs scrape → ETL → repair scripts → dedup → views → report.
 - `src/processor.py` holds shared price, area and label helpers used by the pipeline.
+  Price reading (decimals, spellings of "million", prices per m²) is checked by
+  `tests/test_prices.py`; run it after any change to prices. After any parser change,
+  also run the old and new parser on all listings and explain every difference, as S5 did.
 - Location codes come from `LOCATION_MAP` in `src/run_pipeline.py`. `src/topic_resolver.py`
   and `src/geocoder.py` use different codes for the same places until task S6 merges them.

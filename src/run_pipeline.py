@@ -10,10 +10,12 @@ from processor import (
     extract_labeled_sqm,
     extract_price_birr,
     extract_price_candidates_birr,
+    find_price_per_sqm,
     is_media_link_text,
     is_noise_advert,
     parse_forum_topic_title,
     parse_million_amount,
+    strip_price_per_sqm,
 )
 
 
@@ -1019,9 +1021,13 @@ class ValuationPipeline:
         p_subtype                   = self.classify_subtype(text, p_type)
         beds, baths                 = self.extract_rooms(text)
 
-        area = record.get("extracted_area") or extract_area_from_text(text)
+        # A price per m² is neither a total nor a size: read those from the text without it.
+        asking_per_sqm = find_price_per_sqm(text)
+        number_text    = strip_price_per_sqm(text)
 
-        plot, built, plot_c, built_c = self.resolve_area(intent, p_type, area, text)
+        area = record.get("extracted_area") or extract_area_from_text(number_text)
+
+        plot, built, plot_c, built_c = self.resolve_area(intent, p_type, area, number_text)
         if built is not None and built < 1:
             built = None
 
@@ -1029,7 +1035,12 @@ class ValuationPipeline:
         finish, finish_c            = self.extract_finish(text)
         dev, dev_c                  = self.extract_developer(text)
         bank_loan_pct, down_pct     = self.extract_financing_details(text)
-        sale_price, rent_price, rent_advance = extract_prices(text, property_type=p_type)
+        sale_price, rent_price, rent_advance = extract_prices(number_text, property_type=p_type)
+        # Only a price per m² was given: the total is that price times the size.
+        if sale_price is None and asking_per_sqm:
+            size = plot if p_type == "LAND" else (built or plot)
+            if size:
+                sale_price = int(round(asking_per_sqm * size))
         contact_phone, contact_user = self.extract_contact(text)
         currency, price_usd         = self.detect_currency(text)
         floor_level                 = self.extract_floor_level(text)
@@ -1074,6 +1085,7 @@ class ValuationPipeline:
             "plot_sqm":                      plot,
             "builtup_sqm":                   built,
             "sale_price_birr":               sale_price,
+            "price_per_sqm_birr":            asking_per_sqm,
             "rent_price_birr":               rent_price,
             "rent_advance_birr":             rent_advance,
             "payment_type":                  payment,

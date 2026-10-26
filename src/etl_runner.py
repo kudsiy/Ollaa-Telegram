@@ -215,14 +215,32 @@ def build_processed_values(pipeline, row):
         "floor_level":                   result.get("floor_level"),
         "contact_phone":                 result.get("contact_phone"),
         "contact_username":              result.get("contact_username"),
-        "price_per_builtup_sqm":         safe_divide(result.get("sale_price_birr"), result.get("builtup_sqm")),
-        "price_per_plot_sqm":            safe_divide(result.get("sale_price_birr"), result.get("plot_sqm")),
         "confidence_json":               json.dumps(result.get("confidence", {})),
         "source_channel":                getattr(row, "channel", None),
         "raw_text":                      (row.text or "")[:2000],
         "posted_at":                     getattr(row, "posted_at", None),
+        # Not a column: the price per m² the text gave, kept for price_per_sqm_values().
+        "asking_price_per_sqm":          result.get("price_per_sqm_birr"),
     }
+    values["price_per_builtup_sqm"], values["price_per_plot_sqm"] = price_per_sqm_values(values)
     return values, blob, is_forum
+
+
+def price_per_sqm_values(values):
+    """
+    (price_per_builtup_sqm, price_per_plot_sqm) from the total price and the sizes.
+    When the text gave a price per m² but no size to turn it into a total, that
+    price per m² is kept instead (on the plot for land).
+    """
+    per_built = safe_divide(values["sale_price_birr"], values["builtup_sqm"])
+    per_plot = safe_divide(values["sale_price_birr"], values["plot_sqm"])
+    asking = values.get("asking_price_per_sqm")
+    if asking and values["sale_price_birr"] is None:
+        if values["property_type"] == "LAND":
+            per_plot = asking
+        else:
+            per_built = asking
+    return per_built, per_plot
 
 
 def run(limit=None):
