@@ -14,6 +14,7 @@ from telethon.errors import (
     FloodWaitError, SessionRevokedError,
 )
 
+from channels import FORUM_GROUPS, REGULAR_CHANNELS
 from settings import DB_URL
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -25,27 +26,6 @@ def require_env(name: str) -> str:
     if not value:
         raise RuntimeError(f"Missing required environment variable: {name}")
     return value
-
-
-def normalize_channel(raw_channel: str) -> str:
-    channel = raw_channel.strip()
-    for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
-        if channel.startswith(prefix):
-            channel = channel[len(prefix):]
-            break
-    channel = channel.strip("/")
-    return channel if channel.startswith("@") else f"@{channel}"
-
-
-def dedupe_channels(channels: list[str]) -> list[str]:
-    seen: set[str] = set()
-    ordered: list[str] = []
-    for channel in channels:
-        normalized = normalize_channel(channel)
-        if normalized not in seen:
-            seen.add(normalized)
-            ordered.append(normalized)
-    return ordered
 
 
 def resolve_session_name() -> Path:
@@ -78,47 +58,6 @@ SESSION_NAME = resolve_session_name()
 SESSION_FILE = SESSION_NAME.with_suffix(".session")
 
 engine = create_engine(DB_URL)
-
-# ── Regular channels ──────────────────────────────────────────────
-REGULAR_CHANNELS = dedupe_channels([
-    "@mygojo1",
-    "@Roya_King4102",
-    "@Temerproperties2m",
-    "@ApartmentForYouAyatRealEstate",
-    "@apartama_21",
-    "@giftrealestateee",
-    "@dmcrealestateofficial",
-    "@jamborealestate",
-    "@brokercom11",
-    "@menoriarealestatesalesconsultant",
-    "@TemerApartmentShop",
-    "@jamborealestat",
-    "@onlinegebeyacom",
-    "@ET_Creatives_Homes_And_Cars",
-    "@houseapartmentcarreleator",
-    "@hugeAddisababamarket2025",
-    "@realityaddisababa",
-    "@livingethio",
-    "@Apartments_store",
-    "@Apartments_for_rent_Addis_Ababa",
-    "@condoaddis",
-    "@apartmentsaleboleayatcmckazanchi",
-    "@AddisBrokerageNetworking",
-    "@Bet_afri",
-    "@Betafrivip",            # @Bet_afri sister: 30,000+ ETB rentals
-    "@Bet_afri_Business",     # @Bet_afri sister: commercial/office rentals — income approach data
-    "@addishomeset",
-    "@Addisababagebeya",
-    "@ETHIOhouseagents",
-    "@smartdealers",
-    "@Ethiodelala2",
-])
-
-# ── Forum/Topic groups (developer intelligence hubs) ─────────────
-FORUM_GROUPS = dedupe_channels([
-    "@luxury_freelancers",
-    "@championallsites",
-])
 
 # ── Insert: text + metadata only ─────────────────────────────────
 # MEDIA DOWNLOADING IS INTENTIONALLY REMOVED.

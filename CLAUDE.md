@@ -46,11 +46,13 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
 
 - Python: always use the project's own environment, `venv\Scripts\python.exe`.
   Install packages from `requirements.txt` (versions are pinned on purpose).
-- `src/telegram_scraper.py` reads the channels listed in its `REGULAR_CHANNELS` and
-  `FORUM_GROUPS` into `telegram_listings`.
+- `src/channels.py` is the one list of Telegram channels and groups (`REGULAR_CHANNELS`,
+  `FORUM_GROUPS`). `src/telegram_scraper.py` reads exactly these into `telegram_listings`.
+- `src/listener.py` saves messages only from chats in `src/channels.py`, never from private
+  chats. `tests/test_listener_privacy.py` checks this; run it after any listener change.
 - `src/etl_runner.py` runs `src/run_pipeline.py` (`ValuationPipeline`) on every raw
   message and writes `processed_listings` and `rental_listings`.
-- `src/listener.py` does the same live, as messages arrive.
+- `src/listener.py` does the same live, as messages arrive (configured chats only).
 - `src/run_all.py` runs scrape → ETL → repair scripts → dedup → views → report.
 - `src/processor.py` holds shared price, area and label helpers used by the pipeline.
 - Location codes come from `LOCATION_MAP` in `src/run_pipeline.py`. `src/topic_resolver.py`

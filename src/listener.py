@@ -1,7 +1,8 @@
 """
 listener.py
 -----------
-Real-time Telegram listener:
+Real-time Telegram listener. Only messages from the channels and groups in
+channels.py are saved; private chats and every other chat are ignored.
   1) Insert raw messages into telegram_listings
   2) Run the valuation/cleaning pipeline to create processed_listings
   3) If the chat is a Forum, use topic_resolver to refine location/type
@@ -34,6 +35,7 @@ from run_pipeline import ValuationPipeline
 from topic_resolver import resolve_location, resolve_property_type
 from processor import parse_forum_topic_title
 from advert_classifier import classify_listing
+from channels import is_configured_chat
 from settings import DB_URL
 
 
@@ -276,7 +278,15 @@ async def main() -> None:
         @client.on(events.NewMessage)
         async def handler(event: events.NewMessage.Event) -> None:
             msg = event.message
-            if not msg:
+            # Privacy: save nothing from private chats or from chats not in channels.py.
+            if not msg or event.is_private:
+                return
+
+            try:
+                entity = await event.get_chat()
+            except Exception:
+                return
+            if not is_configured_chat(entity):
                 return
 
             has_attachment = bool(getattr(msg, "photo", None) or getattr(msg, "document", None))
@@ -304,11 +314,6 @@ async def main() -> None:
                 else:
                     text_content = "[MEDIA ONLY]"
             if not text_content and not has_attachment:
-                return
-
-            try:
-                entity = await event.get_chat()
-            except Exception:
                 return
 
             channel = channel_url_from_entity(entity)
