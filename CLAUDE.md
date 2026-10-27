@@ -12,6 +12,9 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
 ## Git and GitHub
 
 - The GitHub repository `kudsiy/Ollaa-Telegram` is **public**.
+- Its history was rewritten on 27 October 2026 to remove old secrets (task S10). Never
+  push from a copy cloned before that date, and never force-push without the owner's
+  approval; a copy made earlier must be deleted and cloned again.
 - Commit and push after every finished task, so work never stays on one computer.
   Do each task on its own branch, then merge into `main` when it is safe.
 - After a task is finished, update its row in the `STATUS.md` fix list.
