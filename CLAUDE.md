@@ -68,6 +68,9 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
 - Measure first: count the rows a change will touch, change them, count again, and
   report both numbers. `database\recount_findings.py` counts the audit findings in the
   stored data (read-only); run it before and after re-processing.
+- `DATA_QUALITY.md` (for the owner's thesis) reports usable listings, field completeness,
+  outliers and the hedonic-model sample. Its numbers come from `database\data_quality.py`
+  (read-only); after re-processing or new data, re-run it and update the report.
 - The 829 protected values left after S8 were kept on purpose by the owner (see
   `database/migrations/2026_10_27_s8_release_protections.py`); 749 remain after S9,
   where the parser came to agree with 80 of them. Do not release them without asking.

@@ -105,6 +105,12 @@ as it is and once with the single bug patched out, and comparing with what is st
   monthly bank repayment ("በወር"); `reprocess.py` updates `processed_listings` but not
   `rental_listings`, so a rental row is not refreshed when its listing changes; listing
   1972 (no size) stores a loan amount as its total; `listener.py` step 3 (above).
+- Data quality (27 October 2026, `DATA_QUALITY.md`, numbers from `database/data_quality.py`):
+  779 usable listings, 266 sale listings fit for a hedonic model, 2,860 photo-only posts
+  unread. Parser mistakes it found: 70 rent listings carry a sale price; 34 obvious
+  outliers (rent or rental income read as the sale price, price per m² read as the total,
+  a building's price with one unit's size, share offers read as property, "6,400 000"
+  read as 6,400); 177 listings name a place that has no sub-city in `src/locations.py`.
 
 ## Recount after S8 (27 October 2026)
 
