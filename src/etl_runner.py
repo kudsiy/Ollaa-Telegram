@@ -267,6 +267,7 @@ def run(limit=None):
     rental   = 0
     skipped  = 0
     errors   = 0
+    error_log = []   # (raw message id, step, error), listed at the end
 
     print(f"\nProcessing {total} rows...\n")
 
@@ -278,6 +279,7 @@ def run(limit=None):
             values, blob, is_forum = build_processed_values(pipeline, row)
         except Exception as e:
             errors += 1
+            error_log.append((row.id, "parser", f"{type(e).__name__}: {e}"))
             continue
 
         rent_per_sqm = safe_divide(values["rent_price_birr"], values["builtup_sqm"])
@@ -287,17 +289,21 @@ def run(limit=None):
             with engine.begin() as conn:
                 conn.execute(text(PARSER_WRITE_SQL))
                 stmt = UPSERT_FORUM_PROJECT if is_forum else INSERT_PROCESSED
-                conn.execute(text(stmt), values)
-                inserted += 1
+                if conn.execute(text(stmt), values).rowcount:
+                    inserted += 1
+                else:
+                    skipped += 1   # already processed (ON CONFLICT DO NOTHING)
+                    continue       # its rental row, if any, was made when it was new
         except Exception as e:
             errors += 1
+            error_log.append((row.id, "save listing", f"{type(e).__name__}: {e}"))
             continue
 
-        # ── Insert into rental_listings (RENT intent only) ────
+        # ── Insert into rental_listings (RENT intent only, new listings) ────
         if values["intent"] in ("RENT", "MIXED") and values["rent_price_birr"] and values["property_type"] != "ADVERTISEMENT":
             try:
                 with engine.begin() as conn:
-                    conn.execute(text(INSERT_RENTAL), {
+                    result = conn.execute(text(INSERT_RENTAL), {
                         "id":                  values["id"] + "_rent",
                         "location":            values["location"],
                         "city":                values["city"],
@@ -318,9 +324,10 @@ def run(limit=None):
                         "posted_at":           values["posted_at"],
                         "raw_text":            blob[:2000],
                     })
-                    rental += 1
-            except Exception:
-                pass  # rental insert failure should not block main insert
+                    rental += result.rowcount   # 0 when already there (ON CONFLICT DO NOTHING)
+            except Exception as e:
+                # A rental insert failure should not block the main insert, but is reported.
+                error_log.append((row.id, "save rental", f"{type(e).__name__}: {e}"))
 
     # ── Final summary ─────────────────────────────────────────
     print(f"""
@@ -330,10 +337,15 @@ def run(limit=None):
   Total rows read        : {total}
   Inserted (all)         : {inserted}
   Rental listings        : {rental}
-  Skipped (dupes)        : {total - inserted - errors}
+  Skipped (dupes)        : {skipped}
   Errors                 : {errors}
 ========================================
 """)
+    if error_log:
+        print(f"ERRORS ({len(error_log)}, the first 10; message id, step, error):")
+        for raw_id, step, err in error_log[:10]:
+            print(f"  {raw_id:>7}  {step:<13} {err[:150]}")
+        print()
 
     # ── Quick stats ───────────────────────────────────────────
     print("QUICK STATS:\n")

@@ -1,6 +1,5 @@
-"""
+r"""
 output_validator.py — Pydantic validation for all LLM extraction output
-Place in: C:\Projects\ollaa\src\output_validator.py
 
 CRITICAL: This file prevents hallucinated or malformed LLM output
 from entering processed_listings or any valuation calculation.

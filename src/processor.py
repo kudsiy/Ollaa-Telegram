@@ -17,7 +17,6 @@ from typing import Optional
 # --- Phone-like filters -------------------------------------------------------
 # We frequently see phone numbers (09xxxxxxxx, +2519xxxxxxxx) in listings.
 # These should never be treated as prices.
-PHONE_PREFIX_RE = re.compile(r"(?:\+251\s*|0)\s*9\d{1,}", re.IGNORECASE)
 
 
 def _digits_only(s: str) -> str:
@@ -43,10 +42,6 @@ def is_likely_phone(number_str: str) -> bool:
     return False
 
 
-# Backwards compatibility for older call sites.
-_is_phone_like = is_likely_phone
-
-
 MAX_VALID_SALE_PRICE_BIRR = 10_000_000_000
 MOBILE_RANGE_BANDS = (
     (700_000_000, 799_999_999),
@@ -63,15 +58,6 @@ LABELED_LOCATION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Examples:
-#   "Size: 150" / "🟩 Size: 150sqm" / "ካሬ: 150"
-LABELED_SQM_RE = re.compile(
-    r"(?:🟩\s*)?size\s*[:፦]\s*(\d{2,5})|"
-    r"(?:🟩\s*)?size\s*[:፦]\s*(\d{2,5})\s*(?:sqm|m2|m²|ካሬ)?|"
-    r"(?:ካሬ)\s*[:፦]\s*(\d{2,5})",
-    re.IGNORECASE,
-)
-
 
 def extract_labeled_location(text: str) -> Optional[str]:
     if not text:
@@ -81,21 +67,6 @@ def extract_labeled_location(text: str) -> Optional[str]:
         return None
     val = (m.group(1) or m.group(2) or "").strip()
     return val or None
-
-
-def extract_labeled_sqm(text: str) -> Optional[int]:
-    if not text:
-        return None
-    m = LABELED_SQM_RE.search(text)
-    if not m:
-        return None
-    raw = next((g for g in m.groups() if g), None)
-    if not raw:
-        return None
-    try:
-        return int(raw)
-    except ValueError:
-        return None
 
 
 LABELED_PLOT_SQM_RE = re.compile(
@@ -214,10 +185,6 @@ def extract_bedrooms(text: str) -> Optional[int]:
 
 # --- Price extraction with context --------------------------------------------
 AREA_UNIT_RE = re.compile(r"\b\d+(?:[,\d]*)\s*(?:ካሬ|sqm|m2)\b", re.IGNORECASE)
-PRICE_TAG_RE = re.compile(r"(?:ዋጋ)\s*[:፦]?\s*(\d[\d,\.]*)", re.UNICODE)
-BIRR_TAG_RE = re.compile(r"(\d[\d,\.]*)\s*(?:ብር|birr|etb)\b", re.IGNORECASE)
-PLAIN_BIG_NUMBER_RE = re.compile(r"\b(\d{7,12})\b")  # 1,000,000+ without commas
-PLAIN_BIG_NUMBER_COMMA_RE = re.compile(r"\b(\d{1,3}(?:,\d{3}){2,})\b")  # 1,000,000+
 DOWNPAYMENT_RE = re.compile(
     r"(\d{1,3})\s*%\s*=\s*(\d+(?:\.\d+)?)\s*" + MILLION_WORD,
     re.IGNORECASE,
@@ -228,34 +195,12 @@ THOUSANDS_RE = re.compile(r"^\d{1,3}(?:,\d{3})+$")
 DECIMAL_RE = re.compile(r"^\d+(?:\.\d+)?$")
 
 
-def _to_int_num(raw: str) -> Optional[int]:
-    """
-    Parse a number safely without "concatenating lists".
-    Accepts:
-      - plain digits (optionally with a single decimal point)
-      - comma thousands separators in the correct grouping (e.g. 1,200,000)
-    Rejects:
-      - spaces inside numbers (e.g. '98, 99, 110')
-      - malformed commas
-    """
-    if not raw:
-        return None
-    s = raw.strip()
-    if " " in s:
-        return None
-    if "," in s and not THOUSANDS_RE.match(s):
-        return None
-    s2 = s.replace(",", "")
-    if not DECIMAL_RE.match(s2):
-        return None
-    try:
-        return int(float(s2))
-    except ValueError:
-        return None
-
-
 def _to_number(raw: str) -> Optional[Decimal]:
-    """Like _to_int_num, but keeps decimals: "5.5" stays 5.5, "12,800,000" is 12800000."""
+    """
+    Parse a number safely without "concatenating lists", keeping decimals:
+    "5.5" stays 5.5, "12,800,000" is 12800000.
+    Rejects spaces inside numbers ('98, 99, 110') and malformed commas.
+    """
     if not raw:
         return None
     s = raw.strip().rstrip(".")
@@ -288,232 +233,6 @@ def normalize_sale_price(price: Optional[int]) -> Optional[int]:
     if price is None or is_invalid_sale_price(price):
         return None
     return price
-
-
-PRICE_ANCHOR_RE = re.compile(
-    r"(?:ብር|birr|etb|ዋጋ|price|" + MILLION_WORD + ")",
-    re.IGNORECASE,
-)
-
-
-def _anchored_number_candidates(text: str) -> list[str]:
-    """
-    Keyword anchoring:
-    Only consider a number as a price if within 3 tokens of a price anchor.
-    Also captures combined tokens like '11.6mil' or '2.8m'.
-    """
-    if not text:
-        return []
-    tokens = re.findall(r"\S+", text)
-    out: list[str] = []
-    for i, tok in enumerate(tokens):
-        if not re.search(r"\d", tok):
-            continue
-        window = " ".join(tokens[max(0, i - 3): min(len(tokens), i + 4)])
-        if PRICE_ANCHOR_RE.search(window):
-            out.append(tok)
-    return out
-
-
-def _anchored_price_values(text: str) -> list[int]:
-    if not text:
-        return []
-
-    tokens = re.findall(r"\S+", text)
-    values: list[int] = []
-    for i, tok in enumerate(tokens):
-        if not re.search(r"\d", tok):
-            continue
-        window_tokens = tokens[max(0, i - 3): min(len(tokens), i + 4)]
-        window = " ".join(window_tokens)
-        if not PRICE_ANCHOR_RE.search(window):
-            continue
-        if is_likely_phone(tok):
-            continue
-        m_mil = MILLION_RE.search(tok)
-        if m_mil:
-            try:
-                normalized = normalize_sale_price(int(float(m_mil.group("num")) * 1_000_000))
-                if normalized is not None:
-                    values.append(normalized)
-            except ValueError:
-                pass
-            continue
-
-        m_num = re.search(r"\d[\d,\.]*", tok)
-        if not m_num:
-            continue
-        raw_value = _to_int_num(m_num.group(0))
-        if raw_value is None:
-            continue
-        if raw_value < 1000:
-            if re.search(r"\bmil(?:lion)?\b|million|ሚሊዮን|ሚሊየን", window, re.IGNORECASE):
-                raw_value *= 1_000_000
-            else:
-                continue
-        normalized = normalize_sale_price(raw_value)
-        if normalized is not None:
-            values.append(normalized)
-    return values
-
-
-def extract_price_birr(text: str, property_type: Optional[str] = None) -> Optional[int]:
-    """
-    Price Context rules:
-    - A number followed by ካሬ / SQM / M2 is area, never price.
-    - Treat a number as a price if:
-        - preceded by 'ዋጋ' OR
-        - followed by 'ብር' OR
-        - it's a very large number (> 1,000,000)
-    Also supports million expressions ("8.5 ሚ", "12 ሚሊዮን").
-    """
-    if not text:
-        return None
-
-    # Remove obvious area mentions so they don't get misread as "big numbers"
-    cleaned = AREA_UNIT_RE.sub(" ", text)
-    # Phone shield (must happen before any price math)
-    cleaned = re.sub(r"\+251\s*\d{9,12}", " ", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\b0[79]\d{8}\b", " ", cleaned)
-
-    # Down-payment math: "25% = 2.8m" => total = 2.8M / 0.25
-    m = DOWNPAYMENT_RE.search(cleaned)
-    if m:
-        pct_raw, amt_raw = m.group(1), m.group(2)
-        if not is_likely_phone(amt_raw):
-            try:
-                pct = float(pct_raw)
-                amt_m = float(amt_raw)
-            except ValueError:
-                pct = 0.0
-                amt_m = 0.0
-            if 1 <= pct <= 99 and amt_m > 0:
-                total = int((amt_m * 1_000_000) / (pct / 100.0))
-                if total >= 1_000_000:
-                    return normalize_sale_price(total)
-
-    # Prefer explicit "million" mentions (anchored)
-    million = parse_million_amount(cleaned)
-    if million:
-        return normalize_sale_price(million)
-
-    # Explicit "ዋጋ"
-    m = PRICE_TAG_RE.search(cleaned)
-    if m:
-        if is_likely_phone(m.group(1)):
-            return None
-        v = _to_int_num(m.group(1))
-        if v is not None:
-            # If the tagged number is small (e.g. "12"), it's likely million shorthand missed above.
-            return normalize_sale_price(v)
-
-    # Explicit birr suffix
-    m = BIRR_TAG_RE.search(cleaned)
-    if m:
-        if is_likely_phone(m.group(1)):
-            return None
-        v = _to_int_num(m.group(1))
-        if v is not None:
-            return normalize_sale_price(v)
-
-    # Keyword-anchored fallback: scan nearby anchors and parse the best candidate.
-    candidates = _anchored_price_values(cleaned)
-    if candidates:
-        best = max(candidates)
-        return normalize_sale_price(best)
-
-    return None
-
-
-def extract_price_candidates_birr(text: str) -> list[int]:
-    """
-    Returns all plausible birr-denominated price candidates found in text,
-    with phone shields and area guards applied.
-    Used to implement the "price priority" rule when multiple prices exist.
-    """
-    if not text:
-        return []
-
-    cleaned = AREA_UNIT_RE.sub(" ", text)
-    cleaned = re.sub(r"\+251\s*\d{9,12}", " ", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\b0[79]\d{8}\b", " ", cleaned)
-
-    out: list[int] = []
-
-    # Downpayment math yields a derived "total value" candidate
-    m = DOWNPAYMENT_RE.search(cleaned)
-    if m:
-        pct_raw, amt_raw = m.group(1), m.group(2)
-        if not is_likely_phone(amt_raw):
-            try:
-                pct = float(pct_raw)
-                amt_m = float(amt_raw)
-                if 1 <= pct <= 99 and amt_m > 0:
-                    total = int((amt_m * 1_000_000) / (pct / 100.0))
-                    normalized = normalize_sale_price(total)
-                    if normalized is not None and normalized >= 1_000_000:
-                        out.append(normalized)
-            except ValueError:
-                pass
-
-    for value in _anchored_price_values(cleaned):
-        out.append(value)
-
-    # de-dupe while preserving order
-    seen: set[int] = set()
-    deduped: list[int] = []
-    for v in out:
-        if v not in seen:
-            seen.add(v)
-            deduped.append(v)
-    return deduped
-
-
-# Override price extraction with strict anchor-first behavior.
-STRICT_ANCHORED_PRICE_RE = re.compile(
-    r"(?:price|ዋጋ|birr|etb)\s*[:፦-]?\s*(?P<num>\d[\d,\.]*)\s*(?P<million>mil(?:lion)?|million|ሚ\b|ሚ\.|ሚሊዮን|ሚሊየን)?",
-    re.IGNORECASE,
-)
-
-
-def _extract_first_anchored_price(text: str) -> Optional[int]:
-    if not text:
-        return None
-
-    for match in STRICT_ANCHORED_PRICE_RE.finditer(text):
-        raw = match.group("num")
-        if is_likely_phone(raw):
-            continue
-        value = _to_int_num(raw)
-        if value is None:
-            continue
-        if match.group("million") and value < 1000:
-            value *= 1_000_000
-        normalized = normalize_sale_price(value)
-        if normalized is not None:
-            return normalized
-    return None
-
-
-def extract_price_birr(text: str, property_type: Optional[str] = None) -> Optional[int]:
-    if not text:
-        return None
-
-    cleaned = AREA_UNIT_RE.sub(" ", text)
-    cleaned = re.sub(r"\+251\s*\d{9,12}", " ", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\b0[79]\d{8}\b", " ", cleaned)
-    return _extract_first_anchored_price(cleaned)
-
-
-def extract_price_candidates_birr(text: str) -> list[int]:
-    if not text:
-        return []
-
-    cleaned = AREA_UNIT_RE.sub(" ", text)
-    cleaned = re.sub(r"\+251\s*\d{9,12}", " ", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\b0[79]\d{8}\b", " ", cleaned)
-    anchored = _extract_first_anchored_price(cleaned)
-    return [anchored] if anchored is not None else []
 
 
 STRICT_AREA_AFTER_RE = re.compile(

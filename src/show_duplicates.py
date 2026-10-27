@@ -1,9 +1,13 @@
-import sys
-from pathlib import Path
+"""
+show_duplicates.py
+------------------
+Read-only: lists the 10 groups of listings that share a price, a size and a location.
+
+Usage:
+    python src/show_duplicates.py
+"""
 
 from sqlalchemy import create_engine, text
-
-sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 from settings import DB_URL
 
 engine = create_engine(DB_URL)

@@ -1,6 +1,5 @@
-"""
+r"""
 text_normalizer.py — Amharic/English text normalization for Ollaa pipeline
-Place in: C:\Projects\ollaa\src\text_normalizer.py
 
 Handles:
   - Ethiopic character equivalence normalization

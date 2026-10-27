@@ -1,6 +1,5 @@
-"""
+r"""
 geocoder.py — Address geocoding for Ollaa processed_listings
-Place in: C:\Projects\ollaa\src\geocoder.py
 
 Strategy:
   1. Look up the listing's location code in the shared place table, locations.py

@@ -1,6 +1,5 @@
-"""
+r"""
 dedup_fast.py — Fast pre-deduplication for Ollaa processed_listings
-Place in: C:\Projects\ollaa\src\dedup_fast.py
 
 Run BEFORE semantic_dedup.py. This catches ~70% of duplicates in seconds
 using phone number + price + location fingerprinting and fuzzy matching.
@@ -36,6 +35,12 @@ except ImportError:
 
 # ── DB Config ────────────────────────────────────────────────────────────────
 from settings import DB_CONFIG
+
+
+def _id_order(listing_id: str):
+    """Listing ids are text: order "999" before "1000", forum keys after numbers."""
+    return (0, int(listing_id), "") if listing_id.isdigit() else (1, 0, listing_id)
+
 
 # ── Thresholds ────────────────────────────────────────────────────────────────
 PHONE_EXACT_MATCH    = True   # Same canonical phone → always duplicate
@@ -180,7 +185,7 @@ def run_fast_dedup(listings: list) -> list:
             print("  ⚠️  Hit 500 duplicate cap on text-similarity pass. Re-run after applying.")
             break
         for l2 in no_phone[i+1:]:
-            pair = (min(l1['id'], l2['id']), max(l1['id'], l2['id']))
+            pair = (min(l1['id'], l2['id'], key=_id_order), max(l1['id'], l2['id'], key=_id_order))
             if pair in checked:
                 continue
             checked.add(pair)
@@ -189,8 +194,8 @@ def run_fast_dedup(listings: list) -> list:
                     and l1.get('property_type') == l2.get('property_type')
                     and text_similar(l1.get('raw_text'), l2.get('raw_text'))):
                 # older id = canonical
-                canonical_id = min(l1['id'], l2['id'])
-                dup_id       = max(l1['id'], l2['id'])
+                canonical_id = min(l1['id'], l2['id'], key=_id_order)
+                dup_id       = max(l1['id'], l2['id'], key=_id_order)
                 if dup_id not in seen_ids:
                     duplicates.append((dup_id, canonical_id, 'text-similarity'))
                     seen_ids.add(dup_id)

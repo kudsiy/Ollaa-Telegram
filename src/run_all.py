@@ -341,6 +341,8 @@ def main():
         AND sale_price_birr IS NOT NULL
         AND builtup_sqm IS NOT NULL
         AND valuation_eligible = false
+        -- adverts, inquiries, junk and unread photos are never comparables
+        AND listing_class NOT IN ('ADVERTISEMENT', 'INQUIRY', 'INVALID', 'MEDIA_PENDING')
     """, description="valuation_eligible updated")
 
     # ── STEP 5: FIX LOCATIONS ─────────────────────────────────
