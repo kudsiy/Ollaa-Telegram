@@ -854,6 +854,13 @@ PRICE_BIRR_PATTERNS = [
 ]
 PRICE_BIRR_MIN = 2_000       # below this = not a real price (room number, code, etc.)
 PRICE_BIRR_MAX = 500_000_000 # above this = extraction error
+# Words that mark a number as a part of the price or another sum, not the sale price:
+# down payment, advance, loan, repayment, income, commission.
+NOT_A_TOTAL_RE = re.compile(
+    r"ቅድመ\s*ክፍያ|ቅድሚያ|ብድር|ተመላሽ|ገቢ|ኮሚሽን|down\s*payment|advance|loan|income|commission",
+    re.IGNORECASE,
+)
+TOTAL_WORDS_RE = re.compile(r"ጠቅላላ|አጠቃላይ|ሙሉ|total|full", re.IGNORECASE)
 
 
 def extract_prices(text: str, property_type: str | None = None):
@@ -889,25 +896,33 @@ def extract_prices(text: str, property_type: str | None = None):
                 sale_price = birr
 
     # Birr amounts — rental prices like 23,000 ብር or sale prices
+    found = False
     for pat in PRICE_BIRR_PATTERNS:
-        m = re.search(pat, t)
-        if m:
+        for m in re.finditer(pat, t):
             raw = m.group(1).replace(",", "")
             try:
                 val = int(raw)
             except ValueError:
-                continue
+                break
 
             # Validate range — ignore codes, IDs, and extraction noise
             if val < PRICE_BIRR_MIN or val > PRICE_BIRR_MAX:
-                continue
+                break
 
             if rent_context and not sale_context:
                 if rent_price is None:
                     rent_price = val
             else:
+                # A down payment, loan, income or commission is not the price: try the next
+                # number. "ጠቅላላ"/"ሙሉ" (total/full) just before it makes it the price anyway.
+                if (NOT_A_TOTAL_RE.search(t[max(0, m.start() - 25): m.end() + 12])
+                        and not TOTAL_WORDS_RE.search(t[max(0, m.start() - 15): m.start()])):
+                    continue
                 if sale_price is None:
                     sale_price = val
+            found = True
+            break
+        if found:
             break
 
     return sale_price, rent_price, rent_advance

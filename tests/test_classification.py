@@ -51,12 +51,26 @@ for text, expected in CASES:
         print(f"      expected {expected}")
 
 # The ETL's channel rule still applies: Bet_afri photo posts are rentals.
-row = type("Row", (), {"id": 1, "text": "[MEDIA ONLY]", "channel": "https://t.me/Bet_afri", "posted_at": None,
-                       "reply_to_top_id": None, "topic_title": None})()
-values, _, _ = build_processed_values(P, row)
+def channel_row(text, channel):
+    return type("Row", (), {"id": 1, "text": text, "channel": f"https://t.me/{channel}", "posted_at": None,
+                            "reply_to_top_id": None, "topic_title": None})()
+
+
+values, _, _ = build_processed_values(P, channel_row("[MEDIA ONLY]", "Bet_afri"))
 ok = (values["listing_class"], values["intent"]) == ("MEDIA_PENDING", "RENT")
 failures += not ok
 print(f"{'ok  ' if ok else 'FAIL'} Bet_afri photo post: {values['listing_class']}, {values['intent']}")
+
+# Bet_afri lists single rooms; Bet_afri_Business lists offices and shops.
+room = "የሚከራይ ክፍል ሳርቤት አካባቢ ኪራይ 6,000 ብር ውሃ መብራት ያለው"
+office = "ቢሮ ለኪራይ ቦሌ አካባቢ 120 ካሬ ኪራይ 60,000 ብር በወር"
+for text, channel, expected in [(room, "Bet_afri", ("RENT", "SINGLE_ROOM")),
+                                (office, "Bet_afri_Business", ("RENT", "OFFICE"))]:
+    values, _, _ = build_processed_values(P, channel_row(text, channel))
+    got = (values["intent"], values["property_type"])
+    ok = got == expected
+    failures += not ok
+    print(f"{'ok  ' if ok else 'FAIL'} {channel} post: {got}" + ("" if ok else f"  (expected {expected})"))
 
 print(f"\n{'PASS' if not failures else f'FAILED: {failures} check(s)'}")
 sys.exit(1 if failures else 0)

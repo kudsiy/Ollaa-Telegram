@@ -58,6 +58,9 @@ LISTINGS = [
     # Holidays are not places: Buhe (ለቡሄ is not ለቡ, Lebu) and Meskel (not Meskel Flower).
     ("እንኳን ለቡሄ በዓል በሰላም አደረሳችሁ", "other_addis"),
     ("Happy holiday #Meskel #Ethiopian", "other_addis"),
+    # A landmark only decides when no neighbourhood is named.
+    ("ቤት ለሽያጭ ሰፈሩ፡ ፊጋ (መብራቱ አካባቢ) 2 መኝታ", "figa"),
+    ("ለም ሆቴል አካባቢ አፓርትመንት ለሽያጭ", "haya_hulet"),
     # Amharic prepositions written onto a name.
     ("በቦሌ ቡልቡላ አካባቢ ቪላ ቤት ለሽያጭ", "bole_bulbula"),
     ("ከአያት 49 አጠገብ አፓርትመንት ለሽያጭ", "ayat_49"),
@@ -79,6 +82,7 @@ TOPICS = [
     ("Champion CMC Apartment", ("cmc_michael", ADDIS)),
     ("Legacy_Green Valley (ጦርሀይሎች)", ("tor_hayloch", ADDIS)),
     ("Sunshine Legetafo Site Villas", ("legetafo", SHEGER)),
+    ("Wood Land Real Estate_ SUNNYSIDE(ሾላ ለም ሆቴል ጀርባ)", ("sholla", ADDIS)),
 ]
 for title, expected in TOPICS:
     check(f"topic    {title}", resolve_location(title), expected)

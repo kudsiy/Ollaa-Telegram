@@ -49,6 +49,16 @@ CASES = [
     ("ለሽያጭ አፓርትመንት ቅናሽ ይህ ዋጋ 100% ለሚከፍሉ ደንበኞች ብቻ ነው", None, None, None),
     # A size followed by a total ("74 m², price 850,000") is not a price per m².
     ("ለሽያጭ ኮንዶሚኒየም 74 ካሬ ዋጋ 850,000 ብር ብቻ ይደውሉ", 850_000, None, 74),
+    # "ሙሉ ክፍያ" (full payment) is a price word.
+    ("ለሽያጭ 2መኝታ አፓርትመንት 81 ካሬ ሙሉ ክፍያ 5.7ሚሊዮን", 5_700_000, None, 81),
+    # A monthly income or a down payment is not the sale price.
+    ("ለሽያጭ የቀረበ ቪላ ቤት ቦሌ 300 ካሬ 180,000 ብር ገቢ ያለው ይደውሉ", None, None, None),
+    ("ለሽያጭ አፓርትመንት 100 ካሬ ቅድመ ክፍያ 2,262,000 ብር ቀሪው በባንክ", None, None, 100),
+    # ...but a total stays the total, even when "down payment" follows it.
+    ("ለሽያጭ አፓርትመንት 💰 በ ጠቅላላ ክፍያ 6,800,000ብር በ ቅድመ ክፍያ 2,000,000 ብር", 6_800_000, None, None),
+    ("ለሽያጭ ባለ 1መኝታ 💸ጠቅላላ = 7,014,000ብር 💸15% ቅድመክፍያ = 1,052,122.5 ብር", 7_014_000, None, None),
+    # "ጠቅላላ 1000 ካሬው ነው" (in total 1000 m²) is a size, not a price.
+    ("መሬት ለሽያጭ የሚሸጠው ጠቅላላ 1000 ካሬው ነው ዋጋ 50 ሚልዮን ካርታ ያለው", 50_000_000, None, None),
     # When the text gives the total, the total wins.
     ("Apartment for sale. Asking Price: 15,999,000 ብር Total Area: 134 sqm Price per sqm: 119,395 ብር",
      15_999_000, 119_395, 134),
@@ -95,7 +105,13 @@ def main():
     failures += not ok
     print(f"{'ok  ' if ok else 'FAIL'} stored price_per_plot_sqm={values['price_per_plot_sqm']} | land")
 
-    print(f"\n{'PASS' if not failures else 'FAILED'}: {len(CASES) + 5 - failures} of {len(CASES) + 5} checks passed.")
+    # A rent next to its advance is still the rent.
+    r = P.process({"id": "t", "text": "ቤት ለኪራይ ባለ 2 መኝታ ኪራይ 25,000 ብር 3 ወር ቅድሚያ ይጠየቃል"})
+    ok = r["rent_price_birr"] == 25_000
+    failures += not ok
+    print(f"{'ok  ' if ok else 'FAIL'} rent next to its advance: rent={r['rent_price_birr']}")
+
+    print(f"\n{'PASS' if not failures else 'FAILED'}: {len(CASES) + 6 - failures} of {len(CASES) + 6} checks passed.")
     sys.exit(1 if failures else 0)
 
 

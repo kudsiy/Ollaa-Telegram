@@ -175,11 +175,13 @@ def build_processed_values(pipeline, row):
     result = pipeline.process(record)
 
     # ── Post-classification overrides ─────────────────────────────
-    # Rule 1: Bet_afri family channels are rent-only sources.
+    # Rule 1: Bet_afri family channels are rent-only sources. Bet_afri and
+    # Betafrivip list single rooms; Bet_afri_Business lists offices and shops.
     _channel = getattr(row, "channel", None) or ""
     if "Bet_afri" in _channel or "Betafrivip" in _channel:
         result["intent"] = "RENT"
-        result["property_type"] = "SINGLE_ROOM"
+        if "Bet_afri_Business" not in _channel:
+            result["property_type"] = "SINGLE_ROOM"
 
     # Rule 2: Single-room keyword signals (Amharic + hashtag forms).
     _text = blob

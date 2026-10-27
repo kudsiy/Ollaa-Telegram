@@ -200,7 +200,6 @@ ALIASES: list[tuple[str, str]] = [
     ("bisrate gabriel", "bisrate_gabriel"), ("ቢስራተ ገብርኤል", "bisrate_gabriel"),
     ("ብስራተ ገብርኤል", "bisrate_gabriel"), ("ብስራተ ገብሬል", "bisrate_gabriel"),
     ("awere", "awere"), ("አዋሬ", "awere"),
-    ("mebratu", "bulgaria"), ("መብራቱ", "bulgaria"),
     ("gotera", "gotera"), ("ጎተራ", "gotera"),
     # "mex" used to match inside "mexico", which gave Mexico this early place.
     ("mex", "mexico"), ("mexico", "mexico"), ("ሜክስ", "mexico"), ("ሜክሲኮ", "mexico"),
@@ -208,9 +207,6 @@ ALIASES: list[tuple[str, str]] = [
     ("ጡሉ ዲምቱ", "tulu_dimtu"), ("ቱሉ ዲምቱ", "tulu_dimtu"), ("ቱሉዱምቱ", "tulu_dimtu"),
     ("summit safari", "summit"), ("ሰሚት ሳፋሪ", "summit"),
     ("kotebe 02", "kotebe"), ("ኮተቤ 02", "kotebe"),
-    ("adanech park", "kazanchis"), ("አዳነች ፓርክ", "kazanchis"),
-    ("friendship square", "piassa"), ("ፍሬንድሺፕ", "piassa"),
-    ("sheraton", "kazanchis"), ("ሸራተን", "kazanchis"),
     ("chacha", "chacha"), ("ቻቻ", "chacha"),
     ("tafo ccd", "sheger_city"), ("ccd tafo", "sheger_city"), ("ጣፎ ccd", "sheger_city"),
     ("legetafo ccd", "legetafo"), ("ለገጣፎ ccd", "legetafo"),
@@ -219,8 +215,7 @@ ALIASES: list[tuple[str, str]] = [
     ("mekanisa", "mekanisa_abo"), ("mekanissa", "mekanisa_abo"), ("መካኒሳ", "mekanisa_abo"),
     ("haya hulet", "haya_hulet"), ("hayahulet", "haya_hulet"), ("ሀያ ሁለት", "haya_hulet"),
     ("ሃያ ሁለት", "haya_hulet"), ("22 mazoria", "haya_hulet"), ("22 mazoriya", "haya_hulet"),
-    ("22 ማዞሪያ", "haya_hulet"), ("lem hotel", "haya_hulet"), ("ለም ሆቴል", "haya_hulet"),
-    ("golagol", "haya_hulet"), ("ጎላጎል", "haya_hulet"),
+    ("22 ማዞሪያ", "haya_hulet"),
 
     # ── Bole sub-areas (before plain "bole") ─────────────────────────
     ("bole bulbula", "bole_bulbula"), ("ቦሌ ቡልቡላ", "bole_bulbula"),
@@ -391,6 +386,15 @@ ALIASES: list[tuple[str, str]] = [
     ("gulele", "gulele"), ("entoto", "entoto"),
     ("tafo", "tafo"), ("ጣፎ", "tafo"),
     ("airport road", "bole_airport_road"), ("bole airport", "bole_airport_road"),
+
+    # ── Landmarks: only when no neighbourhood is named ("Shola, behind Lem Hotel" is Shola)
+    ("lem hotel", "haya_hulet"), ("ለም ሆቴል", "haya_hulet"),
+    ("golagol", "haya_hulet"), ("ጎላጎል", "haya_hulet"),
+    ("adanech park", "kazanchis"), ("አዳነች ፓርክ", "kazanchis"),
+    ("friendship square", "piassa"), ("ፍሬንድሺፕ", "piassa"),
+    ("sheraton", "kazanchis"), ("ሸራተን", "kazanchis"),
+    # "Mebratu" (the traffic light) near Bulgaria; also a common word, so last of all.
+    ("mebratu", "bulgaria"), ("መብራቱ", "bulgaria"),
 ]
 
 _ETHIOPIC = "ሀ-፿"

@@ -245,10 +245,13 @@ STRICT_AREA_BEFORE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# "ዋጋ 5.5 ሚሊየን", "ጠቅላላ ዋጋ = 5.3 ሚልዮን", "Price: 12,800,000", "Price: 3.9M"
+# "ዋጋ 5.5 ሚሊየን", "ጠቅላላ ዋጋ = 5.3 ሚልዮን", "Price: 12,800,000", "Price: 3.9M",
+# "ሙሉ ክፍያ 5.7ሚሊዮን" (full payment), "ጠቅላላ ክፍያ 6,800,000ብር" (total payment).
+# Not plain "ጠቅላላ": "ጠቅላላ 1000 ካሬው ነው" is a total size.
 # (right after a price word, "M" alone also means million).
 STRICT_ANCHORED_PRICE_RE = re.compile(
-    r"(?:asking\s*price|መሸጫ\s*ዋጋ|ጠቅላላ\s*ዋጋ|price|ዋጋ|birr|etb)\s*[:፦=\-]{0,2}\s*(?P<num>\d[\d,\.]*)\s*"
+    r"(?:asking\s*price|መሸጫ\s*ዋጋ|ጠቅላላ\s*ዋጋ|ጠቅላላ\s*ክፍያ|ሙሉ\s*ክፍያ|full\s*payment|price|ዋጋ|birr|etb)"
+    r"\s*[:፦=\-]{0,2}\s*(?P<num>\d[\d,\.]*)\s*"
     r"(?P<million>" + MILLION_WORD + r"|m(?![\w²]))?",
     re.IGNORECASE,
 )
