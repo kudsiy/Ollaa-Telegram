@@ -41,6 +41,7 @@ CASES = [
     ("ለሽያጭ ቤቶች ፒያሳ ✍️የካሬ ዋጋ=61,750ብር ✍️ከ86ካሬ ጀምሮ", 5_310_500, 61_750, None),
     ("ለሽያጭ አፓርትመንት 👉ካሬ ዋጋ Semi 105 - 120ሺ 👉50% ባንክ የተመቻቸለት", None, 105_000, None),
     ("ለሽያጭ አፓርትመንቶች ባለ 3 መኝታ 120,000 ብር በካሬ ቅድመ ክፍያ 20%", None, 120_000, None),
+    ("በአያት 49 ባለ 2 መኝታ ለሽያጭ 💥ዋጋ: 65,000/በካሬ 💥 ቅድመ ክፍያ 30%", None, 65_000, None),
     # "M" right after a price word means million.
     ("Shops for sale in front of Adwa Museum. 💰 Price: 3.9M–10M birr 📌 Down Payment: 900K", 3_900_000, None, None),
     # A number under 1,000 after "ዋጋ" is not a sale price.

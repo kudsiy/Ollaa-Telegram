@@ -625,10 +625,10 @@ PRICE_PER_SQM_RE = re.compile(
     r"[^\d\n]{0,12}?(?P<before>" + _PSQM_NUM + r")(?P<before_k>" + _PSQM_THOUSAND + r")?" + _PSQM_CURRENCY
     + _PSQM_RANGE.replace("RANGE_K", "before_range_k")
     # Number first: "75,000 Birr/sqm", "95,000 – 110,000 Birr per sqm" (a range keeps its first number),
-    # "120,000 ብር በካሬ".
+    # "120,000 ብር በካሬ", "65,000/በካሬ".
     + r"|(?P<after>" + _PSQM_NUM + r")(?P<after_k>" + _PSQM_THOUSAND + r")?" + _PSQM_CURRENCY
     + _PSQM_RANGE.replace("RANGE_K", "after_range_k")
-    + r"\s*(?:(?:/|per)\s*" + _PSQM_UNIT + r"|በካ\.\s*ሜ\.?|በካሬ)",
+    + r"\s*(?:(?:/|per)\s*(?:በ\s*)?" + _PSQM_UNIT + r"|በካ\.\s*ሜ\.?|በካሬ)",
     re.IGNORECASE,
 )
 # A rent per m² ("በወር በካሬ 5,000") is not a sale price per m².

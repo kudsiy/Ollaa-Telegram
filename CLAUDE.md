@@ -56,7 +56,11 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   the report, back up, then `src\reprocess.py --apply`. It never deletes listings.
   `--reset` was removed from `etl_runner.py` and `run_all.py`: it deleted every listing.
 - Measure first: count the rows a change will touch, change them, count again, and
-  report both numbers.
+  report both numbers. `database\recount_findings.py` counts the audit findings in the
+  stored data (read-only); run it before and after re-processing.
+- The 829 protected values left after S8 were kept on purpose by the owner (see
+  `database/migrations/2026_10_27_s8_release_protections.py`). Do not release them
+  without asking.
 
 ## How the project runs
 
