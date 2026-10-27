@@ -1,6 +1,7 @@
 # Ollaa-Telegram: project status
 
-Last updated: 26 October 2026 (audit redone on the home laptop, which holds the database).
+Last updated: 27 October 2026 (audit redone on 26 October on the home laptop, which holds
+the database; tasks S1–S9 and S11 done since).
 
 ## In plain words
 
@@ -62,12 +63,13 @@ as it is and once with the single bug patched out, and comparing with what is st
 - `processor.py` defines `extract_price_birr`, `extract_price_candidates_birr`,
   `_extract_first_anchored_price`, `STRICT_ANCHORED_PRICE_RE` and `extract_labeled_sqm`
   more than once. Only the last copy is used, so the earlier ones are misleading.
+  (Fixed in S9.)
 - `listener.py` step 3 updates `processed_listings` by `str(tl_id)`, but forum rows are
   stored under `channel::topic::N`, so the topic-based fix never reaches them.
 - `dedup_fast.py` picks the "older" listing with `min()` on ids, but ids are text, so
-  "1000" counts as older than "999". Fix before relying on it (S9).
-- Price reading gaps left after S5: totals given as "ሙሉ ክፍያ 5.7ሚሊዮን" (full payment) or
-  "80.7ካሬ = 5,770,000" without a price word are not read; the intent check
+  "1000" counts as older than "999". (Fixed in S9.)
+- Price reading gaps left after S5: totals given as "ሙሉ ክፍያ 5.7ሚሊዮን" (full payment, read
+  since S9) or "80.7ካሬ = 5,770,000" without a price word are not read; the intent check
   (`SALE_SIGNALS` in `run_pipeline.py`) still does not know the spelling ሚልዮን; a sale
   advert that mentions rent ("Rent in Dollars") can get a down payment as its rent (S7);
   the fallback "ዋጋ …" pattern in `run_pipeline.extract_prices` has no phone-number guard
@@ -79,10 +81,10 @@ as it is and once with the single bug patched out, and comparing with what is st
   rough (e.g. Summit is placed in Nifas Silk).
 - Danger: `src/fix_418.py` and `upgrade_brain.py` rewrite `run_pipeline.py` when run
   (they were one-off upgrades). Running either would bring back the old noise rule that
-  discarded every post with a link. Remove or disable them (S9).
+  discarded every post with a link. (Both removed in S9.)
 - A building's monthly income ("180,000 ብር ገቢ ያለው") can be read as its sale price
-  when the total is written without a price word (seen on listing 3432).
-- `etl_runner.py` hides every error (`except Exception: errors += 1; continue`).
+  when the total is written without a price word (seen on listing 3432). (Fixed in S9.)
+- `etl_runner.py` hides every error (`except Exception: errors += 1; continue`). (Fixed in S9.)
 - `extract_images.py` reads images from `C:\Projects\ollaa\data\...`, which does not
   exist on this laptop (the images are in `data\images\telegram`, 747 files).
 - `extract_images.py` uses the preview model `gemini-3.1-flash-lite-preview`. On
@@ -92,12 +94,17 @@ as it is and once with the single bug patched out, and comparing with what is st
 - `requirements.txt` had no versions and was missing `google-genai`, `pydantic`,
   `rapidfuzz`, `ollama` and `numpy`.
 - Empty placeholder files: `config/telegram_channels.py`, `src/main.py`,
-  `src/ocr/run_ocr.py`, `src/telegram/fetch_messages.py`, `src/utils/db.py`.
+  `src/ocr/run_ocr.py`, `src/telegram/fetch_messages.py`, `src/utils/db.py`. (Removed in S9.)
 - Copies of code saved as `.txt` (`fix_single_room.py.txt`, `src/srcshow_duplicates.py.txt`)
-  and a duplicate `srcshow_duplicates.py` in the project root.
+  and a duplicate `srcshow_duplicates.py` in the project root. (Removed in S9; the script
+  is now `src/show_duplicates.py`.)
 - All scripts log in as the `postgres` superuser. PostgreSQL listens on every network
   address, but its access rules only accept connections from this laptop, so it was not
-  reachable from outside.
+  reachable from outside. (Since S9 the scripts use the limited login `ollaa_user`.)
+- Left after S9: listing 5651, a sale advert, is read as a rental because it mentions a
+  monthly bank repayment ("በወር"); `reprocess.py` updates `processed_listings` but not
+  `rental_listings`, so a rental row is not refreshed when its listing changes; listing
+  1972 (no size) stores a loan amount as its total; `listener.py` step 3 (above).
 
 ## Recount after S8 (27 October 2026)
 
@@ -132,6 +139,11 @@ fell out; 12 of the 41 had an impossible price per m² under 20,000 birr) while 
   (task S1) to long random ones kept only in `.env`. The old ones are rejected, so the
   copies in the GitHub history no longer work. Removing them from the history is
   optional (task S10).
+- Since 27 October 2026 (task S9) the scripts log in as `ollaa_user`, which owns the Ollaa
+  tables but cannot create databases or logins or read the server's files. The
+  all-powerful `postgres` login (`DB_ADMIN_USER` / `DB_ADMIN_PASSWORD` in `.env`) is only
+  used for backups and `database/export_schema.py`. `check_setup.py` warns if the
+  everyday login is ever a superuser again.
 - Three old copies of the ollaa-web project (`C:\Projects\New folder`, `New folder (2)`,
   `New folder (4)`) still contain the old password and would need the new one if run.
 - `.env`, Telegram `*.session` files and the large text dumps (which contain other
@@ -152,6 +164,6 @@ changes data, take a database backup (see CLAUDE.md).
 | S6 | Locations: whole-word matching (fixes Yeka and "22"), one-way label and hashtag matching (fixes Bole Bulbula), one shared location table for all three scripts | done 26 Oct 2026. New `src/locations.py` is the only place table (PLACES: code, name, city, sub-city, coordinates; ALIASES: English and Amharic names, specific before general), used by the parser, `topic_resolver.py`, `dedup_and_fix_locations.py`, `geocoder.py`, `fast_repair.py` and `fix_spaces.py`. Whole words only (Amharic prefixes such as በ/ከ/የ still match); labels and hashtags match one way; joined-up hashtags ("#summithouse", "#ቦሌቡልጋሪያ") still work; duplicate codes merged (e.g. `twenty_two`/`22_area`/`22_mazoria` → `haya_hulet`, `piyasa` → `piassa`). The geocoder now takes coordinates from the table (it also queried a column that does not exist). Checked by `tests/test_locations.py` and by old vs new parser on all 4,276 listings: 216 locations change, each reviewed (the 8 that lose a location were false matches such as the holidays Buhe and Meskel and "#TeamExcellence" read as Mexico). After a backup (`backups/ollaa_2026-10-26_before_S6.dump`) the database's old codes were renamed (18 listings, 8 protected values, 3 rental rows; 1 city fixed). Re-processing preview: 140 stored locations would change; 38 protections retire |
 | S7 | Classification: web links are not noise; photo-only posts become `MEDIA_PENDING` | done 26 Oct 2026, in the parser (stored listings change in S8). A post is noise only if, links left out, fewer than 30 characters remain; a link-only post still is. Photo-only posts ("[MEDIA ONLY]", "[PDF ONLY]") get listing_class `MEDIA_PENDING`, intent `UNKNOWN`, type `MEDIA_LINK` as before, and the location of their forum topic title when it names one (849 do), else `noise`. The listener no longer gives them its own type `PENDING_MEDIA_REVIEW`. Checked by `tests/test_classification.py` and by old vs new parser on all 4,276 listings: only photo-only posts (2,843) and link posts (266) change. Re-processing preview: 4,655 legacy protections now agree with the parser and retire; 1,751 still differ |
 | S8 | Re-run the fixed parser on old rows with S4's safe method (`src/reprocess.py`, report first, backup, then `--apply`), then re-count findings 3 to 12 (they should drop to 0). Review with the owner the legacy protections that still hold a value the fixed parser disagrees with (6,406 when S4 started; 1,751 after S5–S7, the rest retire automatically because the parser now agrees) | done 27 Oct 2026. The owner approved the review of the 1,751: 922 released (old "advert" labels and "noise" on photo and link posts, rent-only channels, better types, smaller areas, places named nowhere in the text, 2 prices checked by hand), 829 kept (sizes and prices filled by old repairs, the Bet_afri SINGLE_ROOM rule, repaired places, labels); rules in `database/migrations/2026_10_27_s8_release_protections.py`. After a backup (`backups/ollaa_2026-10-27_before_S8.dump`) re-processing updated 2,941 listings and retired 4,655 protections; a second run finds nothing to change; 829 protections remain. One more per-m² form ("65,000/በካሬ") was added and applied (3 listings). See "Recount after S8" below |
-| S9 | Clean-ups: remove duplicate functions and `.txt` code copies, fill or delete empty files, make the ETL report its errors, use a limited database login instead of `postgres`. Added during S5–S8: remove `src/fix_418.py` and `upgrade_brain.py` (they rewrite the parser); `run_all.py` step 4 marks every SALE listing with a price and size as a comparable, adverts included; the ETL rule that makes every Bet_afri post a SINGLE_ROOM also hits Bet_afri_Business (offices); landmarks such as "Lem Hotel" outrank neighbourhood names ("Shola, behind Lem Hotel"); totals without a price word (a loan amount or a monthly income can be read instead); `dedup_fast.py` compares ids as text | to do |
+| S9 | Clean-ups: remove duplicate functions and `.txt` code copies, fill or delete empty files, make the ETL report its errors, use a limited database login instead of `postgres`. Added during S5–S8: remove `src/fix_418.py` and `upgrade_brain.py` (they rewrite the parser); `run_all.py` step 4 marks every SALE listing with a price and size as a comparable, adverts included; the ETL rule that makes every Bet_afri post a SINGLE_ROOM also hits Bet_afri_Business (offices); landmarks such as "Lem Hotel" outrank neighbourhood names ("Shola, behind Lem Hotel"); totals without a price word (a loan amount or a monthly income can be read instead); `dedup_fast.py` compares ids as text | done 27 Oct 2026, in three steps. (1) No change to results: removed the unused copies of the price reader in `processor.py` (752 → ~470 lines), `src/fix_418.py`, `upgrade_brain.py`, the `.txt` code copies and five empty files (`srcshow_duplicates.py` is now `src/show_duplicates.py`); the ETL lists its errors, counts skipped listings, and adds rental rows only for listings it newly adds (a junk rental row for sale listing 5651 was removed); `run_all.py` step 4 skips adverts, inquiries, junk and unread photos; `dedup_fast.py` orders ids as numbers. Old and new parser identical on all 4,276 listings. (2) Parser: Bet_afri_Business posts are no longer forced to SINGLE_ROOM; landmarks (Lem Hotel, Golagol, Sheraton, …) decide the place only when no neighbourhood is named; "ሙሉ ክፍያ" / "ጠቅላላ ክፍያ" / "full payment" are price words, and a down payment, loan, income or commission is no longer read as the sale price. Old vs new: 127 listings change, each reviewed. After a backup (`backups/ollaa_2026-10-27_before_S9.dump`) re-processing updated 45 stored listings and retired 80 protections; 749 remain. (3) Login: after a backup (`backups/ollaa_2026-10-27_before_S9_login.dump`) `ollaa_user` became the owner of every table, view and function (`database/migrations/2026_10_27_s9_app_login.py`) and `.env` now uses it; `postgres` is kept for backups and `export_schema.py` (`DB_ADMIN_USER`, `DB_ADMIN_PASSWORD`). Checked as `ollaa_user`: all tests, `check_setup.py`, re-processing report (0 changes), ETL (0 errors), recount unchanged, adding columns, refreshing the materialized views, protections still recorded; creating databases or logins is refused |
 | S10 | Optional: remove the old secrets from the GitHub history | to do |
 | S11 | Do before S4 (it blocks the listener): after a backup and the owner's decision, remove the 1,143 duplicate raw messages, then add a unique rule on `telegram_listings (channel, message_id)` so the listener can save; re-run `database/export_schema.py`. Also fix the column type in `dedup_fast.py` (finding 17) | done 26 Oct 2026. All duplicates came from the scraper's first runs (28 Dec 2025 three times, 3 Jan 2026). Kept, per message, the copy its processed listing uses; for 3 ads the broker had edited, the kept copy got the newest text (owner's choice; their processed listings still show the old text until S8). Removed 1,143 raw copies, 12 duplicate processed listings (none valuation-eligible) and 5 duplicate rental rows, after a backup (`backups/ollaa_2026-10-26_before_S11.dump`). Added `UNIQUE (channel, message_id)`; the listener's and scraper's save commands now store each message once (tested on the live table in a rolled-back transaction). Totals now 5,091 raw / 4,276 processed / 172 rental |

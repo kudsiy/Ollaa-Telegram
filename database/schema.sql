@@ -2,7 +2,7 @@
 -- schema.sql: creates every table, view, materialized view,
 -- function, index and constraint of the Ollaa database, empty.
 --
--- Made by database/export_schema.py from the live database on 2026-10-26.
+-- Made by database/export_schema.py from the live database on 2026-10-27.
 -- Do not edit by hand. Change the live database, then run
 --     venv\Scripts\python.exe database\export_schema.py
 -- and prove the result with
@@ -11,6 +11,8 @@
 -- Use it on a NEW, empty database, for example:
 --     createdb -U postgres ollaa_new
 --     psql -U postgres -d ollaa_new -v ON_ERROR_STOP=1 -f database\schema.sql
+-- then make ollaa_user (the scripts' login) the owner, with DB_NAME=ollaa_new in .env:
+--     venv\Scripts\python.exe database\migrations\2026_10_27_s9_app_login.py --apply
 -- It runs as one transaction: if anything goes wrong, nothing is created.
 -- It holds structure only: no data and no passwords.
 --

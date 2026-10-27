@@ -25,10 +25,17 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   committed). `.env.example` lists the names with empty values.
 - Code reads them only through `src/settings.py` (`DB_URL`, `DB_CONFIG`, `GEMINI_API_KEY`,
   `TG_API_ID`, `TG_API_HASH`, `TG_PHONE`). Never write a password or key into a script.
+- Two database logins (task S9): scripts use `DB_USER` = `ollaa_user`, which owns the
+  Ollaa tables but is not a superuser. The `postgres` login (`DB_ADMIN_USER`,
+  `DB_ADMIN_PASSWORD`, `settings.admin_config()`) is only for backups,
+  `database/export_schema.py` and one-off migrations that need it. Never switch the
+  scripts back to `postgres`. Tables or views created as `postgres` (for example in
+  pgAdmin) must be given to `ollaa_user`: run
+  `database\migrations\2026_10_27_s9_app_login.py --apply`.
 - Scripts in `src/` import it directly: `from settings import DB_URL`.
   Scripts in the project root first add `src` to the import path (see `test_db.py`).
-- `check_setup.py` tests that `.env` is complete, the database login works and the
-  Gemini key works.
+- `check_setup.py` tests that `.env` is complete, both database logins work, the
+  everyday one is not a superuser, and the Gemini key works.
 
 ## Database safety
 
@@ -36,7 +43,7 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   `telegram_listings` (raw messages) and `processed_listings` (parsed listings).
 - Before any task that changes data, take a backup:
   `"C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -U postgres -Fc -f backups\ollaa_<date>.dump ollaa`
-  (the password is `DB_PASSWORD` in `.env`; keep `backups\` out of git).
+  (the password is `DB_ADMIN_PASSWORD` in `.env`; keep `backups\` out of git).
 - `database/schema.sql` rebuilds the whole structure (no data). It is made by
   `database/export_schema.py` from the live database; never edit it by hand. After any
   change to tables, views or functions, run `database\export_schema.py` and then
@@ -59,8 +66,8 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   report both numbers. `database\recount_findings.py` counts the audit findings in the
   stored data (read-only); run it before and after re-processing.
 - The 829 protected values left after S8 were kept on purpose by the owner (see
-  `database/migrations/2026_10_27_s8_release_protections.py`). Do not release them
-  without asking.
+  `database/migrations/2026_10_27_s8_release_protections.py`); 749 remain after S9,
+  where the parser came to agree with 80 of them. Do not release them without asking.
 
 ## How the project runs
 
@@ -82,8 +89,9 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   also run the old and new parser on all listings and explain every difference, as S5 did.
 - Noise and photo-only rules (`is_strictly_noise` in `run_pipeline.py`, `is_photo_only` in
   `processor.py`) are checked by `tests/test_classification.py`. A link never makes a
-  listing noise; a photo-only post is `MEDIA_PENDING`. Never run `src/fix_418.py` or
-  `upgrade_brain.py`: they overwrite `run_pipeline.py` with old rules.
+  listing noise; a photo-only post is `MEDIA_PENDING`. (`src/fix_418.py` and
+  `upgrade_brain.py`, which overwrote `run_pipeline.py` with old rules, were removed in
+  S9; never bring them back.)
 - `src/locations.py` is the only table of places. Every location code written anywhere
   must be a key of `PLACES` (or `noise` / `other_addis`). To add a place, add it to
   `PLACES` and its English and Amharic names to `ALIASES`, more specific names before the

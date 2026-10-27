@@ -14,6 +14,9 @@ Usage (from the project root):
 
 --check builds a temporary empty database (ollaa_schema_check) from schema.sql,
 compares its structure with the live database, and deletes it again.
+
+It uses the administrator login (DB_ADMIN_USER / DB_ADMIN_PASSWORD in .env),
+because creating and deleting databases is an admin job.
 """
 
 from __future__ import annotations
@@ -51,6 +54,8 @@ HEADER = """\
 -- Use it on a NEW, empty database, for example:
 --     createdb -U postgres ollaa_new
 --     psql -U postgres -d ollaa_new -v ON_ERROR_STOP=1 -f database\\schema.sql
+-- then make ollaa_user (the scripts' login) the owner, with DB_NAME=ollaa_new in .env:
+--     venv\\Scripts\\python.exe database\\migrations\\2026_10_27_s9_app_login.py --apply
 -- It runs as one transaction: if anything goes wrong, nothing is created.
 -- It holds structure only: no data and no passwords.
 --
@@ -69,12 +74,12 @@ def pg_tool(name: str) -> str:
 
 
 def pg_env() -> dict:
-    return dict(os.environ, PGPASSWORD=settings.DB_PASSWORD)
+    return dict(os.environ, PGPASSWORD=settings.admin_config()["password"])
 
 
 def dump_structure(dbname: str) -> str:
     result = subprocess.run(
-        [pg_tool("pg_dump"), "-h", settings.DB_HOST, "-p", str(settings.DB_PORT), "-U", settings.DB_USER,
+        [pg_tool("pg_dump"), "-h", settings.DB_HOST, "-p", str(settings.DB_PORT), "-U", settings.DB_ADMIN_USER,
          "--schema-only", "--no-owner", "--no-privileges", dbname],
         env=pg_env(), capture_output=True,
     )
@@ -109,8 +114,7 @@ def build_schema_file(structure: str) -> str:
 
 
 def maintenance_connection():
-    conn = psycopg2.connect(dbname="postgres", user=settings.DB_USER, password=settings.DB_PASSWORD,
-                            host=settings.DB_HOST, port=settings.DB_PORT)
+    conn = psycopg2.connect(**settings.admin_config("postgres"))
     conn.autocommit = True
     return conn
 
@@ -126,7 +130,7 @@ def check(keep: bool) -> bool:
                 f"LC_COLLATE '{collate}' LC_CTYPE '{ctype}'")
     try:
         load = subprocess.run(
-            [pg_tool("psql"), "-h", settings.DB_HOST, "-p", str(settings.DB_PORT), "-U", settings.DB_USER,
+            [pg_tool("psql"), "-h", settings.DB_HOST, "-p", str(settings.DB_PORT), "-U", settings.DB_ADMIN_USER,
              "-d", CHECK_DB, "-q", "-v", "ON_ERROR_STOP=1", "-f", str(SCHEMA_FILE)],
             env=pg_env(), capture_output=True, text=True, encoding="utf-8",
         )

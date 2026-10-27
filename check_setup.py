@@ -42,9 +42,21 @@ try:
     with engine.connect() as conn:
         user = conn.execute(text("SELECT current_user")).scalar()
         rows = conn.execute(text("SELECT COUNT(*) FROM telegram_listings")).scalar()
+        is_super = conn.execute(text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")).scalar()
     report(True, "database login", f"connected as {user}, telegram_listings has {rows:,} rows")
+    # Everyday scripts must not use the all-powerful login (task S9).
+    report(not is_super, "database login is not a superuser",
+           "" if not is_super else f"DB_USER should be ollaa_user; {user} is for admin jobs only")
 except Exception as e:
     report(False, "database login", type(e).__name__)
+
+try:
+    import psycopg2
+
+    psycopg2.connect(**settings.admin_config()).close()
+    report(True, "admin login (backups, export_schema.py)", f"connected as {settings.DB_ADMIN_USER}")
+except Exception as e:
+    report(False, "admin login (backups, export_schema.py)", type(e).__name__)
 
 # ── Telegram (only checks the values are present) ─────────────────
 for name in ("TG_API_ID", "TG_API_HASH", "TG_PHONE"):
