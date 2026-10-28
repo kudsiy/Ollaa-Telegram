@@ -155,6 +155,37 @@ def safe_divide(price, sqm):
     return None
 
 
+def is_rental(values) -> bool:
+    """A listing that gets a row in rental_listings: a rent offer with a rent, not an advert."""
+    return (values["intent"] in ("RENT", "MIXED") and bool(values["rent_price_birr"])
+            and values["property_type"] != "ADVERTISEMENT")
+
+
+def rental_row(values, raw_text) -> dict:
+    """The rental_listings row of a listing (its processed_listings values)."""
+    return {
+        "id":                  values["id"] + "_rent",
+        "location":            values["location"],
+        "city":                values["city"],
+        "property_type":       values["property_type"],
+        "property_subtype":    values["property_subtype"],
+        "bedrooms":            values["bedrooms"],
+        "bathrooms":           values["bathrooms"],
+        "builtup_sqm":         values["builtup_sqm"],
+        "plot_sqm":            values["plot_sqm"],
+        "monthly_rent_birr":   values["rent_price_birr"],
+        "rent_advance_birr":   values["rent_advance_birr"],
+        "rent_per_sqm":        safe_divide(values["rent_price_birr"], values["builtup_sqm"]),
+        "finish_state":        values["finish_state"],
+        "floor_level":         values["floor_level"],
+        "contact_phone":       values["contact_phone"],
+        "contact_username":    values["contact_username"],
+        "source_channel":      values["source_channel"],
+        "posted_at":           values["posted_at"],
+        "raw_text":            raw_text,
+    }
+
+
 def build_processed_values(pipeline, row):
     """
     Run the parser on one telegram_listings row and apply the channel rules.
@@ -286,8 +317,6 @@ def run(limit=None):
             error_log.append((row.id, "parser", f"{type(e).__name__}: {e}"))
             continue
 
-        rent_per_sqm = safe_divide(values["rent_price_birr"], values["builtup_sqm"])
-
         # ── Insert/Upsert into processed_listings (all records) ──────
         try:
             with engine.begin() as conn:
@@ -304,30 +333,10 @@ def run(limit=None):
             continue
 
         # ── Insert into rental_listings (RENT intent only, new listings) ────
-        if values["intent"] in ("RENT", "MIXED") and values["rent_price_birr"] and values["property_type"] != "ADVERTISEMENT":
+        if is_rental(values):
             try:
                 with engine.begin() as conn:
-                    result = conn.execute(text(INSERT_RENTAL), {
-                        "id":                  values["id"] + "_rent",
-                        "location":            values["location"],
-                        "city":                values["city"],
-                        "property_type":       values["property_type"],
-                        "property_subtype":    values["property_subtype"],
-                        "bedrooms":            values["bedrooms"],
-                        "bathrooms":           values["bathrooms"],
-                        "builtup_sqm":         values["builtup_sqm"],
-                        "plot_sqm":            values["plot_sqm"],
-                        "monthly_rent_birr":   values["rent_price_birr"],
-                        "rent_advance_birr":   values["rent_advance_birr"],
-                        "rent_per_sqm":        rent_per_sqm,
-                        "finish_state":        values["finish_state"],
-                        "floor_level":         values["floor_level"],
-                        "contact_phone":       values["contact_phone"],
-                        "contact_username":    values["contact_username"],
-                        "source_channel":      values["source_channel"],
-                        "posted_at":           values["posted_at"],
-                        "raw_text":            blob[:2000],
-                    })
+                    result = conn.execute(text(INSERT_RENTAL), rental_row(values, blob[:2000]))
                     rental += result.rowcount   # 0 when already there (ON CONFLICT DO NOTHING)
             except Exception as e:
                 # A rental insert failure should not block the main insert, but is reported.

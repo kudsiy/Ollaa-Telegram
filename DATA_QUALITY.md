@@ -1,29 +1,30 @@
 # Ollaa-Telegram: data quality report
 
-State of the `ollaa` database on 28 October 2026, after task S12. Every number below comes
-from `database/data_quality.py` (read-only), which can be run again at any time:
+State of the `ollaa` database on 28 October 2026, after tasks S12 and S13. Every number
+below comes from `database/data_quality.py` (read-only), which can be run again at any time:
 
     venv\Scripts\python.exe database\data_quality.py
 
 The listings were produced by the fixed parser (tasks S5–S9 and S12). Re-processing every
 stored listing with today's code changes nothing (`src/reprocess.py`: "Listings that would
-change: 0"). 636 values that earlier hand repairs set are kept on purpose and win over the
+change: 0"). 622 values that earlier hand repairs set are kept on purpose and win over the
 parser; 265 of the usable listings hold at least one of them.
 
 ## Summary
 
-- **933 usable listings** out of 4,276 stored listings (5,091 raw Telegram messages from
-  34 channels and groups): 765 for sale, 165 for rent, 3 for both.
+- **946 usable listings** out of 4,276 stored listings (5,091 raw Telegram messages from
+  34 channels and groups): 765 for sale, 178 for rent, 3 for both.
 - **2,860 listings (67%) are photo-only posts** (`MEDIA_PENDING`) whose images have not
   been read yet. They are the largest untapped part of the data.
 - **394 sale listings are ready for a hedonic model** (price, size, named place, known
-  type, priced in birr, no obvious outlier). Only **21 rent listings** are, so a rent
+  type, priced in birr, no obvious outlier). Only **22 rent listings** are, so a rent
   model is not possible yet.
 - Bedrooms are known for 57% of the model sample (62% of its homes). Floor, bathrooms,
   posting date, building height, finishing and payment terms are known for a third or
   less, too few to use as model variables.
-- **No usable listing has an obviously impossible value.** The 34 found on 27 October
-  were all parser mistakes, fixed in task S12 (see "Obvious outliers").
+- **One usable listing has an obviously impossible value** (a flat called a single room,
+  see "Obvious outliers"). The 34 found on 27 October were all parser mistakes, fixed in
+  task S12.
 
 ## Definitions
 
@@ -42,9 +43,9 @@ parser; 265 of the usable listings hold at least one of them.
 |---|---|
 | Stored listings | 4,276 |
 | Photo or file only, text not read yet (`MEDIA_PENDING`) | −2,860 |
-| Service or share adverts, inquiries ("looking for"), junk | −433 |
+| Service or share adverts, inquiries ("looking for"), junk | −420 |
 | Property post, but neither sale nor rent could be told | −50 |
-| **Usable listings** | **933** |
+| **Usable listings** | **946** |
 
 The 815 raw messages without a listing are deleted duplicates and junk; the database keeps
 them out permanently (`processing_exclusions`).
@@ -54,25 +55,25 @@ them out permanently (`processing_exclusions`).
 | Type | Sale | Rent | Both | Total |
 |---|---|---|---|---|
 | Apartment | 260 | 31 | 1 | 292 |
-| Villa (houses, G+0 to G+4) | 195 | 23 | 1 | 219 |
+| Villa (houses, G+0 to G+4) | 195 | 26 | 1 | 222 |
 | Unknown type | 102 | 9 | 1 | 112 |
-| Commercial (shop) | 49 | 12 | 0 | 61 |
-| Single room | 0 | 52 | 0 | 52 |
+| Commercial (shop) | 49 | 14 | 0 | 63 |
+| Single room | 0 | 59 | 0 | 59 |
 | Condominium | 45 | 4 | 0 | 49 |
-| Office | 30 | 7 | 0 | 37 |
+| Office | 30 | 8 | 0 | 38 |
 | Commercial building (whole building) | 33 | 2 | 0 | 35 |
 | Studio | 11 | 21 | 0 | 32 |
 | Land | 29 | 0 | 0 | 29 |
 | Warehouse | 10 | 4 | 0 | 14 |
 | Townhouse | 1 | 0 | 0 | 1 |
-| **Total** | **765** | **165** | **3** | **933** |
+| **Total** | **765** | **178** | **3** | **946** |
 
 ## Where the listings are
 
 | Sub-city | Sale | Rent | Both | Total |
 |---|---|---|---|---|
 | Bole | 247 | 48 | 1 | 296 |
-| Yeka | 55 | 41 | 1 | 97 |
+| Yeka | 55 | 44 | 1 | 100 |
 | Kirkos | 56 | 14 | 0 | 70 |
 | Arada | 55 | 0 | 0 | 55 |
 | Nifas Silk | 26 | 8 | 0 | 34 |
@@ -84,10 +85,10 @@ them out permanently (`processing_exclusions`).
 | Lemi Kura | 1 | 0 | 0 | 1 |
 | Sheger City (outside Addis Ababa) | 14 | 0 | 0 | 14 |
 | Gelan, Dukem (counted as Addis Ababa) | 3 | 1 | 0 | 4 |
-| Place named, sub-city not in the place table | 184 | 32 | 0 | 216 |
+| Place named, sub-city not in the place table | 184 | 42 | 0 | 226 |
 | No place found in the text | 76 | 13 | 1 | 90 |
 
-The 216 listings without a sub-city name a real place (Summit, Figa, Jacros, Bulgaria,
+The 226 listings without a sub-city name a real place (Summit, Figa, Jacros, Bulgaria,
 German Square and others) that `src/locations.py` does not yet assign to a sub-city.
 
 81 different places are named. The 20 most frequent:
@@ -96,20 +97,20 @@ German Square and others) that `src/locations.py` does not yet assign to a sub-c
 |---|---|---|---|---|---|
 | Ayat | Bole | 99 | 8 | 0 | 107 |
 | Bole | Bole | 62 | 16 | 0 | 78 |
-| Summit | — | 50 | 4 | 0 | 54 |
+| Summit | — | 50 | 5 | 0 | 55 |
 | Piassa | Arada | 49 | 0 | 0 | 49 |
 | Kazanchis | Kirkos | 37 | 7 | 0 | 44 |
-| CMC | Yeka | 20 | 13 | 1 | 34 |
+| CMC | Yeka | 20 | 14 | 1 | 35 |
 | Megenagna | Yeka | 29 | 5 | 0 | 34 |
 | Bole Bulbula | Bole | 26 | 4 | 0 | 30 |
 | Sarbet / Old Airport | Nifas Silk | 19 | 6 | 0 | 25 |
+| Gerji | Yeka | 4 | 20 | 0 | 24 |
 | Figa | — | 18 | 5 | 0 | 23 |
-| Gerji | Yeka | 4 | 19 | 0 | 23 |
 | Summit 72 | — | 22 | 0 | 0 | 22 |
 | Ayat 49 | Bole | 19 | 2 | 0 | 21 |
+| Jacros | — | 12 | 8 | 0 | 20 |
 | Mexico | Kirkos | 11 | 6 | 0 | 17 |
 | Bole Arabsa | Bole | 15 | 2 | 0 | 17 |
-| Jacros | — | 12 | 3 | 0 | 15 |
 | Haya Hulet (22) | Bole | 5 | 8 | 1 | 14 |
 | Wello Sefer | Bole | 12 | 1 | 0 | 13 |
 | Bulgaria | — | 12 | 0 | 0 | 12 |
@@ -117,21 +118,21 @@ German Square and others) that `src/locations.py` does not yet assign to a sub-c
 
 ## How complete each field is (usable listings)
 
-| Field | Sale (765) | Rent (165) | Both (3) | All (933) |
+| Field | Sale (765) | Rent (178) | Both (3) | All (946) |
 |---|---|---|---|---|
-| Price (sale or rent) | 83% | 70% | 0% | 81% |
-| Size (built-up or plot) | 78% | 24% | 67% | 69% |
-| Bedrooms | 49% | 15% | 67% | 43% |
+| Price (sale or rent) | 83% | 72% | 0% | 81% |
+| Size (built-up or plot) | 78% | 24% | 67% | 68% |
+| Bedrooms | 49% | 14% | 67% | 43% |
 | Bathrooms | 18% | 5% | 33% | 16% |
-| Named place | 90% | 92% | 67% | 90% |
-| Sub-city | 66% | 73% | 67% | 67% |
-| Map coordinates (from the place table) | 76% | 76% | 67% | 76% |
+| Named place | 90% | 93% | 67% | 90% |
+| Sub-city | 66% | 69% | 67% | 67% |
+| Map coordinates (from the place table) | 76% | 73% | 67% | 76% |
 | Property type | 87% | 95% | 67% | 88% |
-| Floor | 24% | 24% | 33% | 24% |
+| Floor | 24% | 25% | 33% | 24% |
 | Finishing | 17% | 10% | 0% | 15% |
-| Payment terms | 17% | 4% | 0% | 15% |
-| Building height (G+n) | 20% | 7% | 0% | 18% |
-| Posting date | 19% | 52% | 0% | 25% |
+| Payment terms | 17% | 5% | 0% | 15% |
+| Building height (G+n) | 20% | 8% | 0% | 18% |
+| Posting date | 19% | 55% | 0% | 26% |
 
 **Price, size, bedrooms and place all known: 311 listings (33%)**: 310 sale, 1 rent.
 
@@ -143,7 +144,7 @@ Things to know about these fields:
   sale listing has a rent.
 - **US dollar prices**: 29 usable listings quote US dollars, often per m² or per month.
   They are not converted and are left out of the model samples.
-- **Posting dates**: known for only 234 usable listings (11 in 2025, 223 in 2026). The
+- **Posting dates**: known for only 247 usable listings (11 in 2025, 236 in 2026). The
   other 699 only have the date they were collected (28 Dec 2025 – 15 Apr 2026), which is
   an upper bound, not the posting date.
 - **Coordinates** are one point per place (neighbourhood centre), and some are rough. They
@@ -168,8 +169,11 @@ A value is flagged when it cannot be right for Addis Ababa in 2025–2026: a sal
 outside 1,000–2,000,000 birr a month; a flat, studio or room under 15 m² or over 500 m²
 (studios and rooms over 100 m²); a flat with more than 6 bedrooms.
 
-**No usable listing breaks a rule today.** On 27 October 34 did. Reading their adverts
-showed parser mistakes only, all fixed in task S12:
+**One usable listing breaks a rule today:** 6043, a 3-bedroom flat of 125 m² for rent on
+the Betafrivip channel, which the channel rule calls a single room (that rule types every
+Bet_afri and Betafrivip post as a single room, apart from whole compounds). On 27 October
+34 listings broke a rule. Reading their adverts showed parser mistakes only, all fixed in
+task S12:
 
 - a rent, rental income, remaining balance or the cash part read as the sale price
   (now skipped; cash plus a bank loan the buyer takes over makes the price);
@@ -206,14 +210,17 @@ Location is thin at the neighbourhood level. The 394 listings fall in 56 places,
 combinations have 5 or more. Sub-city fixed effects, or distance from coordinates, are
 more realistic than one dummy per neighbourhood.
 
-**Rent sample: 21 listings** with rent, size, place and type, so a rent model is not
-possible. Without requiring size there are 113 (single room 51, studio 20, apartment 20,
-shop 8, others 14), mostly rooms and studios. That is enough to describe rents, not to
-model them.
+**Rent sample: 22 listings** with rent, size, place and type, so a rent model is not
+possible. Without requiring size there are 125 (single room 57, studio 20, apartment 20,
+shop 10, villa 10, others 8), mostly rooms and studios. That is enough to describe rents,
+not to model them. `rental_listings` (rebuilt in task S13) has one row for every rent or
+mixed listing with a rent: 129 rows, the 128 usable rentals with a rent plus listing 2046,
+whose kept "advert" class keeps it out of the usable listings.
 
 ## What would improve the data most
 
 1. Read the 3,333 waiting images (`MEDIA_PENDING`, 67% of listings).
 2. Fetch the real posting dates from Telegram for the 699 undated usable listings (the
    message ids are stored), so the model can include time.
-3. Give a sub-city to the places that lack one in `src/locations.py` (216 listings).
+3. Give a sub-city to the places that lack one in `src/locations.py` (226 listings).
+4. Refine the Bet_afri channel rule so flats posted there are not typed as single rooms.

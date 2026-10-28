@@ -14,6 +14,11 @@ automatically once the parser gives the same value, because then they are no
 longer needed. Protections that still hold back a different parser value are
 counted in the report, so they can be reviewed.
 
+rental_listings is a copy of the rental listings (for rental_yields). It is
+brought in line with the listings as re-processing leaves them: rows are added
+for new rentals, updated when their listing changed, and removed when their
+listing is no longer a rental or is gone (its message kept out).
+
 Usage:
     python src/reprocess.py                    # dry run: report only
     python src/reprocess.py --show location    # list every change to one field
@@ -28,7 +33,7 @@ from collections import Counter, defaultdict
 
 from sqlalchemy import create_engine, text
 
-from etl_runner import build_processed_values, price_per_sqm_values
+from etl_runner import INSERT_RENTAL, build_processed_values, is_rental, price_per_sqm_values, rental_row
 from locations import city_of
 from protection import (DERIVED_FIELDS, LEGACY_REASON, PARSER_WRITE_SQL, TRACKED_FIELDS,
                         from_text, same_value)
@@ -121,6 +126,25 @@ def plan(conn):
     return changes, retire, holding, counts
 
 
+def plan_rentals(conn, changes):
+    """rental_listings as the listings will be after `changes`: (rows to add, {id: {column: (old, new)}}, ids to remove)."""
+    listings = {r.id: dict(r._mapping) for r in conn.execute(text("SELECT * FROM processed_listings"))}
+    for pid, diff in changes.items():
+        listings[pid].update({field: new for field, (_, new) in diff.items()})
+    wanted = {row["id"]: row for row in (rental_row(v, v["raw_text"]) for v in listings.values() if is_rental(v))}
+    existing = {r.id: dict(r._mapping) for r in conn.execute(text("SELECT * FROM rental_listings"))}
+
+    add = [row for rid, row in wanted.items() if rid not in existing]
+    update = {}
+    for rid, row in wanted.items():
+        if rid in existing:
+            diff = {c: (existing[rid][c], v) for c, v in row.items() if c != "id" and not same_value(existing[rid][c], v)}
+            if diff:
+                update[rid] = diff
+    remove = sorted(rid for rid in existing if rid not in wanted)
+    return add, update, remove
+
+
 def report(changes, retire, holding, counts, conn) -> None:
     print("\nRE-PROCESSING REPORT")
     for label, n in counts.items():
@@ -145,7 +169,16 @@ def report(changes, retire, holding, counts, conn) -> None:
         print(f"      {f:<30} {n:>6}")
 
 
-def apply(conn, changes, retire) -> None:
+def report_rentals(add, update, remove, conn) -> None:
+    total = conn.execute(text("SELECT count(*) FROM rental_listings")).scalar()
+    by_column = Counter(c for diff in update.values() for c in diff)
+    print(f"\n  Rental rows (rental_listings, now {total}) that would change: "
+          f"{len(add)} added, {len(update)} updated, {len(remove)} removed -> {total + len(add) - len(remove)}")
+    for c, n in by_column.most_common():
+        print(f"      {c:<30} {n:>6}")
+
+
+def apply(conn, changes, retire, rentals=None) -> None:
     conn.execute(text(PARSER_WRITE_SQL))
     for pid, diff in changes.items():
         fields = list(diff)
@@ -156,9 +189,18 @@ def apply(conn, changes, retire) -> None:
     for pid, field in retire:
         conn.execute(text("DELETE FROM listing_overrides WHERE listing_id = :id AND field = :field AND reason = :reason"),
                      {"id": pid, "field": field, "reason": LEGACY_REASON})
+    add, update, remove = rentals or ([], {}, [])
+    for row in add:
+        conn.execute(text(INSERT_RENTAL), row)
+    for rid, diff in update.items():
+        conn.execute(text(f"UPDATE rental_listings SET {', '.join(f'{c} = :{c}' for c in diff)} WHERE id = :id"),
+                     {"id": rid, **{c: new for c, (_, new) in diff.items()}})
+    for rid in remove:
+        conn.execute(text("DELETE FROM rental_listings WHERE id = :id"), {"id": rid})
     conn.execute(text("REFRESH MATERIALIZED VIEW market_price_model"))
     conn.execute(text("REFRESH MATERIALIZED VIEW rental_yields"))
-    print(f"\nAPPLIED: updated {len(changes)} listings, retired {len(retire)} legacy protections, "
+    print(f"\nAPPLIED: updated {len(changes)} listings, retired {len(retire)} legacy protections; "
+          f"rental rows: {len(add)} added, {len(update)} updated, {len(remove)} removed; "
           "refreshed the materialized views.")
 
 
@@ -171,14 +213,16 @@ def main() -> None:
     with engine.begin() as conn:
         check_protection_installed(conn)
         changes, retire, holding, counts = plan(conn)
+        rentals = plan_rentals(conn, changes)
         report(changes, retire, holding, counts, conn)
+        report_rentals(*rentals, conn)
         if args.show:
             print(f"\n  Changes to {args.show} (listing id: stored -> new):")
             for pid, diff in sorted(changes.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0):
                 if args.show in diff:
                     print(f"    {pid}: {diff[args.show][0]!r} -> {diff[args.show][1]!r}")
         if args.apply:
-            apply(conn, changes, retire)
+            apply(conn, changes, retire, rentals)
         else:
             print("\nDRY RUN: nothing was changed (use --apply).")
 

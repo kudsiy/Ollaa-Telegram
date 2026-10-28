@@ -73,8 +73,8 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   (read-only); after re-processing or new data, re-run it and update the report.
 - The 829 protected values left after S8 were kept on purpose by the owner (see
   `database/migrations/2026_10_27_s8_release_protections.py`); 749 remained after S9 and
-  636 after S12, as the parser came to agree with the others. Do not release them without
-  asking.
+  636 after S12, as the parser came to agree with the others, and 622 after the owner
+  released 14 "advert" labels on real rentals in S13. Do not release them without asking.
 
 ## How the project runs
 
@@ -87,7 +87,8 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
 - `src/etl_runner.py` runs `src/run_pipeline.py` (`ValuationPipeline`) on new raw
   messages (skipping `processing_exclusions`) and writes `processed_listings` and
   `rental_listings`. It only adds listings; `src/reprocess.py` updates existing ones
-  with the same code (`build_processed_values`).
+  with the same code (`build_processed_values`) and keeps `rental_listings` in step (one
+  row per rent or mixed listing with a rent, made by `etl_runner.rental_row`).
 - `src/listener.py` does the same live, as messages arrive (configured chats only).
 - `src/run_all.py` runs scrape → ETL → repair scripts → dedup → views → report.
 - `src/processor.py` holds shared price, area and label helpers used by the pipeline.
