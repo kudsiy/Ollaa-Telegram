@@ -72,8 +72,9 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   outliers and the hedonic-model sample. Its numbers come from `database\data_quality.py`
   (read-only); after re-processing or new data, re-run it and update the report.
 - The 829 protected values left after S8 were kept on purpose by the owner (see
-  `database/migrations/2026_10_27_s8_release_protections.py`); 749 remain after S9,
-  where the parser came to agree with 80 of them. Do not release them without asking.
+  `database/migrations/2026_10_27_s8_release_protections.py`); 749 remained after S9 and
+  636 after S12, as the parser came to agree with the others. Do not release them without
+  asking.
 
 ## How the project runs
 
