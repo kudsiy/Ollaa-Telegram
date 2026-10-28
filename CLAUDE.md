@@ -107,6 +107,11 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   listing noise; a photo-only post is `MEDIA_PENDING`. (`src/fix_418.py` and
   `upgrade_brain.py`, which overwrote `run_pipeline.py` with old rules, were removed in
   S9; never bring them back.)
+- Photo-only posts: `src/media_pilot.py` (task S15) has Gemini copy the words in an image and
+  runs them through the text parser; see `MEDIA_PILOT.md`. Its full output
+  (`data/media_pilot/`) holds unmasked text with phone numbers: never commit it. Only 26
+  photo-only posts have their image on this laptop; downloading the rest uses the owner's
+  Telegram login and must be approved by the owner first.
 - `src/locations.py` is the only table of places. Every location code written anywhere
   must be a key of `PLACES` (or `noise` / `other_addis`). To add a place, add it to
   `PLACES` and its English and Amharic names to `ALIASES`, more specific names before the
