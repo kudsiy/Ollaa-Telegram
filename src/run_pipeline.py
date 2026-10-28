@@ -5,6 +5,13 @@ from datetime import datetime
 
 from locations import NOISE, UNKNOWN, city_of, find_location
 from processor import (
+    LABELED_BUILTUP_SQM_RE,
+    MILLION_RE,
+    MILLION_WORD,
+    RENT_MARKERS_RE,
+    SALE_MARKERS_RE,
+    _clean_area_value,
+    cash_plus_loan,
     extract_bedrooms,
     extract_area_breakdown,
     extract_labeled_location,
@@ -13,14 +20,33 @@ from processor import (
     extract_price_candidates_birr,
     find_price_per_sqm,
     MIN_READABLE_CHARS,
+    million_value,
     is_media_link_text,
     is_photo_only,
     is_noise_advert,
     parse_forum_topic_title,
     parse_million_amount,
+    same_sentence_after,
+    same_sentence_before,
+    strip_footer,
     strip_links,
     strip_price_per_sqm,
+    without_income,
 )
+
+
+RENT_ONLY_CHANNELS = {
+    "https://t.me/Bet_afri",
+    "https://t.me/Bet_afri_Business",
+    "https://t.me/Betafrivip",
+}
+# No home or shop rents for this much a month: an advert whose price is at least this,
+# with no words only a rental advert uses, is a sale ("Price: 21,000,000 ETB").
+SALE_ONLY_PRICE = 5_000_000
+
+
+def is_rent_only_channel(source_channel) -> bool:
+    return bool(source_channel) and source_channel.rstrip("/") in {c.rstrip("/") for c in RENT_ONLY_CHANNELS}
 
 
 class ValuationPipeline:
@@ -29,9 +55,11 @@ class ValuationPipeline:
         # ==========================================================
         # INTENT VOCABULARY
         # ==========================================================
+        # ("furnished" and "guest house" are not rent signals: houses for sale are furnished
+        # guest houses too.)
         self.RENT_SIGNALS = [
             "ኪራይ", "rent", "for rent", "monthly", "per month",
-            "deposit", "advance", "furnished", "guest house",
+            "deposit", "advance",
             "በወር", "ወርሃዊ", "ቅድሚያ", "አጋር",
             # @Bet_afri specific patterns
             "የሚከራይ",    # for rent (house)
@@ -98,7 +126,7 @@ class ValuationPipeline:
         # PROPERTY TYPES — RESIDENTIAL
         # ==========================================================
         self.TYPE_CONDOMINIUM = [
-            "condominium", "condo", "ኮንዶሚኒየም", "ኮንዶ",
+            "condominium", "condo", "ኮንዶሚኒየም", "ኮንደሚኒየም", "ኮንዶ",
             "40/60", "20/80",
         ]
 
@@ -117,8 +145,9 @@ class ValuationPipeline:
         # ==========================================================
         # PROPERTY TYPES — COMMERCIAL & INDUSTRIAL
         # ==========================================================
+        # ("store" and "storage" are not: houses list "laundry / store" among their rooms.)
         self.TYPE_WAREHOUSE = [
-            "warehouse", "መጋዘን", "store", "storage",
+            "warehouse", "መጋዘን",
             "ware house", "ware-house", "logistics",
         ]
 
@@ -181,18 +210,35 @@ class ValuationPipeline:
     # ==========================================================
     # STEP 1 — INTENT
     # ==========================================================
+    def has_rent_marker(self, text) -> bool:
+        """Words only a rental advert uses, outside the footer and the property's income
+        ("estimated rent price" in a sale advert is not one)."""
+        return bool(RENT_MARKERS_RE.search(without_income(self._norm(strip_footer(text)))))
+
     def classify_intent(self, text, source_channel=None):
         # Channel-level override: these channels exclusively list rentals.
-        RENT_ONLY_CHANNELS = {
-            "https://t.me/Bet_afri",
-            "https://t.me/Bet_afri_Business",
-            "https://t.me/Betafrivip",
-        }
-        if source_channel and source_channel.rstrip("/") in {c.rstrip("/") for c in RENT_ONLY_CHANNELS}:
+        if is_rent_only_channel(source_channel):
             return "RENT", 0.95
 
-        t = self._norm(text)
+        t = self._norm(strip_footer(text))
 
+        # Words only a sale advert or only a rental advert uses decide on their own; when
+        # both occur, the advert says what it is first ("ለሽያጭ የቀረበ … the neighbourhood's
+        # rent is 25,000"). A sale price per m² ("በካሬ 110,000 ብር") is a sale word too.
+        sale_marker = SALE_MARKERS_RE.search(t)
+        rent_marker = RENT_MARKERS_RE.search(without_income(t))
+        sale_at = sale_marker.start() if sale_marker else None
+        rent_at = rent_marker.start() if rent_marker else None
+        if sale_at is None and find_price_per_sqm(unicodedata.normalize("NFKC", strip_footer(text))):
+            sale_at = len(t)   # no position of its own: rent words, if any, come first
+        if sale_at is not None and (rent_at is None or sale_at < rent_at):
+            return "SALE", 0.9 if rent_at is None else 0.7
+        if rent_at is not None:
+            return "RENT", 0.9 if sale_at is None else 0.7
+
+        # A rent or income that a property earns ("በወር 300,000 ብር ገቢ", "Monthly income")
+        # does not make its advert a rental.
+        t = without_income(t)
         sale_score = sum(1 for w in self.SALE_SIGNALS if w in t)
         rent_score = sum(1 for w in self.RENT_SIGNALS if w in t)
 
@@ -247,8 +293,11 @@ class ValuationPipeline:
         if "ባለቤት" in t:
             return "DIRECT_LISTING"
 
-        rent_present = any(w in t for w in self.RENT_SIGNALS)
-        sale_present = any(w in t for w in self.SALE_SIGNALS)
+        # As in classify_intent: the footer and the property's income do not count, and an
+        # intent decided by words only a sale (or rental) advert uses is the listing's.
+        body = without_income(self._norm(strip_footer(text)))
+        rent_present = any(w in body for w in self.RENT_SIGNALS) or intent == "RENT"
+        sale_present = (any(w in body for w in self.SALE_SIGNALS) or intent == "SALE") and intent != "RENT"
 
         dev_name, dev_conf = self.extract_developer(text)
         is_known_developer = dev_name in self.DEVELOPER_NAMES and dev_conf >= 0.9
@@ -293,7 +342,7 @@ class ValuationPipeline:
         return False
     def extract_g_plus_level(self, text):
         t = self._norm(text)
-        m = re.search(r'\bg\+(\d{1,2})\b', t)
+        m = re.search(r'(?:\bg|ጂ)\s*\+\s*(\d{1,2})\b', t)   # "G+8", "B2 + G + 8", "ጂ+2"
         if not m:
             return None
         try:
@@ -301,12 +350,31 @@ class ValuationPipeline:
         except ValueError:
             return None
 
+    # An apartment word, also in hashtags ("#AddisAbabaApartments"). Not "ለአፓርታማ"
+    # (suitable for apartments, said of land).
+    APARTMENT_WORD_RE = re.compile(r"apartment|\bflats?\b|penthouse|(?<!ለ)(?:አፓርታማ|አፖርትመንት|አፓርትመንት|ፔንትሃውስ)")
+    HASHTAG_RE = re.compile(r"#\S+")
+    # The floor a flat is on: "6F", "4ኛ ፎቅ", "ደረጃ=4ኛ", "5th floor", "Floor: 3".
+    UNIT_FLOOR_RE = re.compile(
+        r"\b\d{1,2}f\b|\d\s*ኛ\s*(?:ፎቅ|ፍሎር|ወለል)|ደረጃ\s*[=:፦-]?\s*\d|\b\d{1,2}(?:st|nd|rd|th)\s*floor"
+        r"|\bfloor\s*[:፦]\s*\d")
+    # One flat in a tall building: its floor, "3 Beds | 2 Baths", or "በወለል 4 ቤቶች" (4 flats a floor).
+    UNIT_IN_BUILDING_RE = re.compile(UNIT_FLOOR_RE.pattern + r"|\b\d\s*beds?\b|በ\s*(?:ወለል|ፍሎር|floor)\s*\d+\s*(?:ቤት|አባወራ)")
+    # A whole building for sale: "ህንፃ ለሽያጭ", "ለሽያጭ የቀረበው ህንፃ" (the building offered for sale),
+    # "the building owner", "building for sale", "ከ1ኛ እስከ 3ኛ ፎቅ" (from the 1st to the 3rd floor).
+    WHOLE_BUILDING_RE = re.compile(
+        r"ህንፃ\s*ለሽያጭ|(?:የሚሸጥ|ለሽያጭ)[^\n]{0,15}?ህንፃ|ሙሉ\s*ህንፃ|የህንፃ\s*ባለቤት|ህንፃው\s*(?:ይሸጣል|ለሽያጭ)"
+        r"|ከ\s*\d+\s*ኛ\s*እስከ\s*\d+\s*ኛ"
+        r"|building\s*for\s*sale|whole\s*building|mixed[\s-]*used?\s*building")
+
     def classify_type(self, text):
+        text = strip_footer(text)
         t = self._norm(text)
         g_plus_level = self.extract_g_plus_level(t)
-        
+
         has_bedroom = "መኝታ" in t or "bed" in t
         has_floor_context = g_plus_level is not None or "ፎቅ" in t or "floor" in t
+        apartment_word = bool(self.APARTMENT_WORD_RE.search(t))
 
         if is_media_link_text(text):
             return "MEDIA_LINK", 0.99
@@ -317,8 +385,20 @@ class ValuationPipeline:
         if any(x in t for x in ["studio", "ስቱዲዮ"]):
             return "STUDIO", 0.95
 
+        # One flat, shop or office in a G+12 building is not the building.
+        unit_in_tall_building = False
         if g_plus_level is not None and g_plus_level >= 5:
-            return "COMMERCIAL_BUILDING", 0.95
+            if (apartment_word or self.UNIT_IN_BUILDING_RE.search(t)) and not self.WHOLE_BUILDING_RE.search(t):
+                # A flat, unless the text clearly offers an office, shop or warehouse ("ቢሮ" and
+                # "ሱቅ" alone are often just the building's other floors).
+                clearly_other = (any(w in t for w in self.TYPE_WAREHOUSE)
+                                 or any(w in t for w in self.TYPE_OFFICE if w != "ቢሮ")
+                                 or any(w in t for w in self.TYPE_COMMERCIAL if w not in ("ሱቅ", "ሱቃ", "ሱቆ")))
+                if apartment_word and not clearly_other:
+                    return "APARTMENT", 0.9
+                unit_in_tall_building = True   # a shop or office if the text says so, else a flat
+            else:
+                return "COMMERCIAL_BUILDING", 0.95
 
         # Commercial / Industrial first (before residential checks)
         if any(w in t for w in self.TYPE_WAREHOUSE) or "መጋዘን" in t:
@@ -342,10 +422,24 @@ class ValuationPipeline:
         if any(w in t for w in self.TYPE_CONDOMINIUM) or any(w in t for w in ["ኮንዶሚኒየም", "ኮንዶ"]):
             return "CONDOMINIUM", 0.97
 
-        if any(w in t for w in self.TYPE_APARTMENT) or any(w in t for w in ["አፓርትመንት", "አፓርታማ", "አፓርት", "ፎቅ ቤት"]):
+        if unit_in_tall_building:
+            return "APARTMENT", 0.9
+
+        # A G+1 to G+4 house with its bedrooms is a villa, unless one of its floors is
+        # what is offered ("4ኛ ፎቅ", "5th floor") or its text, not just a hashtag
+        # ("#rohaapartment" is a brand), calls it an apartment.
+        if (g_plus_level is not None and not self.UNIT_FLOOR_RE.search(t)
+                and not self.APARTMENT_WORD_RE.search(self.HASHTAG_RE.sub(" ", t))):
+            return "VILLA", 0.9
+
+        if apartment_word or re.search(r"(?<!ለ)አፓርት", t) or "ፎቅ ቤት" in t:
             return "APARTMENT", 0.95
-            
-        if "መኝታ ቤት" in t and has_floor_context:
+
+        if re.search(r"villa|ቪላ", t):
+            return "VILLA", 0.9
+
+        # A home on a given floor ("ደረጃ=4ኛ", "3rd floor") of a building is a flat.
+        if ("መኝታ ቤት" in t and has_floor_context) or (g_plus_level is None and self.UNIT_FLOOR_RE.search(t)):
             return "APARTMENT", 0.95
 
         if any(w in t for w in self.TYPE_TOWNHOUSE):
@@ -435,9 +529,21 @@ class ValuationPipeline:
 
         inferred_plot, inferred_built = extract_area_breakdown(text)
 
-        # For commercial/industrial always treat area as builtup
-        if p_type in ("WAREHOUSE", "OFFICE", "COMMERCIAL", "COMMERCIAL_BUILDING"):
-            return None, inferred_built or raw_area, 0.0, 0.9
+        # A whole building's area is its land or the ground it stands on, not its floor
+        # area, unless the text calls a size built-up or floor area.
+        if p_type == "COMMERCIAL_BUILDING":
+            built = next((v for v in (_clean_area_value(m.group(1)) for m in LABELED_BUILTUP_SQM_RE.finditer(text))
+                          if v is not None), None)
+            return inferred_plot or raw_area, built, 0.9, 0.9 if built else 0.0
+
+        # Offices, shops and warehouses: the floor area: a size called built-up, else the
+        # "Total ....... 1500 m2" of several listed spaces.
+        if p_type in ("WAREHOUSE", "OFFICE", "COMMERCIAL"):
+            labelled = next((v for v in (_clean_area_value(m.group(1)) for m in LABELED_BUILTUP_SQM_RE.finditer(text))
+                             if v is not None), None)
+            total = TOTAL_AREA_RE.search(text)
+            total = _clean_area_value(total.group(1)) if total else None
+            return None, labelled or total or inferred_built or raw_area, 0.0, 0.9
 
         if intent not in ["SALE", "MIXED", "RENT"]:
             return None, None, 0.0, 0.0
@@ -448,7 +554,9 @@ class ValuationPipeline:
         plot_keywords  = ["plot", "land", "compound", "total area", "ይዞታ", "መሬት", "ቦታ"]
 
         if p_type in ("APARTMENT", "CONDOMINIUM"):
-            return None, inferred_built or raw_area, 0.0, 0.95
+            built = inferred_built or raw_area
+            # Over 1,000 m² is the site or the building ("Apartment 3B+G+14 4000 ካሬ"), not one flat.
+            return None, built if built and built <= 1000 else None, 0.0, 0.95
 
         if inferred_plot is not None or inferred_built is not None:
             return inferred_plot, inferred_built, 0.95 if inferred_plot is not None else 0.0, 0.95 if inferred_built is not None else 0.0
@@ -699,8 +807,10 @@ class ValuationPipeline:
         beds, baths                 = self.extract_rooms(text)
 
         # A price per m² is neither a total nor a size: read those from the text without it.
-        asking_per_sqm = find_price_per_sqm(text)
-        number_text    = strip_price_per_sqm(text)
+        # NFKC turns decorative digits and letters ("𝟭𝟮,𝟵𝟵𝟵,𝟬𝟬𝟬 𝗘𝗧𝗕") into plain ones.
+        number_source  = unicodedata.normalize("NFKC", text or "")
+        asking_per_sqm = find_price_per_sqm(number_source)
+        number_text    = strip_price_per_sqm(number_source)
 
         area = record.get("extracted_area") or extract_area_from_text(number_text)
 
@@ -712,11 +822,24 @@ class ValuationPipeline:
         finish, finish_c            = self.extract_finish(text)
         dev, dev_c                  = self.extract_developer(text)
         bank_loan_pct, down_pct     = self.extract_financing_details(text)
-        sale_price, rent_price, rent_advance = extract_prices(number_text, property_type=p_type)
-        # Only a price per m² was given: the total is that price times the size.
-        if sale_price is None and asking_per_sqm:
+        sale_price, rent_price, rent_advance = extract_prices(number_text, property_type=p_type, intent=intent)
+        biggest = max((p for p in (sale_price, rent_price) if p is not None), default=0)
+        if (intent in ("RENT", "UNKNOWN", "MIXED") and not photo_only and biggest >= SALE_ONLY_PRICE
+                and not self.has_rent_marker(text)
+                and not is_rent_only_channel(record.get("source_channel"))):
+            intent = "SALE"
+            listing_class = self.classify_listing_class(text, intent)
+            plot, built, plot_c, built_c = self.resolve_area(intent, p_type, area, number_text)
+            if built is not None and built < 1:
+                built = None
+            sale_price, rent_price, rent_advance = extract_prices(number_text, property_type=p_type, intent=intent)
+        # Only a price per m² was given: the total is that price times the size. A total
+        # that does not fit the price per m² (it would mean a home of 837 m²) is some other
+        # sum ("100 ሚሊዮን" of company capital), and the price per m² times the size wins.
+        if asking_per_sqm and intent != "RENT":
             size = plot if p_type == "LAND" else (built or plot)
-            if size:
+            fits = sale_price is not None and (p_type == "LAND" or 15 <= sale_price / asking_per_sqm <= 600)
+            if size and not fits:
                 sale_price = int(round(asking_per_sqm * size))
         contact_phone, contact_user = self.extract_contact(text)
         currency, price_usd         = self.detect_currency(text)
@@ -798,8 +921,9 @@ class ValuationPipeline:
 # ==============================================================
 
 AREA_PATTERNS = [
-    r'(\d{2,5})\s*(?:ካሬ|sqm|sq\.?m|m2|m²)',
+    r'(?<![\d.,])(\d{2,5})(?:\.\d+)?(?:\s*\(\d+(?:\.\d+)?\))?\s*(?:ካሬ|sqm|sq\.?m|m2|m²)',   # "158.72 ካሬ" is 158
 ]
+TOTAL_AREA_RE = re.compile(r"(?:total|ጠቅላላ\s*ስፋት)[\s.\-:፦…]*(\d{2,5})\s*(?:m2|m²|sqm|ካሬ)", re.IGNORECASE)
 
 
 def extract_area_from_text(text: str):
@@ -855,15 +979,34 @@ PRICE_BIRR_PATTERNS = [
 PRICE_BIRR_MIN = 2_000       # below this = not a real price (room number, code, etc.)
 PRICE_BIRR_MAX = 500_000_000 # above this = extraction error
 # Words that mark a number as a part of the price or another sum, not the sale price:
-# down payment, advance, loan, repayment, income, commission.
+# down payment, advance, loan, repayment, income, commission, a rent (paid now or
+# expected), a profit, the remaining balance, a bank loan.
 NOT_A_TOTAL_RE = re.compile(
-    r"ቅድመ\s*ክፍያ|ቅድሚያ|ብድር|ተመላሽ|ገቢ|ኮሚሽን|down\s*payment|advance|loan|income|commission",
+    r"ቅድመ\s*ክፍያ|ቅድሚያ|ብድር|ተመላሽ|ገቢ|ኮሚሽን|down\s*payment|advance|loan|income|commission"
+    r"|ተከራ|መከራየት|ይከራያል|ኪራይ|\brent|per\s*month|/\s*months?|monthly|በወር|ወርሃዊ|ወርሀዊ"
+    r"|ትርፍ|ቀሪ|(?<!በ)ባንክ|annual|yearly",
     re.IGNORECASE,
 )
 TOTAL_WORDS_RE = re.compile(r"ጠቅላላ|አጠቃላይ|ሙሉ|total|full", re.IGNORECASE)
+# Broker headings give the asking price after a dash and no price word:
+# "KAZANCHIES : HILTON – 24,999,000 - 3 Beds", "ቦሌ : ጌቱ ጀርባ ° 19,999,000 - 3 Beds",
+# "Figa: Noah Real-Estate ° 9.8 million - 2 beds". (Not the end of a range "8,000,000 – 9,000,000".)
+HEADING_PRICE_RE = re.compile(
+    r"(?<![\d,])(?<![\d,]\s)[–—\-°]\s*"
+    r"(?:(?P<num>\d{1,3}(?:,\d{3}){2,})|(?P<mil>\d+(?:\.\d+)?)\s*" + MILLION_WORD + r")"
+    r"\s*(?:ብር|birr|etb)?\s*(?=[\-–—|(\n]|$)",
+    re.IGNORECASE,
+)
 
 
-def extract_prices(text: str, property_type: str | None = None):
+def _not_a_total(t: str, start: int, end: int) -> bool:
+    """A down payment, rent, income, … next to this number in the same sentence, and no
+    "total" just before it."""
+    near = same_sentence_before(t, start, 25) + t[start:end] + same_sentence_after(t, end, 12)
+    return bool(NOT_A_TOTAL_RE.search(near) and not TOTAL_WORDS_RE.search(t[max(0, start - 15): start]))
+
+
+def extract_prices(text: str, property_type: str | None = None, intent: str | None = None):
     t = text.lower()
 
     sale_price   = None
@@ -878,11 +1021,17 @@ def extract_prices(text: str, property_type: str | None = None):
         "ሽያጭ", "for sale", "sale", "selling", "ownership",
         "title deed", "ካርታ", "በሽያጭ", "በሺያጭ", "ሺያጭ",
     ])
+    # A known intent decides what kind of price a number is: a rental has no sale price,
+    # and the rent or income a property for sale earns is not its price.
+    if intent == "SALE":
+        rent_context, sale_context = False, True
+    elif intent == "RENT":
+        rent_context, sale_context = True, False
 
     # Price priority rule:
     # - If multiple prices exist, larger is sale_price, smaller likely rent.
     # - Never pick <1M as sale price if a larger number exists.
-    candidates = extract_price_candidates_birr(t)
+    candidates = extract_price_candidates_birr(t) if intent != "RENT" else []
     if candidates:
         max_p = max(candidates)
         min_p = min(candidates)
@@ -894,6 +1043,13 @@ def extract_prices(text: str, property_type: str | None = None):
             birr = extract_price_birr(t, property_type=property_type)
             if birr:
                 sale_price = birr
+
+    # (Also when the intent is not known: a price of millions makes the listing a sale, see process().)
+    if sale_price is None and intent != "RENT":
+        m = HEADING_PRICE_RE.search(t)
+        if m:
+            sale_price = (int(m.group("num").replace(",", "")) if m.group("num")
+                          else int(round(float(m.group("mil")) * 1_000_000)))
 
     # Birr amounts — rental prices like 23,000 ብር or sale prices
     found = False
@@ -915,8 +1071,7 @@ def extract_prices(text: str, property_type: str | None = None):
             else:
                 # A down payment, loan, income or commission is not the price: try the next
                 # number. "ጠቅላላ"/"ሙሉ" (total/full) just before it makes it the price anyway.
-                if (NOT_A_TOTAL_RE.search(t[max(0, m.start() - 25): m.end() + 12])
-                        and not TOTAL_WORDS_RE.search(t[max(0, m.start() - 15): m.start()])):
+                if _not_a_total(t, m.start(), m.end()):
                     continue
                 if sale_price is None:
                     sale_price = val
@@ -924,6 +1079,27 @@ def extract_prices(text: str, property_type: str | None = None):
             break
         if found:
             break
+
+    # A rent given as "Price: 100,000 per month", without "ብር" (not "Price (USD): 1780").
+    if intent == "RENT" and rent_price is None and not re.search(r"\busd\b|\$|dollar|ዶላር", t):
+        rent_price = extract_price_birr(t, property_type=property_type, for_rent=True)
+
+    if intent != "RENT":
+        # "ዋጋ" and "ብር" both missing: "9.8 million", "61 ሚሊየን".
+        if sale_price is None and rent_price is None:
+            for m in MILLION_RE.finditer(t):
+                value = million_value(m)
+                if re.search(r"ዶላር|dollar|usd|\$", t[m.end(): m.end() + 20]):   # "150 ሚሊዮን (የአሜሪካ) ዶላር"
+                    continue
+                if re.search(r"ከ\s*$", t[max(0, m.start() - 3): m.start()]):   # "ከ 2.5 ሚልዮን ጀምሮ": a starting price
+                    continue
+                if PRICE_BIRR_MIN <= value <= PRICE_BIRR_MAX and not _not_a_total(t, m.start(), m.end()):
+                    sale_price = value
+                    break
+        # The cash part of a sale whose buyer also takes over the seller's bank loan.
+        parts = cash_plus_loan(t)
+        if parts and (sale_price is None or sale_price == parts[0]):
+            sale_price = parts[0] + parts[1]
 
     return sale_price, rent_price, rent_advance
 

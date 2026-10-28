@@ -68,6 +68,57 @@ CASES = [
     ("ለሽያጭ 2መኝታ አፓርትመንት 81 ካሬ ዋጋ 5.7 ሚሊዮን ብር", 5_700_000, None, 81),
     # Unchanged: a plain total price.
     ("ለሽያጭ አፓርትመንት 101 ካሬ ዋጋ 12,800,000 ብር", 12_800_000, None, 101),
+    # S12: a rent, a rental income or a remaining balance is not the sale price.
+    ("የሚሸጥ አፓርትመንት 141 ካሬ ቤቱ አሁን ላይ 120,000 ብር ድረስ ይከራያል የሽያጭ ዋጋ 24,999,000 ብር", 24_999_000, None, 141),
+    ("ለሽያጭ ባለ1 መኝታ ኮንዶሚኒየም 🌀52ካሬ 🌀30,000 ብር የሚከራይ 💰..የመሸጫ ዋጋ 🔹በካሽ 5.7 ሚሊየን ብር 🔹በባንክ 6 ሚሊየን ብር",
+     5_700_000, None, 52),
+    ("የሚሸጥ ሱቅ 70 ካሬ 🌀 ቀሪ 550,000 ብር ክፍያ አለው 💰.. የመሸጫ ዋጋ ለእጁ 4.6 ሚሊየን ብር", 4_600_000, None, 70),
+    # ...broker headings give the price after a dash, with no price word:
+    ("KAZANCHIES : HILTON – 24,999,000 - 3 Beds | 2 Baths | 1F | 141 sqm - Rented Furnished: 120,000 ብር / months "
+     "#አከፋፈል ካሽ (በገዢ በኩል)", 24_999_000, None, 141),
+    ("ቦሌ : ጌቱ ጀርባ ° 19,999,000 - 3 Beds / 2 Baths / 6F / 137 sqm - ቤቱ አሁን ላይ 120,000 ብር ተከራይቶ ነው የሚገኘው። "
+     "ገዢን", 19_999_000, None, 137),
+    ("Figa: Noah Real-Estate ° 9.8 million - 2 beds / 2 baths / 5F / 72 sqm - የመከራየት አቅማቸው ከ40,000 ብር በላይ ነው።",
+     9_800_000, None, 72),
+    # ...an old price is not the price: "ዋጋው 19 ሚሊዮን ነበር" (the price was 19 million).
+    ("ለሽያጭ የቀረበ አፓርትመንት ዋጋው 19 ሚሊዮን ነበር አሁን ለሽያጭ የወጣው 14,560,000 ብር ነው።", 14_560_000, None, None),
+    # Other ways of writing the price: "6,400 000", dots, decorative digits, "55,000,000 ሚሊዮን".
+    ("የሚሸጥ 40/60 ቤት አያት ሳይት 4 🥢ስፋት 72ካሬ 🥢ደረጃ 9 🥢ዋጋ 6,400 000 ብር ጥሪ", 6_400_000, None, 72),
+    ("የሚሸጥ G+2 መኖሪያ ቤት ፋት: 301 m² ዋጋ ....................... 59 ሚልዮን ቀርበው ይደራደሩ", 59_000_000, None, None),
+    ("only Fully Finished Apartment Bole Bulbula 3 Beds • 7Floor • 154 sqm 𝟭𝟳,𝟰𝟵𝟵,𝟬𝟬𝟬 𝗘𝗧𝗕 for sale",
+     17_499_000, None, 154),
+    ("የሚሸጥ G+3 ህንፃ 150 M2 180,000 ብር ገቢ ያለው Mixed used building 55,000,000 ሚሊዮን ብር", 55_000_000, None, None),
+    # Cash plus the seller's bank loan that the buyer takes over is the price.
+    ("ለሽያጭ ኮንዶሚኒየም 86 ካሬ 👉1,500,000 ብር ካሽ ( ለእጅ ) 👉5,000,000 ብር ባንክ 🔹የወር የባንክ ተመላሽ 38,000 ብር",
+     6_500_000, None, 86),
+    ("የሚሸጥ አፓርትመንት 175 ካሬ ባንክ 10 ሚሊዮን ብር አለበት ካሽ 5,500,000 ብር 👉160 ሺ ብር በወር የባንክ ተመላሽ",
+     15_500_000, None, 175),
+    # More ways of giving a price per m²: "እስከ" (to), words before the number, "Price/m²".
+    # ("ከ 2.5 ሚልዮን … ጀምሮ", from 2.5 million, is the cheapest unit of all sites, not this one.)
+    ("የንግድ ሱቅ ለሽያጭ 80 ካሬ 🏦 ዋጋ በካሬ 95,000 እስከ 115,000 ብር 👉 ቅድመ ክፍያ 10% ጀምሮ + ከ 2.5 ሚልዮን ሙሉ ክፍያ ጀምሮ",
+     7_600_000, 95_000, 80),
+    # Several buildings in one post: the first price is read, also after "monthly income".
+    ("1, Around 22 plot 200 m² Built-up 130 m² G+4 Guesthouse for sale 500,000 birr monthly income price 65 million "
+     "negotiable 2, Around Saris 300 m2 G+5 Guesthouse price 270 million", 65_000_000, None, 130),
+    ("ለሽያጭ ባለ 1መኝታ አፓርትመንት 60 ካሬ 👉የመሽጫ ዋጋ በካሬ semi finished 95,000ብር በካሬ fully finished 105,000ብር",
+     5_700_000, 95_000, 60),
+    ("Keraniyo Apartment for sale 2BR: 100 m² – 4th Floor 💰 Price/m²: 140,000 ETB – Fully Finished", 14_000_000,
+     140_000, 100),
+    # A size is the whole number: "158.72 ካሬ" is 158 m², not 72.
+    ("ለሽያጭ አፓርትመንት 158.72 ካሬ ባለ ሁለት መኝታ 17ኛ ፎቅ ጠቅላላ ዋጋ 16,864,000 ብር", 16_864_000, None, 158),
+    # ...and the number after "sqm" is not a size.
+    ("Apartment for sale Bole 3 Beds / 3 Baths / 189 sqm 29,999,000 Birr", 29_999_000, None, 189),
+    # Dollars are not birr: news of a "150 ሚሊዮን ዶላር" (150 million dollar) auction.
+    ("ብሔራዊ ባንክ የ150 ሚሊዮን ዶላር ልዩ የውጭ ምንዛሬ ጨረታ ሊያካሂድ ነው ሽያጭ", None, None, None),
+]
+
+# Rentals: the rent is the rent, and a rental has no sale price.
+# (text, expected intent, rent)
+RENTALS = [
+    ("Apartment for rent Location: Kazanchis Bedroom:3 Price:100,000 birr", "RENT", 100_000),
+    ("Furnished Apartment for rent Location:Shola Bedrooom:2 Price:100,000 per month", "RENT", 100_000),
+    ("🏡 RENT🏡 💰Price (USD): 1780 📍Area:Bole 🏠Type: Office for rent", "RENT", None),
+    ("ለኪራይ የቀረበ ባለ1 መኝታ 40/60 🔹58 ካሬ 👉👉..የኪራይ ዋጋ 30,000 ብር ✅ ሲከራዩ 10% ኮሚሽን ይከፍሉናል", "RENT", 30_000),
 ]
 
 
@@ -111,7 +162,22 @@ def main():
     failures += not ok
     print(f"{'ok  ' if ok else 'FAIL'} rent next to its advance: rent={r['rent_price_birr']}")
 
-    print(f"\n{'PASS' if not failures else 'FAILED'}: {len(CASES) + 6 - failures} of {len(CASES) + 6} checks passed.")
+    for text, intent, rent in RENTALS:
+        r = P.process({"id": "t", "text": text})
+        got = (r["intent"], r["rent_price_birr"], r["sale_price_birr"])
+        ok = got == (intent, rent, None)
+        failures += not ok
+        print(f"{'ok  ' if ok else 'FAIL'} rental: intent={got[0]} rent={got[1]} sale={got[2]} | {text[:50]}")
+
+    # A labelled plot size is the plot ("የቦታ ስፋት" = size of the plot), also for a G+3 house.
+    r = P.process({"id": "t", "text": "ልዩ የመኖሪያ ዕድል በመገናኛ 📐 የቦታ ስፋት፦ 930 ካሬ ሜትር 🏢 የቤቱ ሁኔታ፦ G+3 የሆነ ቤት "
+                                      "የሽያጭ ዋጋ፦ 💰 400 ሚሊዮን ብር #rohaapartment"})
+    ok = (r["property_type"], r["plot_sqm"], r["builtup_sqm"]) == ("VILLA", 930, None)
+    failures += not ok
+    print(f"{'ok  ' if ok else 'FAIL'} plot size: type={r['property_type']} plot={r['plot_sqm']} built={r['builtup_sqm']}")
+
+    checks = len(CASES) + 7 + len(RENTALS)
+    print(f"\n{'PASS' if not failures else 'FAILED'}: {checks - failures} of {checks} checks passed.")
     sys.exit(1 if failures else 0)
 
 

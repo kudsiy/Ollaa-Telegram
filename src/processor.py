@@ -70,7 +70,8 @@ def extract_labeled_location(text: str) -> Optional[str]:
 
 
 LABELED_PLOT_SQM_RE = re.compile(
-    r"(?:area|plot|land|compound|total area|ይዞታ|መሬት|ቦታ)\s*[:፦-]?\s*(\d{2,5})\s*(?:sqm|sq\.?m|m2|m²|ካሬ)?",
+    # "የቦታ ስፋት፦ 930 ካሬ", "የቦታው ስፋት ........ 572 ካሬ" (size of the plot) are plot sizes too.
+    r"(?:area|plot|land|compound|total area|ይዞታ|መሬት|ቦታው?\s*ስፋት|ቦታ)\s*[:፦\-\.…]*\s*(\d{2,5})\s*(?:sqm|sq\.?m|m2|m²|ካሬ)?",
     re.IGNORECASE,
 )
 
@@ -79,7 +80,9 @@ LABELED_BUILTUP_SQM_RE = re.compile(
     re.IGNORECASE,
 )
 
-GENERIC_AREA_RE = re.compile(r"(\d{2,5})\s*(?:ካሬ|sqm|sq\.?m|m2|m²)", re.IGNORECASE)
+# "235.71(199)sqm" is the gross size with the net size in brackets.
+GENERIC_AREA_RE = re.compile(r"(?<![\d.,])(\d{2,5})(?:\.\d+)?(?:\s*\(\d+(?:\.\d+)?\))?\s*(?:ካሬ|sqm|sq\.?m|m2|m²)",
+                             re.IGNORECASE)
 
 
 def _clean_area_value(raw: str | None) -> Optional[int]:
@@ -150,7 +153,15 @@ def extract_area_breakdown(text: str) -> tuple[Optional[int], Optional[int]]:
 # ሚልየን, ሚሊዬን, ሚለን, ሚሊ, or just ሚ. ("ሚሊትር", millilitre, is not one.)
 MILLION_WORD = (r"(?:mil(?:lion)?|million|ሚ[ሊል][ዮየዬ]ን|ሚለን"
                 r"|ሚሊ(?![ሀ-፿])|ሚ(?![ሀ-፿])|ሚ\.)")
-MILLION_RE = re.compile(r"(?P<num>\d+(?:\.\d+)?)\s*" + MILLION_WORD, re.IGNORECASE)
+# A whole number, not the end of one ("158.5 ሚሊዮን" is not 5 million); "55,000,000 ሚሊዮን"
+# repeats the word and is 55 million.
+MILLION_RE = re.compile(r"(?<![\d,.])(?P<num>\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*" + MILLION_WORD, re.IGNORECASE)
+
+
+def million_value(m) -> int:
+    """The amount a MILLION_RE match stands for."""
+    val = float(m.group("num").replace(",", ""))
+    return int(round(val if val >= 1_000_000 else val * 1_000_000))
 
 
 def parse_million_amount(text: str) -> Optional[int]:
@@ -160,10 +171,9 @@ def parse_million_amount(text: str) -> Optional[int]:
     if not m:
         return None
     try:
-        val = float(m.group("num"))
+        return million_value(m)
     except ValueError:
         return None
-    return int(val * 1_000_000)
 
 
 # --- Bedroom extractor --------------------------------------------------------
@@ -235,13 +245,15 @@ def normalize_sale_price(price: Optional[int]) -> Optional[int]:
     return price
 
 
+# "ስፋት 120", "area: 120", "ካሬ: 120". After a bare unit the next number is something else
+# ("189 sqm 29,999,000 Birr"), and a number is never the start of a bigger one.
 STRICT_AREA_AFTER_RE = re.compile(
-    r"(?:area|ስፋት|ካሬ|sqm|m2|ካሬ\s*ሜትር)\s*[:፦-]?\s*(\d{2,5})",
+    r"(?:(?:area|ስፋት)\s*[:፦-]?|(?:ካሬ\s*ሜትር|ካሬ|sqm|m2)\s*[:፦-])\s*(\d{2,5})(?![\d,])",
     re.IGNORECASE,
 )
 
 STRICT_AREA_BEFORE_RE = re.compile(
-    r"(\d{2,5})\s*(?:ካሬ\s*ሜትር|ካሬ|sqm|m2)",
+    r"(?<![\d.,])(\d{2,5})(?:\.\d+)?(?:\s*\(\d+(?:\.\d+)?\))?\s*(?:ካሬ\s*ሜትር|ካሬ|sqm|m2)",   # "158.72 ካሬ" is 158
     re.IGNORECASE,
 )
 
@@ -249,9 +261,15 @@ STRICT_AREA_BEFORE_RE = re.compile(
 # "ሙሉ ክፍያ 5.7ሚሊዮን" (full payment), "ጠቅላላ ክፍያ 6,800,000ብር" (total payment).
 # Not plain "ጠቅላላ": "ጠቅላላ 1000 ካሬው ነው" is a total size.
 # (right after a price word, "M" alone also means million).
+# A price word may be followed by a few other characters before its number:
+# "ዋጋ ............ 60 ሚልዮን", "#ዋጋው 68 ሚሊዮን", "የመሸጫ ዋጋ 🔹በካሽ 5.7 ሚሊየን" (in cash).
+# "6,400 000" (a space between thousands) is 6,400,000.
+_ANCHOR_NUM = r"(?P<num>\d[\d,\.]*(?:\s\d{3}(?![\d,]))*)"
 STRICT_ANCHORED_PRICE_RE = re.compile(
-    r"(?:asking\s*price|መሸጫ\s*ዋጋ|ጠቅላላ\s*ዋጋ|ጠቅላላ\s*ክፍያ|ሙሉ\s*ክፍያ|full\s*payment|price|ዋጋ|birr|etb)"
-    r"\s*[:፦=\-]{0,2}\s*(?P<num>\d[\d,\.]*)\s*"
+    r"(?:(?:asking\s*price|መሸጫ\s*ዋጋ|መሽጫ\s*ዋጋ|ጠቅላላ\s*ዋጋ|ጠቅላላ\s*ክፍያ|ሙሉ\s*ክፍያ|full\s*payment|price|ዋጋ)"
+    r"[^\d\n]{0,30}?(?<!ከ)(?<!ከ\s)"     # not "ከ 2.5 ሚልዮን" (from 2.5 million: a starting price)
+    r"|(?:birr|etb)\s*[:፦=\-]{0,2}\s*)"
+    + _ANCHOR_NUM + r"\s*"
     r"(?P<million>" + MILLION_WORD + r"|m(?![\w²]))?",
     re.IGNORECASE,
 )
@@ -262,7 +280,7 @@ MEDIA_PLACEHOLDERS = ("[media only]", "[pdf only]")
 LINK_RE = re.compile(r"https?://\S+", re.IGNORECASE)
 # A post with fewer characters than this (links left out) has nothing to read.
 MIN_READABLE_CHARS = 30
-VEHICLE_ADVERT_RE = re.compile(r"\b(?:toyota|yaris|suzuki|vitz)\b", re.IGNORECASE)
+VEHICLE_ADVERT_RE = re.compile(r"\b(?:toyota|yaris|suzuki|vitz|vehicle|mileage)\b", re.IGNORECASE)
 CEREMONY_ADVERT_RE = re.compile(r"(?:expo|ቆይታ|ምስጋና)", re.IGNORECASE)
 
 
@@ -285,12 +303,37 @@ def extract_labeled_sqm(text: str) -> Optional[int]:
     return None
 
 
-def _extract_first_anchored_price(text: str) -> Optional[int]:
+# A rent just before a price word: "የተከራዩበትም ዋጋ 40,000" (the price they rent it at), "የኪራይ ዋጋ".
+RENT_BEFORE_PRICE_RE = re.compile(r"ኪራይ|ተከራ|መከራየት|\brent|monthly|በወር", re.IGNORECASE)
+SENTENCE_END_RE = re.compile(r"[።\n!?•|]|\.\s")
+
+
+def same_sentence_before(text: str, pos: int, reach: int) -> str:
+    """Up to `reach` characters before pos, not going back past the end of the previous sentence."""
+    return SENTENCE_END_RE.split(text[max(0, pos - reach): pos])[-1]
+
+
+def same_sentence_after(text: str, pos: int, reach: int) -> str:
+    """Up to `reach` characters from pos, stopping at the end of the sentence."""
+    return SENTENCE_END_RE.split(text[pos: pos + reach])[0]
+
+
+def _extract_first_anchored_price(text: str, skip_rent: bool = True) -> Optional[int]:
     if not text:
         return None
 
     for match in STRICT_ANCHORED_PRICE_RE.finditer(text):
+        # The word right before the price word ("monthly income price 65 million" is a price).
+        word_before = (same_sentence_before(text, match.start(), 15).split() or [""])[-1]
+        if skip_rent and RENT_BEFORE_PRICE_RE.search(word_before + text[match.start(): match.start() + 3]):
+            continue
+        # An old price: "ዋጋው 19 ሚሊዮን ነበር" (was), "የበፊት ዋጋ = 8.1 ሚልዮን" (previous price).
+        if (re.match(r"\s*(?:ብር\s*)?(?:ነበር|የነበረ)", text[match.end():])
+                or re.search(r"በፊት|previous|old\s*price", text[max(0, match.start() - 12): match.start() + 12], re.I)):
+            continue
         raw = match.group("num")
+        if " " in raw:   # "6,400 000"
+            raw = raw.replace(" ", "").replace(",", "")
         if is_likely_phone(raw):
             continue
         value = _to_number(raw)
@@ -307,14 +350,15 @@ def _extract_first_anchored_price(text: str) -> Optional[int]:
     return None
 
 
-def extract_price_birr(text: str, property_type: Optional[str] = None) -> Optional[int]:
+def extract_price_birr(text: str, property_type: Optional[str] = None, for_rent: bool = False) -> Optional[int]:
+    """The first price after a price word; a rent's own price word ("የኪራይ ዋጋ") counts only for_rent."""
     if not text:
         return None
 
     cleaned = AREA_UNIT_RE.sub(" ", text)
     cleaned = re.sub(r"\+251\s*\d{9,12}", " ", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\b0[79]\d{8}\b", " ", cleaned)
-    return _extract_first_anchored_price(cleaned)
+    return _extract_first_anchored_price(cleaned, skip_rent=not for_rent)
 
 
 def extract_price_candidates_birr(text: str) -> list[int]:
@@ -336,21 +380,23 @@ _PSQM_NUM = r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
 _PSQM_THOUSAND = r"\s*(?:ሺ|k\b)"
 _PSQM_CURRENCY = r"(?:\s*(?:ብር|birr|etb))?"
 _PSQM_UNIT = r"(?:sqm|sq\.?\s*m\b|m2|m²|square\s*met(?:er|re)|ካሬ(?:\s*ሜትር)?)"
-_PSQM_RANGE = r"(?:\s*(?:[-–—]+|to)\s*(?:" + _PSQM_NUM + r")(?P<RANGE_K>" + _PSQM_THOUSAND + r")?" + _PSQM_CURRENCY + r")?"
+_PSQM_RANGE = (r"(?:\s*(?:[-–—]+|to|እስከ)\s*(?:" + _PSQM_NUM + r")(?P<RANGE_K>" + _PSQM_THOUSAND + r")?"
+               + _PSQM_CURRENCY + r")?")
 PRICE_PER_SQM_RE = re.compile(
     # Words first: "በካሬ 85,000 ብር", "ለ1 ካሬ 95,000", "price per sqm: 119,395", "በካሬ ዋጋ ከ115,000",
-    # "የካሬ ዋጋ=61,750ብር", "ካሬ ዋጋ Semi 105 - 120ሺ", "በካ.ሜ 150,000".
+    # "የካሬ ዋጋ=61,750ብር", "ካሬ ዋጋ Semi 105 - 120ሺ", "በካ.ሜ 150,000", "Price/m²: 140,000",
+    # "በካሬ semi finished 95,000ብር", "ዋጋ በካሬ 95,000 እስከ 115,000 ብር" (95,000 to 115,000).
     # "1 ካሬ" must not be the end of a size such as "81 ካሬ", and "74 ካሬ ዋጋ 5.5 ሚሊየን"
     # (74 m², price 5.5 million) is a size followed by a total.
     r"(?:በ\s*ካሬ(?:\s*ሜትር)?|በካ\.\s*ሜ\.?|(?:ለ|በ)\s*(?:1|አንድ)\s*ካሬ|(?<![\d.,])1\s*ካሬ"
-    r"|(?<!\d)(?<!\d )(?:የ)?ካሬ\s*(?:ሜ(?:ትር)?\s*)?ዋጋ|per\s*" + _PSQM_UNIT + r")"
-    r"[^\d\n]{0,12}?(?P<before>" + _PSQM_NUM + r")(?P<before_k>" + _PSQM_THOUSAND + r")?" + _PSQM_CURRENCY
+    r"|(?<!\d)(?<!\d )(?:የ)?ካሬ\s*(?:ሜ(?:ትር)?\s*)?ዋጋ|kare\s*price|(?:per|price\s*/)\s*" + _PSQM_UNIT + r")"
+    r"[^\d\n]{0,20}?(?P<before>" + _PSQM_NUM + r")(?P<before_k>" + _PSQM_THOUSAND + r")?" + _PSQM_CURRENCY
     + _PSQM_RANGE.replace("RANGE_K", "before_range_k")
     # Number first: "75,000 Birr/sqm", "95,000 – 110,000 Birr per sqm" (a range keeps its first number),
     # "120,000 ብር በካሬ", "65,000/በካሬ".
     + r"|(?P<after>" + _PSQM_NUM + r")(?P<after_k>" + _PSQM_THOUSAND + r")?" + _PSQM_CURRENCY
     + _PSQM_RANGE.replace("RANGE_K", "after_range_k")
-    + r"\s*(?:(?:/|per)\s*(?:በ\s*)?" + _PSQM_UNIT + r"|በካ\.\s*ሜ\.?|በካሬ)",
+    + r"\s*(?:(?:/|per)\s*(?:በ\s*)?" + _PSQM_UNIT + r"|በካ\.\s*ሜ\.?|በካሬ|ለ\s*ካሬ\s*ሜ)",   # "91,300 ብር ለካሬሜ"
     re.IGNORECASE,
 )
 # A rent per m² ("በወር በካሬ 5,000") is not a sale price per m².
@@ -407,10 +453,99 @@ def is_media_link_text(text: str) -> bool:
     return bool(LINK_RE.search(text)) and len(strip_links(text).strip()) < MIN_READABLE_CHARS
 
 
+# Adverts for shares in a real-estate company ("አክሲዮን"), not for a property.
+SHARE_WORD_RE = re.compile(r"አክሲዮን|አክስዮን|shareholder", re.IGNORECASE)
+
+
 def is_noise_advert(text: str) -> bool:
     if not text:
         return False
-    return bool(VEHICLE_ADVERT_RE.search(text) or CEREMONY_ADVERT_RE.search(text))
+    return bool(VEHICLE_ADVERT_RE.search(text) or CEREMONY_ADVERT_RE.search(text)
+                or len(SHARE_WORD_RE.findall(text)) >= 2)
+
+
+# --- Sale or rent ---------------------------------------------------------------
+# Channel footers that list the broker's services ("ኪራይ / ሽያጭ" of houses and cars,
+# "the buildings, villas and apartments we post") say nothing about the listing.
+FOOTER_RE = re.compile(
+    r"ለ\s*ክቡራን\s*ደንበኞቻችን"
+    r"|(?:የሚሸጥ|የሚከራይ)[^\n]{0,30}?ቤት\s*ም?\s*(?:ሆነ|ወይም)?\s*መኪና[^\n]{0,30}?(?:ካሎት|ካለዎት|ከልወ|ከለወ|ይላኩ)"
+    r"|የህንፃ\s*[፣,]?\s*የቪላ\s*እና\s*አፓርታማ",
+)
+
+
+def strip_footer(text: str) -> str:
+    """The text before the channel's footer, if it has one."""
+    m = FOOTER_RE.search(text or "")
+    return text[:m.start()] if m else (text or "")
+
+
+# Words only a sale advert uses: "for sale", "selling price", "buyer", "become the owner".
+# A rent or an income such an advert mentions is the property's income, not its price.
+SALE_MARKERS_RE = re.compile(
+    r"የሚሸጥ|ይሸጣል|እየሸጥን|ለሽያጭ|የሽያጭ\s*#?\s*ዋጋ|የ?መሸጫ\s*ዋጋ|የመሽጫ\s*ዋጋ|አጠቃላይ\s*ዋጋ|ጠቅላላ\s*ዋጋ"
+    r"|ገዢ|ገዥ|ሲገዙ|ይግዙ|ባለቤት\s*ይሁኑ"
+    r"|for\s*sale|asking\s*price|selling\s*price|total\s*price|\bresale\b|\bbuyer",
+    re.IGNORECASE,
+)
+# Words only a rental advert uses: "for rent", "offered for rent", "rent price", "when you rent".
+RENT_MARKERS_RE = re.compile(
+    r"for\s+rent\b|ለኪራይ\s*የቀረበ|የኪራይ\s*ዋጋ|ሲከራዩ|\brent\s*price|#ለኪራይ"
+    r"|የሚከራይ\s*(?:ቤት|አፓርታማ|ኮንዶሚኒየም|ክፍል|ሙሉ\s*ግቢ|ቢሮ|ሱቅ|መጋዘን)",
+    re.IGNORECASE,
+)
+# A rent, income or repayment that a property earns or costs, not one it is offered for.
+INCOME_RE = re.compile(
+    r"ገቢ|income|yield|\broi\b|ተከራይ(?:ቶ|ቷል)|የተከራየ|ተከራዩበት|rented|የኪራይ_አቅም|rental\s*(?:capacity|status|potential)"
+    r"|ተመላሽ|installment|repayment|tenant|የተገመተ|estimated|ቢያከራዩ|ሊያከራዩ|ለማከራየት",
+    re.IGNORECASE,
+)
+
+
+def without_income(text: str, reach: int = 40) -> str:
+    """The text with everything within `reach` characters of an income word blanked out."""
+    if not text:
+        return ""
+    keep = list(text)
+    for m in INCOME_RE.finditer(text):
+        for i in range(max(0, m.start() - reach), min(len(text), m.end() + reach)):
+            keep[i] = " "
+    return "".join(keep)
+
+
+# --- Cash plus a bank loan -----------------------------------------------------
+# "ባንክ 10 ሚሊዮን ብር አለበት ካሽ 5,500,000 ብር" or "1,500,000 ብር ካሽ ... 5,000,000 ብር ባንክ ... የባንክ
+# ተመላሽ": the buyer pays the cash part and takes over the bank loan, so the price is both.
+# ("በካሽ 5.7 ሚሊየን፣ በባንክ 6 ሚሊየን" are two ways to pay, not two parts.)
+_LOAN_AMOUNT = r"(?P<amount>\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?\s*" + MILLION_WORD + r")"
+LOAN_RE = re.compile(
+    r"(?<!በ)ባንክ\s*[:፦]?\s*" + _LOAN_AMOUNT + r"\s*(?:ብር)?\s*(?=አለበት|[\s\S]{0,30}?(?:ተመላሽ|እዳ))"
+    r"|" + _LOAN_AMOUNT.replace("amount", "amount2") + r"\s*(?:ብር)?\s*ባንክ(?=[\s\S]{0,30}?(?:ተመላሽ|እዳ|አለበት))",
+    re.IGNORECASE,
+)
+CASH_RE = re.compile(
+    r"(?<!በ)ካሽ\s*[:፦]?\s*" + _LOAN_AMOUNT
+    + r"|" + _LOAN_AMOUNT.replace("amount", "amount2") + r"\s*(?:ብር)?\s*(?:ካሽ|ለእጅ)",
+    re.IGNORECASE,
+)
+
+
+def _amount_value(m) -> Optional[int]:
+    raw = m.group("amount") or m.group("amount2")
+    million = re.search(MILLION_WORD, raw, re.IGNORECASE)
+    value = _to_number(re.sub(MILLION_WORD + r".*", "", raw, flags=re.IGNORECASE).strip())
+    if value is None:
+        return None
+    return int(round(value * 1_000_000)) if million else int(value)
+
+
+def cash_plus_loan(text: str) -> Optional[tuple[int, int]]:
+    """(cash part, bank loan the buyer takes over), when the text gives both."""
+    loan, cash = LOAN_RE.search(text or ""), CASH_RE.search(text or "")
+    if not loan or not cash:
+        return None
+    loan_v, cash_v = _amount_value(loan), _amount_value(cash)
+    return (cash_v, loan_v) if loan_v and cash_v else None
 
 
 # --- Forum title metadata -----------------------------------------------------

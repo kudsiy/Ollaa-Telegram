@@ -369,7 +369,8 @@ async def main() -> None:
             if is_forum and reply_to_top_id is not None:
                 processed_id = f"{channel}::topic::{int(reply_to_top_id)}"
 
-            record = {"id": processed_id, "text": text_content, "extracted_area": None}
+            record = {"id": processed_id, "text": text_content, "extracted_area": None,
+                      "source_channel": channel}
             # Classify before processing — skip adverts entirely
             msg_class = classify_listing(text_content, topic_title)
             if msg_class == "ADVERT":

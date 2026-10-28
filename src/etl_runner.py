@@ -17,6 +17,7 @@ Usage:
 
 import argparse
 import json
+import re
 import sys
 from sqlalchemy import create_engine, text
 from protection import PARSER_WRITE_SQL
@@ -171,21 +172,22 @@ def build_processed_values(pipeline, row):
     if getattr(row, "topic_title", None):
         blob = f"{row.topic_title}\n{blob}"
 
-    record = {"id": processed_id, "text": blob, "extracted_area": None}
+    _channel = getattr(row, "channel", None) or ""
+    record = {"id": processed_id, "text": blob, "extracted_area": None, "source_channel": _channel}
     result = pipeline.process(record)
 
     # ── Post-classification overrides ─────────────────────────────
     # Rule 1: Bet_afri family channels are rent-only sources. Bet_afri and
-    # Betafrivip list single rooms; Bet_afri_Business lists offices and shops.
-    _channel = getattr(row, "channel", None) or ""
+    # Betafrivip list single rooms, apart from whole compounds ("ሙሉ ግቢ", houses);
+    # Bet_afri_Business lists offices and shops.
     if "Bet_afri" in _channel or "Betafrivip" in _channel:
         result["intent"] = "RENT"
         if "Bet_afri_Business" not in _channel:
-            result["property_type"] = "SINGLE_ROOM"
+            result["property_type"] = "VILLA" if "ሙሉ ግቢ" in blob else "SINGLE_ROOM"
 
-    # Rule 2: Single-room keyword signals (Amharic + hashtag forms).
-    _text = blob
-    if 'ክፍል' in _text and ('አንድ' in _text or '#1_' in _text):
+    # Rule 2: Single-room keyword signals: "አንድ ክፍል", "1 ክፍል" (one room), "#1_ክፍል".
+    # (Not "አንድ" and "ክፍል" anywhere: "ንግድ ክፍል … አንድ ሚሊዮን" is a building.)
+    if re.search(r"(?:አንድ|1)\s*ክፍል|#1_", blob):
         result["property_type"] = "SINGLE_ROOM"
 
     values = {
