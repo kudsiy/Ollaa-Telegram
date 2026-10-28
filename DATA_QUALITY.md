@@ -1,14 +1,14 @@
 # Ollaa-Telegram: data quality report
 
-State of the `ollaa` database on 28 October 2026, after tasks S12 and S13. Every number
-below comes from `database/data_quality.py` (read-only), which can be run again at any time:
+State of the `ollaa` database on 28 October 2026, after tasks S12–S14. Every number below
+comes from `database/data_quality.py` (read-only), which can be run again at any time:
 
     venv\Scripts\python.exe database\data_quality.py
 
 The listings were produced by the fixed parser (tasks S5–S9 and S12). Re-processing every
 stored listing with today's code changes nothing (`src/reprocess.py`: "Listings that would
-change: 0"). 622 values that earlier hand repairs set are kept on purpose and win over the
-parser; 265 of the usable listings hold at least one of them.
+change: 0"). 423 values that earlier hand repairs set are kept on purpose and win over the
+parser; 247 of the usable listings hold at least one of them.
 
 ## Summary
 
@@ -17,14 +17,14 @@ parser; 265 of the usable listings hold at least one of them.
 - **2,860 listings (67%) are photo-only posts** (`MEDIA_PENDING`) whose images have not
   been read yet. They are the largest untapped part of the data.
 - **394 sale listings are ready for a hedonic model** (price, size, named place, known
-  type, priced in birr, no obvious outlier). Only **22 rent listings** are, so a rent
+  type, priced in birr, no obvious outlier). Only **23 rent listings** are, so a rent
   model is not possible yet.
 - Bedrooms are known for 57% of the model sample (62% of its homes). Floor, bathrooms,
   posting date, building height, finishing and payment terms are known for a third or
   less, too few to use as model variables.
-- **One usable listing has an obviously impossible value** (a flat called a single room,
-  see "Obvious outliers"). The 34 found on 27 October were all parser mistakes, fixed in
-  task S12.
+- **No usable listing has an obviously impossible value.** The 34 found on 27 October
+  were all parser mistakes, fixed in task S12; the last one left, a flat called a single
+  room, was fixed in S14 (see "Obvious outliers").
 
 ## Definitions
 
@@ -54,17 +54,17 @@ them out permanently (`processing_exclusions`).
 
 | Type | Sale | Rent | Both | Total |
 |---|---|---|---|---|
-| Apartment | 260 | 31 | 1 | 292 |
-| Villa (houses, G+0 to G+4) | 195 | 26 | 1 | 222 |
+| Apartment | 260 | 47 | 1 | 308 |
+| Villa (houses, G+0 to G+4) | 195 | 19 | 1 | 215 |
 | Unknown type | 102 | 9 | 1 | 112 |
-| Commercial (shop) | 49 | 14 | 0 | 63 |
-| Single room | 0 | 59 | 0 | 59 |
-| Condominium | 45 | 4 | 0 | 49 |
-| Office | 30 | 8 | 0 | 38 |
-| Commercial building (whole building) | 33 | 2 | 0 | 35 |
-| Studio | 11 | 21 | 0 | 32 |
+| Commercial (shop) | 49 | 22 | 0 | 71 |
+| Condominium | 45 | 11 | 0 | 56 |
+| Office | 30 | 7 | 0 | 37 |
+| Commercial building (whole building) | 33 | 3 | 0 | 36 |
+| Single room | 0 | 35 | 0 | 35 |
+| Studio | 11 | 22 | 0 | 33 |
 | Land | 29 | 0 | 0 | 29 |
-| Warehouse | 10 | 4 | 0 | 14 |
+| Warehouse | 10 | 3 | 0 | 13 |
 | Townhouse | 1 | 0 | 0 | 1 |
 | **Total** | **765** | **178** | **3** | **946** |
 
@@ -169,11 +169,10 @@ A value is flagged when it cannot be right for Addis Ababa in 2025–2026: a sal
 outside 1,000–2,000,000 birr a month; a flat, studio or room under 15 m² or over 500 m²
 (studios and rooms over 100 m²); a flat with more than 6 bedrooms.
 
-**One usable listing breaks a rule today:** 6043, a 3-bedroom flat of 125 m² for rent on
-the Betafrivip channel, which the channel rule calls a single room (that rule types every
-Bet_afri and Betafrivip post as a single room, apart from whole compounds). On 27 October
-34 listings broke a rule. Reading their adverts showed parser mistakes only, all fixed in
-task S12:
+**No usable listing breaks a rule today.** On 27 October 34 did. Reading their adverts
+showed parser mistakes only, all fixed in task S12 (one more, 6043, a 3-bedroom flat of
+125 m² that the Bet_afri channel rule called a single room, was fixed in S14, when that
+rule began reading what each post offers):
 
 - a rent, rental income, remaining balance or the cash part read as the sale price
   (now skipped; cash plus a bank loan the buyer takes over makes the price);
@@ -210,10 +209,10 @@ Location is thin at the neighbourhood level. The 394 listings fall in 56 places,
 combinations have 5 or more. Sub-city fixed effects, or distance from coordinates, are
 more realistic than one dummy per neighbourhood.
 
-**Rent sample: 22 listings** with rent, size, place and type, so a rent model is not
-possible. Without requiring size there are 125 (single room 57, studio 20, apartment 20,
-shop 10, villa 10, others 8), mostly rooms and studios. That is enough to describe rents,
-not to model them. `rental_listings` (rebuilt in task S13) has one row for every rent or
+**Rent sample: 23 listings** with rent, size, place and type (condominium 10, apartment 6,
+villa 3, others 4), so a rent model is not possible. Without requiring size there are 126
+(apartment 37, single room 34, studio 21, villa 12, condominium 10, others 12), mostly
+flats, rooms and studios. That is enough to describe rents, not to model them. `rental_listings` (rebuilt in task S13) has one row for every rent or
 mixed listing with a rent: 129 rows, the 128 usable rentals with a rent plus listing 2046,
 whose kept "advert" class keeps it out of the usable listings.
 
@@ -223,4 +222,3 @@ whose kept "advert" class keeps it out of the usable listings.
 2. Fetch the real posting dates from Telegram for the 699 undated usable listings (the
    message ids are stored), so the model can include time.
 3. Give a sub-city to the places that lack one in `src/locations.py` (226 listings).
-4. Refine the Bet_afri channel rule so flats posted there are not typed as single rooms.

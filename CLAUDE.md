@@ -73,8 +73,10 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   (read-only); after re-processing or new data, re-run it and update the report.
 - The 829 protected values left after S8 were kept on purpose by the owner (see
   `database/migrations/2026_10_27_s8_release_protections.py`); 749 remained after S9 and
-  636 after S12, as the parser came to agree with the others, and 622 after the owner
-  released 14 "advert" labels on real rentals in S13. Do not release them without asking.
+  636 after S12, as the parser came to agree with the others, 622 after the owner
+  released 14 "advert" labels on real rentals in S13, and 423 after S14 (192 retired as
+  the parser agreed, 7 wrong Bet_afri labels released by the owner). Do not release them
+  without asking.
 
 ## How the project runs
 
@@ -90,6 +92,11 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   with the same code (`build_processed_values`) and keeps `rental_listings` in step (one
   row per rent or mixed listing with a rent, made by `etl_runner.rental_row`).
 - `src/listener.py` does the same live, as messages arrive (configured chats only).
+- Bet_afri, Betafrivip and Bet_afri_Business are rent-only channels; a post's type is what
+  it states after its rent (`etl_runner.bet_afri_type`, checked by
+  `tests/test_classification.py`). The ETL and `reprocess.py` apply it; `listener.py`
+  calls the parser without the channel rules, so its posts get them at the next
+  re-processing.
 - `src/run_all.py` runs scrape → ETL → repair scripts → dedup → views → report.
 - `src/processor.py` holds shared price, area and label helpers used by the pipeline.
   Price reading (decimals, spellings of "million", prices per m²) is checked by
