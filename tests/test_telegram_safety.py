@@ -185,6 +185,13 @@ def next_midnight():
     return datetime.combine(REAL_NOW().date() + timedelta(days=1), datetime.min.time(), safety.ETHIOPIA)
 
 
+def blocked_until_tomorrow(wait_seconds):
+    """Blocked until the next midnight, or until Telegram's wait plus an hour if that ends later."""
+    blocked = datetime.fromisoformat(usage()["blocked_until"])
+    expected = max(next_midnight(), REAL_NOW() + timedelta(seconds=wait_seconds + 3600))
+    return abs((blocked - expected).total_seconds()) < 60
+
+
 def check(label, condition):
     print(f"  {'ok  ' if condition else 'FAIL'} {label}")
     assert condition, label
@@ -349,7 +356,7 @@ def test_floodwait():
     check("no channel after it was asked for", read[-1] == third and not set(read) & set(SOURCES[3:]))
     check("the FloodWait was not retried", read.count(third) == 1)
     check("disconnected", not client.connected)
-    check("Telegram not used again until midnight", datetime.fromisoformat(usage()["blocked_until"]) == next_midnight())
+    check("Telegram not used again until midnight (or the wait plus an hour, if later)", blocked_until_tomorrow(30))
     made = len(FakeTelegram.made)
     code, said = run(scraper)
     check("a new scraper run today is refused before connecting", code == 2 and "FloodWaitError" in said
@@ -357,9 +364,10 @@ def test_floodwait():
     code, said = run(listener)
     check("the listener is refused too", code == 2 and len(FakeTelegram.made) == made)
     FakeTelegram.fail_on = {}
-    safety.now = lambda: next_midnight() + timedelta(minutes=1)
+    block_ends = datetime.fromisoformat(usage()["blocked_until"])
+    safety.now = lambda: block_ends + timedelta(minutes=1)
     code, said = run(scraper)
-    check("after midnight the scraper may run again", code == 0)
+    check("once the block has ended (the next day) the scraper may run again", code == 0)
 
     fresh_state()
     login_file()
@@ -426,7 +434,7 @@ def test_listener():
     check("no message after it was handled, no retry", client.handled == 1
           and len(asked(client, "GetForumTopicsByIDRequest")) == 1)
     check("disconnected", not client.connected)
-    check("Telegram not used again until midnight", datetime.fromisoformat(usage()["blocked_until"]) == next_midnight())
+    check("Telegram not used again until midnight (or the wait plus an hour, if later)", blocked_until_tomorrow(30))
     made = len(FakeTelegram.made)
     code, said = run(scraper)
     check("the scraper is refused today too", code == 2 and len(FakeTelegram.made) == made)
