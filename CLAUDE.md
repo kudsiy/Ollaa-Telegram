@@ -9,6 +9,73 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
 - Never show a password, API key, token or phone-login code in the chat, in a commit, or
   in a file other than `.env`. When printing code or data that might contain one, mask it.
 
+## Telegram account safety (top priority)
+
+The owner's Telegram account has been revoked many times and banned once, and the whole
+scraper depends on it (owner, 28 October 2026). Protecting it comes before everything else.
+
+- **Photos never use the owner's Telegram login.** Do not download photos or files with
+  the account, do not create a new session, and do not ask the owner to log in for photo
+  work. Photos come only from the public web preview, `https://t.me/s/<channel>`, which
+  needs no account: `src/media_web_fetch.py`, one request every 20–40 seconds (random), a
+  hard cap per run (50 for the pilot), stopping at the first error or sign of blocking.
+  A channel without a public preview (forum groups) is skipped and reported.
+- **The safety stops are in the code** (`src/telegram_safety.py`, used by
+  `telegram_scraper.py` and `listener.py`; checked by `tests/test_telegram_safety.py`
+  with a fake Telegram, never the real one). Never weaken them, raise the limits, or add
+  another program that opens the account without the owner's approval. Run
+  `tests/test_telegram_safety.py` after any change to the scraper, the listener or the
+  safety module.
+  - **No login file, or an expired one: stop.** They use the existing login file
+    (`data/sessions/ollaa_session.session`, or the older `ollaa_session.session` in the
+    project root) and stop with a message if it is missing or no longer valid. They never
+    start a new login and never ask for a code (no `client.start()`, no `async with
+    TelegramClient`). An expired login also blocks Telegram use for 25 hours.
+  - **One at a time.** The scraper and the listener share one lock
+    (`data/sessions/telegram.lock`): while one runs, the other refuses to start. The lock
+    is freed when a program ends, even after a crash.
+  - **Slow and small.** Per scraper run: the 40 newest messages per channel; per forum
+    group the 10 topics with the newest messages, 20 messages each; random pauses of
+    45–120 seconds between channels, 20–45 seconds between topics and 5–15 seconds
+    between two requests for one channel. Channels the login file already knows cost one
+    request each. At most 2 scraper runs and 150 requests a day (scraper and listener
+    together, counted in `data/sessions/telegram_usage.json`; days start at midnight
+    Addis Ababa time). The listener only listens; it asks for each forum topic's title
+    once and skips titles when the day's requests are used up.
+  - **Any warning from Telegram stops everything.** A FloodWait (or any other error
+    from Telegram about the account, such as an ended login) stops the whole run at
+    once, with no retry; neither program may use Telegram again until the next midnight
+    (longer if Telegram asked for a longer wait, 25 hours after an ended login). Telethon's
+    own short automatic waits are switched off (`flood_sleep_threshold=0`). A problem
+    with one channel only (private, renamed, left) just skips that channel.
+- **One login, one computer.** Use one login file on one computer only. Never copy a
+  `.session` file to another computer, and never use one login from two places at once:
+  Telegram ends a login used from two internet addresses at the same time.
+- **This laptop has no working login** (checked 28 October 2026; the old
+  `session.session` in the project root is logged out and is not used). Do not log in
+  here.
+- **As few logins as possible.** Each new login is a new device for Telegram. Keep the
+  working login file; never delete it to "fix" an error; never add scripts that open the
+  account (`src/srctest_scrape_channel.py`, which made a second session, was removed).
+- **Read only.** Scripts only read channels the account already follows: no sending
+  messages, no joining or leaving channels, no reactions, no contacting anyone.
+- **Run the scraper once or twice a day, never in a loop**, and never at the same time
+  as the listener. `run_all.py` carries on with the other steps when the scraper stops
+  for safety (what was read before the stop is saved).
+- **After a revocation or ban:** stop everything, wait at least 24 hours (longer after
+  repeated ones), then the owner logs in once, by hand, on the one computer.
+- **Same identity:** always the owner's own `TG_API_ID` / `TG_API_HASH` from
+  my.telegram.org, the same computer and the same internet connection; no VPN or network
+  switching while the scraper runs. The owner keeps two-step verification on and keeps
+  using the account normally on the phone.
+
+**Gemini free tier (owner's decision, 28 October 2026).** Billing cannot be paid from
+Ethiopia. For the photo pilot the owner accepts the free tier, where Google may use what it
+receives: the photos are public broker adverts that the brokers posted themselves, and the
+owner takes responsibility for that choice. Run `media_pilot.py` with `--allow-free-tier`,
+well under the free-tier limits (at most 6 requests a minute, far below the daily cap). A
+full run needs the owner's approval again.
+
 ## Git and GitHub
 
 - The GitHub repository `kudsiy/Ollaa-Telegram` is **public**.
@@ -109,12 +176,10 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   S9; never bring them back.)
 - Photo-only posts: `src/media_pilot.py` (task S15) has Gemini copy the words in an image and
   runs them through the text parser; see `MEDIA_PILOT.md`. Its full output
-  (`data/media_pilot/`) holds unmasked text with phone numbers: never commit it. Only 26
-  photo-only posts have their image on this laptop; downloading the rest uses the owner's
-  Telegram login and must be approved by the owner first. Download only with
-  `src/media_downloader.py` (slow; stops on any Telegram warning); the owner logs in with
-  `src/telegram_login.py` and types the code; never enter a login code or password for the
-  owner. The Gemini key is on the free tier: `media_pilot.py` refuses to send images there.
+  (`data/media_pilot/`) holds unmasked text with phone numbers: never commit it. Photos
+  come from the public web preview only (`src/media_web_fetch.py`, see "Telegram account
+  safety"); `media_pilot.py` sends images to Gemini on the free tier only with
+  `--allow-free-tier`.
 - `src/locations.py` is the only table of places. Every location code written anywhere
   must be a key of `PLACES` (or `noise` / `other_addis`). To add a place, add it to
   `PLACES` and its English and Amharic names to `ALIASES`, more specific names before the

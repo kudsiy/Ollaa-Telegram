@@ -318,9 +318,13 @@ def main():
     # ── STEP 1: SCRAPE ────────────────────────────────────────
     if not args.skip_scrape:
         step(1, "Scraping Telegram channels + forum groups")
-        success = run_script("telegram_scraper.py", critical=True)
+        # A safety stop (no login, limit reached, a warning from Telegram) must not be
+        # retried here; the messages read before it are saved, so the other steps go on.
+        success = run_script("telegram_scraper.py", critical=False)
         if success:
             ok("Scraping complete")
+        else:
+            print("  Scraping stopped early (see its message above); carrying on with the messages already saved.")
     else:
         step(1, "Scraping skipped (--skip-scrape)")
 

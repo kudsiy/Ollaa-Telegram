@@ -4,14 +4,17 @@ test_listener_privacy.py
 Checks that listener.py saves messages only from the channels in channels.py.
 
 Runs the real listener code with a fake Telegram client and a fake database,
-so it needs no Telegram login and writes nothing.
+so it needs no Telegram login, never connects, and writes nothing (its login file,
+lock and daily counts live in a temporary folder).
 
 Usage:
     venv\\Scripts\\python.exe tests\\test_listener_privacy.py
 """
 
 import asyncio
+import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -22,6 +25,7 @@ from telethon.tl.types import Channel, ChatPhotoEmpty, User, Username  # noqa: E
 
 import channels  # noqa: E402
 import listener  # noqa: E402
+import telegram_safety as safety  # noqa: E402
 
 LISTING = "ለሽያጭ ባለ 2 መኝታ አፓርታማ ቦሌ 120 ካሬ ዋጋ 9.5 ሚሊየን ብር"
 
@@ -75,13 +79,10 @@ class FakeClient:
     def __init__(self, *args, **kwargs):
         self.handler = None
 
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *exc):
-        return False
-
     async def connect(self):
+        pass
+
+    async def disconnect(self):
         pass
 
     async def is_user_authorized(self):
@@ -116,9 +117,15 @@ def main():
         ("private group", event(channel(None))),
         ("listed channel", event(channel("Bet_afri"))),
     ]
+    state = Path(tempfile.mkdtemp())
+    safety.SESSION, safety.LEGACY_SESSION = state / "ollaa_session.session", state / "old.session"
+    safety.LOCK_FILE, safety.USAGE_FILE = state / "telegram.lock", state / "telegram_usage.json"
+    safety.SESSION.write_text("stand-in login file")
+    safety.api_credentials = lambda: (1, "test")
+    os.environ.pop("TG_SESSION_NAME", None)
     listener.TelegramClient = FakeClient
     listener.engine = FakeEngine()
-    asyncio.run(listener.main())
+    assert asyncio.run(listener.main()) == 0
 
     expected = {"private chat": False, "unlisted channel": False, "private group": False, "listed channel": True}
     for label, saved in FakeClient.saved_by_event:
