@@ -20,6 +20,7 @@ import json
 import re
 import sys
 from sqlalchemy import create_engine, text
+from processor import is_photo_only
 from protection import PARSER_WRITE_SQL
 from settings import DB_URL
 
@@ -155,6 +156,53 @@ def safe_divide(price, sqm):
     return None
 
 
+# Bet_afri, Betafrivip and Bet_afri_Business posts follow one pattern:
+#   🔥የሚከራይ ቤት🔥 ▫️CODE BT 1227 🟢 ኪራይ: 12,000 ብር 🟢 ባለሁለት መኝታ (72 ካሬ፣ 3ኛ ፎቅ፣ ኮንዶሚንየም) 🟢 …
+# The heading ("የሚከራይ X", X for rent) and the line after the rent say what is offered.
+BET_AFRI_HEADING_RE = re.compile(r"የሚከራይ\s*([^🔥\n]{1,40})🔥")
+BET_AFRI_OFFER_RE = re.compile(r"ኪራይ[^🟢🟣🔵]*[🟢🟣🔵]\s*([^🟢🟣🔵]{1,120})")
+# A flat: on a floor, in an apartment or G+n building, or a duplex ("መሬት" = ground floor).
+ON_A_FLOOR_RE = re.compile(r"\d\s*(?:ኛ|ተኛ)|ፎቅ|g\s*\+|አፓርታማ|apartment|duplex|መሬት", re.IGNORECASE)
+
+
+def bet_afri_type(text, parser_type, business=False):
+    """The property type a Bet_afri family post states (see the pattern above)."""
+    heading = BET_AFRI_HEADING_RE.search(text or "")
+    offer = BET_AFRI_OFFER_RE.search(text or "")
+    head = heading.group(1).lower() if heading else ""
+    line = offer.group(1).lower() if offer else ""
+    both = f"{head} {line}"
+    if business:   # shops, offices, warehouses and whole buildings
+        if "መጋዘን" in both:
+            return "WAREHOUSE"
+        if "ቢሮ" in head or line.startswith("ቢሮ"):
+            return "OFFICE"
+        if re.search(r"ህን[ፃጻ]", head):
+            return "COMMERCIAL_BUILDING"
+        if re.search(r"ንግድ|ሱቅ|display", both):
+            return "COMMERCIAL"
+        if "ሙሉ ግቢ" in both:
+            return "VILLA"
+        return parser_type
+    if not head and not line:   # a forwarded or announcement post: the channel lists rooms
+        # (The parser's "villa" is not kept: it calls any "ቤት", house, a villa.)
+        return parser_type if parser_type in ("STUDIO", "APARTMENT", "CONDOMINIUM") else "SINGLE_ROOM"
+    if re.search(r"ንግድ|ሱቅ", both):
+        return "COMMERCIAL"
+    if re.match(r"(?:አንድ|ሁለት|ሶስት|\d)\s*ክፍል", line):
+        return "SINGLE_ROOM"                         # "አንድ ክፍል (3X4 …)": rooms
+    if re.search(r"studio|ስቱዲዮ", line or head):
+        return "STUDIO"
+    if re.search(r"ሙሉ\s*ግቢ|ቪላ|villa", both):
+        return "VILLA"                               # a whole compound or a villa
+    if re.search(r"ኮንዶሚ[ንኒ]የም|condominium", both):
+        return "CONDOMINIUM"
+    if re.search(r"ባለ\S*\s*መኝታ|duplex", line) or "አፓርታማ" in head:
+        # A flat with bedrooms; one in a shared compound ("ብሎኬት፣ ግቢ ውስጥ") stays a room.
+        return "APARTMENT" if ON_A_FLOOR_RE.search(line) or "አፓርታማ" in head else "SINGLE_ROOM"
+    return "SINGLE_ROOM"
+
+
 def is_rental(values) -> bool:
     """A listing that gets a row in rental_listings: a rent offer with a rent, not an advert."""
     return (values["intent"] in ("RENT", "MIXED") and bool(values["rent_price_birr"])
@@ -208,17 +256,17 @@ def build_processed_values(pipeline, row):
     result = pipeline.process(record)
 
     # ── Post-classification overrides ─────────────────────────────
-    # Rule 1: Bet_afri family channels are rent-only sources. Bet_afri and
-    # Betafrivip list single rooms, apart from whole compounds ("ሙሉ ግቢ", houses);
-    # Bet_afri_Business lists offices and shops.
+    # Rule 1: Bet_afri family channels are rent-only sources, and each post says what
+    # it offers (see bet_afri_type). A photo-only post keeps the parser's MEDIA_LINK.
     if "Bet_afri" in _channel or "Betafrivip" in _channel:
         result["intent"] = "RENT"
-        if "Bet_afri_Business" not in _channel:
-            result["property_type"] = "VILLA" if "ሙሉ ግቢ" in blob else "SINGLE_ROOM"
+        if not is_photo_only(blob):
+            result["property_type"] = bet_afri_type(blob, result["property_type"],
+                                                    business="Bet_afri_Business" in _channel)
 
-    # Rule 2: Single-room keyword signals: "አንድ ክፍል", "1 ክፍል" (one room), "#1_ክፍል".
-    # (Not "አንድ" and "ክፍል" anywhere: "ንግድ ክፍል … አንድ ሚሊዮን" is a building.)
-    if re.search(r"(?:አንድ|1)\s*ክፍል|#1_", blob):
+    # Rule 2 (other channels): single-room keyword signals: "አንድ ክፍል", "1 ክፍል" (one room),
+    # "#1_ክፍል". (Not "አንድ" and "ክፍል" anywhere: "ንግድ ክፍል … አንድ ሚሊዮን" is a building.)
+    elif re.search(r"(?:አንድ|1)\s*ክፍል|#1_", blob):
         result["property_type"] = "SINGLE_ROOM"
 
     values = {

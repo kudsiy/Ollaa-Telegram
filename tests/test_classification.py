@@ -138,5 +138,39 @@ for text, channel, expected in [(compound, "Bet_afri", ("RENT", "VILLA", None)),
     failures += not ok
     print(f"{'ok  ' if ok else 'FAIL'} {channel} post: {got}" + ("" if ok else f"  (expected {expected})"))
 
+# S14: a Bet_afri family post says what it offers after the rent; that is its type.
+BET_AFRI = [
+    ("🔥የሚከራይ ቤት🔥 ▫️CODE BT 1227 🟢 ኪራይ: 12,000 ብር 🟢 አንድ ክፍል (3X3፣ ሴራሚክ ወለል፣ መሬት፣ G+2 ላይ) 🟢 ሰፈሩ: ጀሞ",
+     "Bet_afri", "SINGLE_ROOM"),
+    ("🔥የሚከራይ Studio🔥 ▫️CODE BT 1205 🟢 ኪራይ፡ 28,000 ብር 🟢 Studio (5X5 ሰፊ፣ ሴራሚክ ወለል፣ መሬት) 🟢 ሰፈሩ: ገርጂ",
+     "Bet_afri", "STUDIO"),
+    ("🔥የሚከራይ ኮንዶሚንየም🔥 ▫️CODE BT 1190 🟢 ኪራይ፡ 30,000 ብር 🟢 ባለሁለት መኝታ (72 ካሬ፣ ሴራሚክ ወለል፣ 3ኛ ፎቅ፣ "
+     "ኮንዶሚንየም) 🟢 ሰፈሩ: አያት", "Bet_afri", "CONDOMINIUM"),
+    ("🔥የሚከራይ አፓርታማ🔥 Luxury Apartment ▫️CODE VBT 173 🟣 ኪራይ: 65,000 ብር 🟣 ባለሶስት መኝታ (125 ካሬ አካባቢ፣ "
+     "4ተኛ ፎቅ፣ አፓርታማ ላይ) 🟣 ሰፈሩ: ቤቴል", "Betafrivip", "APARTMENT"),
+    ("🔥የሚከራይ ቤት🔥 ▫️CODE BT 1199 🟢 ኪራይ፡ 18,000 ብር 🟢 ባለአንድ መኝታ (ሴራሚክ ወለል፣ 3ኛ ፎቅ፣ የግል መኖሪያ ፎቅ ላይ)",
+     "Bet_afri", "APARTMENT"),
+    # ...a one-bedroom unit in a shared compound ("ብሎኬት፣ ግቢ ውስጥ") has no better type than a room.
+    ("🔥የሚከራይ ቤት🔥 ▫️CODE BT 1180 🟢 ኪራይ፡ 9,000 ብር 🟢 ባለአንድ መኝታ (ሊሾ ወለል፣ ብሎኬት፣ ግቢ ውስጥ)", "Bet_afri",
+     "SINGLE_ROOM"),
+    ("🔥የሚከራይ ሙሉ ግቢ🔥 ▫️CODE VBT 165 🟣 ኪራይ: 100,000 ብር 🟣 ባለስድስት መኝታ (G+2፣ ሙሉ ግቢ)", "Betafrivip", "VILLA"),
+    # Bet_afri_Business: shops ("የንግድ ቤት", commercial premises), warehouses, offices, whole buildings.
+    ("🔥የሚከራይ የንግድ ቦታ🔥 ▫️CODE BZ 20 🔵 ኪራይ: 90ሺ ብር 🔵 የንግድ ቤት (1 መታጠቢያ ክፍል ያለው) 🔵 ቦታ: ገርጂ",
+     "Bet_afri_Business", "COMMERCIAL"),
+    ("🔥የሚከራይ የንግድ መጋዘን🔥 ▫️CODE BZ 14 🔵 ኪራይ: 40ሺ ብር 🔵 መጋዘን 🔵 ጥበቃ፡ አለው", "Bet_afri_Business", "WAREHOUSE"),
+    ("🔥የሚከራይ የቢሮ ቦታ🔥 ▫️CODE BZ 13 🔵 ኪራይ: 80ሺ ብር 🔵 ቢሮ (በወለል)", "Bet_afri_Business", "OFFICE"),
+    ("🔥የሚከራይ ሙሉ ህንጻ🔥 ▫️CODE VBT 140 🟣 ኪራይ: 490,000 ብር 🟣 G+4 (ሙሉ ግቢ፣ 175 ካሬ፣ ሴራሚክ ወለል)",
+     "Bet_afri_Business", "COMMERCIAL_BUILDING"),
+    # A photo-only post waits for its image, whatever the channel.
+    ("[MEDIA ONLY]", "Betafrivip", "MEDIA_LINK"),
+]
+for text, channel, expected in BET_AFRI:
+    values, _, _ = build_processed_values(P, channel_row(text, channel))
+    got = (values["intent"], values["property_type"])
+    ok = got == ("RENT", expected)
+    failures += not ok
+    print(f"{'ok  ' if ok else 'FAIL'} {channel} post: {got}" + ("" if ok else f"  (expected RENT, {expected})")
+          + f" | {text[:40]}")
+
 print(f"\n{'PASS' if not failures else f'FAILED: {failures} check(s)'}")
 sys.exit(1 if failures else 0)
