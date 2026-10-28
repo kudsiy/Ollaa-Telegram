@@ -7,7 +7,8 @@ had nothing useful, likely repeats of listings already stored, token use, and on
 row per post. Read-only. Prints Markdown; phone numbers and @usernames are masked.
 
 Usage:
-    venv\Scripts\python.exe database\media_pilot_report.py
+    venv\Scripts\python.exe database\media_pilot_report.py              # all rounds
+    venv\Scripts\python.exe database\media_pilot_report.py --round 2    # one round
 """
 
 import json
@@ -46,7 +47,10 @@ def model_ready(p) -> bool:
 
 
 def main() -> None:
+    only_round = int(sys.argv[sys.argv.index("--round") + 1]) if "--round" in sys.argv else None
     results = json.loads(RESULTS.read_text(encoding="utf-8"))
+    if only_round:   # round 1 entries were written before rounds were recorded
+        results = {k: v for k, v in results.items() if v.get("round", 1) == only_round}
     done = {k: v for k, v in results.items() if "error" not in v}
     errors = len(results) - len(done)
     rows = {k: SimpleNamespace(**v["parsed"]) for k, v in done.items()}
@@ -87,6 +91,8 @@ def main() -> None:
                         ("bedrooms", lambda p: p.bedrooms), ("named place", lambda p: p.location not in (dq.UNKNOWN, dq.NOISE)),
                         ("known type", lambda p: p.property_type != "UNKNOWN")):
         print(f"- Usable listings with {label}: {sum(1 for k in use if test(rows[k]))} of {len(use)}")
+    print(f"- Usable listings with both a price and a size: "
+          f"{sum(1 for k in use if (rows[k].sale_price_birr or rows[k].rent_price_birr) and dq.size_of(rows[k]))}")
     print(f"- Sale / rent / both among usable: {dict(Counter(rows[k].intent for k in use))}")
     print(f"- Types among usable: {dict(Counter(rows[k].property_type for k in use))}")
     print(f"- Likely repeats of stored listings: {[(k, v) for k, v in repeats.items() if v]}")

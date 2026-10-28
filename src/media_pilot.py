@@ -14,9 +14,11 @@ Only posts whose image is already on this laptop (data/images/telegram) are used
 those 747 files are empty, from an interrupted download, and are skipped); album extras
 (a photo posted together with a captioned listing) are left out.
 
-Round 2 reads photos downloaded from the largest channels: `--plan 50` chooses the posts,
-src/media_downloader.py fetches them (after src/telegram_login.py), `--round 2` reads them.
-Images are only sent while the key's Google project has billing (see free_tier).
+Round 2 reads photos of the largest channels: `--plan 50` chooses the posts,
+src/media_web_fetch.py fetches them from Telegram's public web preview (never with the
+owner's Telegram login), `--round 2` reads them. Images are sent to Gemini only while the
+key's Google project has billing, or with --allow-free-tier: the owner allowed the free
+tier for the pilot on 28 October 2026 (see CLAUDE.md).
 
 Usage:
     venv\Scripts\python.exe src\media_pilot.py --sample 50      # round 1: images already here
@@ -49,6 +51,7 @@ from run_pipeline import ValuationPipeline
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 IMAGE_DIR = BASE_DIR / "data" / "images" / "telegram"
+WEB_PREVIEW_DIR = BASE_DIR / "data" / "images" / "web_preview"
 OUT_FILE = BASE_DIR / "data" / "media_pilot" / "results.json"
 PLAN_FILE = BASE_DIR / "data" / "media_pilot" / "round2_plan.json"
 MODEL_ID = "gemini-3.1-flash-lite"
@@ -57,7 +60,7 @@ PAID_ONLY_MODEL = "gemini-3.1-pro-preview"   # used only to tell the key's tier 
 ROUND2 = {"championallsites": 10, "luxury_freelancers": 5, "livingethio": 5, "addishomeset": 5,
           "hugeAddisababamarket2025": 5, "ET_Creatives_Homes_And_Cars": 5, "Roya_King4102": 5,
           "Apartments_for_rent_Addis_Ababa": 4, "Betafrivip": 3, "mygojo1": 3}
-SECONDS_BETWEEN_CALLS = 5          # at most 12 requests a minute, inside the free tier's limit
+SECONDS_BETWEEN_CALLS = 10         # at most 6 requests a minute: well inside the free tier's limits
 SEED = 2026_10_28
 
 PROMPT = """This image comes from an Ethiopian real-estate Telegram channel (Addis Ababa).
@@ -105,7 +108,13 @@ ROUND2_SQL = text("""
 
 
 def image_path(row) -> Path:
-    return IMAGE_DIR / f"{row.channel.rstrip('/').rsplit('/', 1)[-1]}_{row.message_id}.jpg"
+    """The post's image: downloaded earlier (data/images/telegram) or from the public web
+    preview (data/images/web_preview, src/media_web_fetch.py)."""
+    name = f"{row.channel.rstrip('/').rsplit('/', 1)[-1]}_{row.message_id}.jpg"
+    for folder in (IMAGE_DIR, WEB_PREVIEW_DIR):
+        if (folder / name).exists() and (folder / name).stat().st_size:
+            return folder / name
+    return IMAGE_DIR / name
 
 
 def choose(rows, n):
@@ -216,8 +225,7 @@ def main() -> None:
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     results = json.loads(OUT_FILE.read_text(encoding="utf-8")) if OUT_FILE.exists() else {}
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    tier = free_tier(client)
-    if tier is not False and not args.allow_free_tier:
+    if not args.allow_free_tier and free_tier(client) is not False:
         sys.exit("The Gemini key is on the free tier (or its tier cannot be told), where Google may use the "
                  "images. Turn on billing for the key's project in Google AI Studio, or pass --allow-free-tier.")
     pipeline = ValuationPipeline()

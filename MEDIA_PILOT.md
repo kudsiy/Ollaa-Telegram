@@ -1,11 +1,17 @@
 # Photo pilot: reading photo-only posts with Gemini (task S15)
 
-28 October 2026. Code: `src/media_pilot.py` (reads the images) and
+28 October 2026. Code: `src/media_pilot.py` (reads the images),
+`src/media_web_fetch.py` (round 2: photos from the public web preview, no login) and
 `database/media_pilot_report.py` (summary, read-only). The database was backed up first
 (`backups/ollaa_2026-10-28_before_S15_pilot.dump`) and **was not changed**: nothing was
 written to `processed_listings` or `media_queue`. The full results, including the words
 copied from each image, are in `data/media_pilot/results.json`, which is never committed
 (it can hold phone numbers).
+
+**In short:** 45 photos read in two rounds (26 already on this laptop, 19 from the public
+web preview). 3 carried the words of a property offer; none had a price and a size, so
+none is fit for the price model. Reading all photo-only posts is not worth it (see "Both
+rounds together" in round 2).
 
 ## How it works
 
@@ -20,21 +26,22 @@ copied from each image, are in `data/media_pilot/results.json`, which is never c
 billing, so these 26 images were read on the free tier, where Google may use what it
 receives to improve its products (2 of them showed a phone number). Since then
 `media_pilot.py` checks the tier first and sends no image while the key is on the free
-tier, unless told otherwise (`--allow-free-tier`).
+tier, unless told otherwise (`--allow-free-tier`). Billing cannot be paid from Ethiopia, and
+the owner then allowed the free tier for the pilot (CLAUDE.md); round 2 used it.
 
 ## Why only 26 posts, not 50
 
 - Of the 2,860 photo-only posts, only 91 have their image on this laptop; the other
   ~2,770 images were never downloaded (`media_queue` marks 3,296 of its 3,333 files as
   `PENDING`). Downloading was removed from the scraper on purpose: its comment warns that
-  downloading files can make Telegram revoke the login of a flagged account, and the
-  "slow and safe" downloader it planned (`media_downloader.py`) was never written.
+  downloading files can make Telegram revoke the login of a flagged account. Since the
+  owner's decision of 28 October 2026, photos are never downloaded with the login at all.
 - 16 of the 91 are extra photos of an album whose caption is already a listing (posted in
   the same second, a few messages apart); reading them would only repeat that listing.
 - 54 of the 747 image files on this laptop are **empty** (0 bytes) from an interrupted
   download. Of the remaining 75 candidates, 49 were empty; Gemini rejected them.
 - That leaves **26 real images**, all read: 15 from mygojo1, 10 from condoaddis, 1 from
-  realityaddisababa. Reaching 50 needs downloads from Telegram (see "Decision needed").
+  realityaddisababa. Round 2 (below) took more photos from the public web preview.
 
 ## Results
 
@@ -104,13 +111,14 @@ Google's pricing page (per million tokens):
 
 On the **free tier, Google may use the images to improve its products** (Google's pricing
 page: "Used to improve our products: Yes"; paid tier: "No"). These images contain other
-people's phone numbers, so the paid tier (about one dollar) is the safer choice.
+people's phone numbers, so the paid tier (about one dollar) would be the safer choice, but
+it cannot be paid from Ethiopia; the owner accepted the free tier for the pilot, and a full
+run needs the owner's approval again.
 
 **Time.**
-- Downloading the 2,389 photos from Telegram, slowly (one every 5 seconds): about 3½ hours,
-  about 375 MB. Needs a working Telegram login on this laptop: the scraper's login file is
-  not here (only an old test login from April), so the owner may have to log in again and
-  type the code Telegram sends.
+- Downloading with the owner's Telegram login is not allowed (CLAUDE.md). The public web
+  preview reaches only the ~1,100 posts of chats that have one (round 2), at about 2
+  requests per photo every 20–40 seconds: about 18 hours, spread over several days.
 - Reading them at the pilot's pace (about 13 seconds per post): about 8½ hours. On the free
   tier the daily limit (shown in Google AI Studio; reported as about 1,000 requests a day
   for Flash-Lite, not confirmed) stretches this to about 3 days. On the paid tier several
@@ -124,25 +132,92 @@ of the large ones. Developer brochures (championallsites, luxury_freelancers) an
 flyers may well carry prices and sizes, so the true number could be higher, but the 929
 championallsites photos can add at most 44 projects.
 
-## Round 2: 50 photos from the large channels (prepared, waiting for the owner)
+## Round 2: 19 photos from the public web preview (28 October 2026)
 
-The owner approved downloading about 50 photos from the large channels and reading them on
-the paid tier. Everything is ready; two steps only the owner can do come first:
+**How.** The owner's Telegram login was **not** used (owner's rule, CLAUDE.md).
+`src/media_web_fetch.py` took the photos of the 50 posts chosen by `media_pilot.py --plan 50`
+from Telegram's public web preview (`https://t.me/s/<channel>/<post>`), which needs no
+account: one request every 20–40 seconds (random), at most 50 photos, stopping at the
+first error. It made 37 requests in 19 minutes, with no error and no sign of blocking.
+Gemini read the photos on the free tier, which the owner allowed for this pilot
+(`media_pilot.py --round 2 --allow-free-tier`, one image every 10 seconds, 19 requests in
+all: far below the free-tier limits). The database was not changed.
 
-1. **Log in to Telegram.** The old login on this laptop has expired. The owner runs
-   `src/telegram_login.py` in a terminal and types the code Telegram sends (and the
-   two-step password, if set). The login is kept in `data/sessions/` and never committed.
-2. **Turn on billing for the Gemini key** in Google AI Studio (the key's project is on the
-   free tier). 50 photos cost about $0.02.
+**Why 19, not 50.** No posts were put in place of the missing ones, as the owner asked.
+- 5 channels have no public preview, so their 30 planned posts were skipped:
+  championallsites (10) and luxury_freelancers (5) are forum groups;
+  hugeAddisababamarket2025 (5), ET_Creatives_Homes_And_Cars (5) and Roya_King4102 (5)
+  show no preview either (most likely groups, not channels).
+- 1 post (livingethio 24107) no longer shows a photo (deleted, or not a photo).
+- The 19 come from livingethio 4, addishomeset 5, Apartments_for_rent_Addis_Ababa 4,
+  Betafrivip 3 and mygojo1 3.
 
-Then: `src/media_pilot.py --plan 50` has chosen the posts (photos only, standalone, one per
-developer project on championallsites): championallsites 10, luxury_freelancers 5,
-livingethio 5, addishomeset 5, hugeAddisababamarket2025 5, ET_Creatives_Homes_And_Cars 5,
-Roya_King4102 5, Apartments_for_rent_Addis_Ababa 4, Betafrivip 3, mygojo1 3.
-`src/media_downloader.py` fetches them one every 6–10 seconds (about 7 minutes) and stops
-at the first sign of trouble from Telegram; `src/media_pilot.py --round 2` reads them.
+### Results
 
-## All 26 posts
+| | Posts |
+|---|---|
+| Photos read | 19 (no errors) |
+| No words in the image at all (room photos: empty rooms, bathrooms, a living room…) | 12 |
+| Words, but not a property offer (the phone's camera mark "Galaxy M13", a broker's @username, a number written on a window) | 3 |
+| Only the channel's watermark, wrongly read as rent listings (see "Mistakes") | 3 |
+| Words of a real property offer | 1 (a G+1 guesthouse for rent in CMC: type and place, no price, no size) |
+| **Became usable listings** | **4 by the rules, really 1** |
+| With both a price and a size | **0** |
+| Fit for a hedonic model | 0 |
+
+Measured: 1,248 tokens in and 36 out per image, 7 seconds per image.
+
+### 10 examples
+
+| Post | What the image shows (Gemini) | Words found (masked, in English) | Parser result | Right? |
+|---|---|---|---|---|
+| 3912 | A living room in a guesthouse for rent | "G+1 GUESTHOUSE FOR RENT! CMC Yetebaberut", <user> | rent, villa, CMC: usable | Right (checked by eye): a house for rent in CMC, but no price or size |
+| 6051 | A kitchen with a real-estate channel's watermark | "Bet afri vip: the channel for houses renting above 30,000 birr" | rent, single room: usable | **Mistake** (checked by eye): only the channel's watermark |
+| 6099 | A narrow hallway with the channel's banner | the same watermark | rent, single room: usable | **Mistake**: watermark only |
+| 6123 | A bathroom with a logo and text | the same watermark | rent, single room: usable | **Mistake**: watermark only |
+| 3707 | An indoor staircase with marble floor | "Galaxy M13" (the phone that took the photo) | advert / noise | Right |
+| 3911 | A dining area and kitchen | <user> only | advert / noise | Right |
+| 5806 | Two modern multi-storey houses "under construction" | "6557" (written on a window) | advert / noise | Right (checked by eye: the houses look almost finished; the sentence is not used by the parser) |
+| 3619 | An empty room with two pendant lights | (no words) | photo, unknown | Right |
+| 3966 | A living room with blue velvet sofas | (no words) | photo, unknown | Right |
+| 3730 | A small bathroom | (no words) | photo, unknown | Right |
+
+The full table of the 19 posts is at the end.
+
+### Mistakes
+
+- **Channel watermarks become listings.** Betafrivip stamps every photo with "Bet afri
+  vip: the channel for houses renting above 30,000 birr" (ከ30ሺ ብር በላይ የሚከራዩ ቤቶች). The
+  parser reads "renting" and, with the Bet_afri channel rule, makes each photo a
+  single-room rent listing (no price was taken). A full run would first have to remove
+  known channel watermarks from the copied words. No parser rule was changed in this task.
+- Gemini called nearly finished houses "under construction". Harmless here, because only
+  the copied words are parsed, not Gemini's sentence.
+
+### Both rounds together, and is the full run worth it?
+
+45 photos from 7 channels: **3 carried the words of a property offer** (the CMC guesthouse
+here; the Ayat 49 and Summit condominiums of round 1, which the 30-character junk rule
+dropped), **none had a price or a size, and none is fit for the price model.** More than
+half (25 of 45) are room photos with no words at all; the price and size of these properties, where given, are in
+the text posts, not in the photos.
+
+**Recommendation: do not run all photo-only posts.** The cost is not the problem (free,
+or about one dollar); the result is:
+- Expected yield: in the pilot about 1 photo in 15 carried the words of an offer, and
+  none a price and a size, so the hedonic sample would not grow.
+- Most photos cannot be reached without the login, which is not allowed: of the 2,389
+  standalone photo posts, 1,282 sit in the 5 chats without a public preview
+  (championallsites 929, luxury_freelancers 131, hugeAddisababamarket2025 85,
+  ET_Creatives_Homes_And_Cars 71, Roya_King4102 66), including the developer brochures,
+  the most likely to show prices.
+- The other ~1,100 would take about 2,200 polite web requests (about 18 hours, spread over
+  several days) plus about 3 hours of Gemini on the free tier, for perhaps 70 listings,
+  almost none with a price.
+
+The photo-only posts stay `MEDIA_PENDING`, which the price model already leaves out.
+
+## All 26 posts of round 1
 
 | Post | Channel | The image shows | Sale/rent | Type | Price (birr) | Size m² | Beds | Place | Usable |
 |---|---|---|---|---|---|---|---|---|---|
@@ -172,3 +247,27 @@ at the first sign of trouble from Telegram; `src/media_pilot.py --round 2` reads
 | 2977 | mygojo1 | A photo of a bathroom with a sink, toilet, and bathtub. | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
 | 2978 | mygojo1 | a photo of a bedroom with a bed, a dresser with a mirror, and a small nightstand | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
 | 2979 | mygojo1 | a photo of a living room with a sofa, curtains, and a coffee table | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+
+## All 19 posts of round 2
+
+| Post | Channel | The image shows | Sale/rent | Type | Price (birr) | Size m² | Beds | Place | Usable |
+|---|---|---|---|---|---|---|---|---|---|
+| 3619 | livingethio | a photo of an empty room with light-colored walls, grey flooring, and two hanging pendant lights. | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 3707 | Apartments_for_rent_Addis_Ababa | a photo of an indoor staircase with marble flooring and a wooden railing | ADVERT | ADVERTISEMENT |  |  |  | (noise) | no |
+| 3717 | Apartments_for_rent_Addis_Ababa | A photo of an empty room with light-colored walls and wood-look flooring. | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 3730 | Apartments_for_rent_Addis_Ababa | a photo of a small bathroom with a shower stall, a toilet, and a sink. | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 3735 | Apartments_for_rent_Addis_Ababa | A photo of an empty room with light-colored walls and wood-look flooring. | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 3901 | addishomeset | a photo of a bedroom with a wooden bed and a large wooden wardrobe | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 3911 | addishomeset | a photo of a dining area and kitchen | ADVERT | ADVERTISEMENT |  |  |  | (noise) | no |
+| 3912 | addishomeset | a photo of a living room in a guesthouse for rent | RENT | VILLA |  |  |  | CMC | yes |
+| 3966 | addishomeset | a photo of a modern living room with blue velvet sofas and a television | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 3980 | addishomeset | a photo of a modern bathroom with a toilet and a glass-enclosed shower | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 5334 | mygojo1 | a photo of a modern hallway and interior space with recessed ceiling lighting | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 5370 | mygojo1 | an empty room with light blue walls and dark wooden flooring | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 5377 | mygojo1 | a photo of an empty room with tiled floors and a window | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 5770 | livingethio | a photo of a bedroom with a bed and a patterned blanket | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 5806 | livingethio | a photo of two modern multi-story residential buildings under construction | ADVERT | ADVERTISEMENT |  |  |  | (noise) | no |
+| 5855 | livingethio | a photo of an empty room with a window and tiled floor | UNKNOWN | MEDIA_LINK |  |  |  | (noise) | no |
+| 6051 | Betafrivip | a photo of a kitchen with a watermark for a real estate channel | RENT | SINGLE_ROOM |  |  |  | (no place found) | yes |
+| 6099 | Betafrivip | a narrow hallway in a building with a promotional banner for a real estate channel at the bottom | RENT | SINGLE_ROOM |  |  |  | (no place found) | yes |
+| 6123 | Betafrivip | a photo of a bathroom with a sink and toilet, with a logo and text overlay | RENT | SINGLE_ROOM |  |  |  | (no place found) | yes |
