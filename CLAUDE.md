@@ -111,7 +111,10 @@ Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1,
   runs them through the text parser; see `MEDIA_PILOT.md`. Its full output
   (`data/media_pilot/`) holds unmasked text with phone numbers: never commit it. Only 26
   photo-only posts have their image on this laptop; downloading the rest uses the owner's
-  Telegram login and must be approved by the owner first.
+  Telegram login and must be approved by the owner first. Download only with
+  `src/media_downloader.py` (slow; stops on any Telegram warning); the owner logs in with
+  `src/telegram_login.py` and types the code; never enter a login code or password for the
+  owner. The Gemini key is on the free tier: `media_pilot.py` refuses to send images there.
 - `src/locations.py` is the only table of places. Every location code written anywhere
   must be a key of `PLACES` (or `noise` / `other_addis`). To add a place, add it to
   `PLACES` and its English and Amharic names to `ALIASES`, more specific names before the

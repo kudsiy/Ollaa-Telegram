@@ -16,6 +16,12 @@ copied from each image, are in `data/media_pilot/results.json`, which is never c
    of `src/locations.py`), type and sale/rent follow exactly the text rules.
 3. "Usable" and "fit for a hedonic model" use the definitions of `DATA_QUALITY.md`.
 
+**Free tier.** A check made afterwards showed that the Gemini key's Google project has no
+billing, so these 26 images were read on the free tier, where Google may use what it
+receives to improve its products (2 of them showed a phone number). Since then
+`media_pilot.py` checks the tier first and sends no image while the key is on the free
+tier, unless told otherwise (`--allow-free-tier`).
+
 ## Why only 26 posts, not 50
 
 - Of the 2,860 photo-only posts, only 91 have their image on this laptop; the other
@@ -118,16 +124,23 @@ of the large ones. Developer brochures (championallsites, luxury_freelancers) an
 flyers may well carry prices and sizes, so the true number could be higher, but the 929
 championallsites photos can add at most 44 projects.
 
-## Decision needed
+## Round 2: 50 photos from the large channels (prepared, waiting for the owner)
 
-A pilot that says something about the whole set needs about 50 photos from the large
-channels, which means downloading them from Telegram first:
-1. **Telegram login and risk.** Downloading uses the owner's Telegram account. The
-   scraper's own comment warns that downloading can get the login revoked; it should be
-   slow (one photo every few seconds). If the old login has expired, the owner must log in
-   and type the code Telegram sends.
-2. **Free or paid Gemini.** Free costs nothing but lets Google use the images; paid costs
-   about $0.02 for 50 photos and about $1 for all.
+The owner approved downloading about 50 photos from the large channels and reading them on
+the paid tier. Everything is ready; two steps only the owner can do come first:
+
+1. **Log in to Telegram.** The old login on this laptop has expired. The owner runs
+   `src/telegram_login.py` in a terminal and types the code Telegram sends (and the
+   two-step password, if set). The login is kept in `data/sessions/` and never committed.
+2. **Turn on billing for the Gemini key** in Google AI Studio (the key's project is on the
+   free tier). 50 photos cost about $0.02.
+
+Then: `src/media_pilot.py --plan 50` has chosen the posts (photos only, standalone, one per
+developer project on championallsites): championallsites 10, luxury_freelancers 5,
+livingethio 5, addishomeset 5, hugeAddisababamarket2025 5, ET_Creatives_Homes_And_Cars 5,
+Roya_King4102 5, Apartments_for_rent_Addis_Ababa 4, Betafrivip 3, mygojo1 3.
+`src/media_downloader.py` fetches them one every 6–10 seconds (about 7 minutes) and stops
+at the first sign of trouble from Telegram; `src/media_pilot.py --round 2` reads them.
 
 ## All 26 posts
 

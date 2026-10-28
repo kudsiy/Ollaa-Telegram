@@ -14,11 +14,18 @@ Only posts whose image is already on this laptop (data/images/telegram) are used
 those 747 files are empty, from an interrupted download, and are skipped); album extras
 (a photo posted together with a captioned listing) are left out.
 
+Round 2 reads photos downloaded from the largest channels: `--plan 50` chooses the posts,
+src/media_downloader.py fetches them (after src/telegram_login.py), `--round 2` reads them.
+Images are only sent while the key's Google project has billing (see free_tier).
+
 Usage:
-    venv\Scripts\python.exe src\media_pilot.py --sample 50
+    venv\Scripts\python.exe src\media_pilot.py --sample 50      # round 1: images already here
+    venv\Scripts\python.exe src\media_pilot.py --plan 50        # round 2: choose posts to download
+    venv\Scripts\python.exe src\media_pilot.py --round 2        # round 2: read the downloaded photos
 
 Output (data/ is never committed: the copied text can hold phone numbers):
-    data/media_pilot/results.json   one entry per post; re-running skips posts already read
+    data/media_pilot/results.json      one entry per post; re-running skips posts already read
+    data/media_pilot/round2_plan.json  the posts chosen for round 2
 """
 
 from __future__ import annotations
@@ -43,7 +50,13 @@ from run_pipeline import ValuationPipeline
 BASE_DIR = Path(__file__).resolve().parents[1]
 IMAGE_DIR = BASE_DIR / "data" / "images" / "telegram"
 OUT_FILE = BASE_DIR / "data" / "media_pilot" / "results.json"
+PLAN_FILE = BASE_DIR / "data" / "media_pilot" / "round2_plan.json"
 MODEL_ID = "gemini-3.1-flash-lite"
+PAID_ONLY_MODEL = "gemini-3.1-pro-preview"   # used only to tell the key's tier (see free_tier)
+# Round 2: how many photo posts to take from each of the largest channels (50 in all).
+ROUND2 = {"championallsites": 10, "luxury_freelancers": 5, "livingethio": 5, "addishomeset": 5,
+          "hugeAddisababamarket2025": 5, "ET_Creatives_Homes_And_Cars": 5, "Roya_King4102": 5,
+          "Apartments_for_rent_Addis_Ababa": 4, "Betafrivip": 3, "mygojo1": 3}
 SECONDS_BETWEEN_CALLS = 5          # at most 12 requests a minute, inside the free tier's limit
 SEED = 2026_10_28
 
@@ -72,6 +85,21 @@ CANDIDATES_SQL = text("""
         SELECT 1 FROM telegram_listings s JOIN processed_listings q ON q.id = s.id::text
         WHERE s.channel = t.channel AND abs(s.message_id - t.message_id) <= 10
           AND s.posted_at = t.posted_at AND q.listing_class <> 'MEDIA_PENDING')
+    ORDER BY t.id
+""")
+
+
+# Round 2: standalone photos (no captioned listing within 10 messages and 10 minutes) of
+# photo-only posts, as media_queue lists them (file type IMAGE).
+ROUND2_SQL = text("""
+    SELECT t.id, t.channel, t.message_id, t.posted_at, t.reply_to_top_id, t.topic_title, p.location
+    FROM processed_listings p JOIN telegram_listings t ON t.id::text = p.id
+    JOIN media_queue m ON m.channel = t.channel AND m.message_id = t.message_id AND m.file_type = 'IMAGE'
+    WHERE p.listing_class = 'MEDIA_PENDING'
+      AND NOT EXISTS (
+        SELECT 1 FROM telegram_listings s JOIN processed_listings q ON q.id = s.id::text
+        WHERE s.channel = t.channel AND abs(s.message_id - t.message_id) <= 10
+          AND abs(extract(epoch FROM s.posted_at - t.posted_at)) <= 600 AND q.listing_class <> 'MEDIA_PENDING')
     ORDER BY t.id
 """)
 
@@ -126,21 +154,72 @@ def parse(pipeline, row, copied_text):
                      "floor_level", "finish_state")}
 
 
+def free_tier(client):
+    """True when the key's Google project has no billing (a paid-only model then answers
+    "free tier ... limit: 0"); None when that cannot be told. On the free tier Google may
+    use what it receives to improve its products, and these images hold phone numbers."""
+    try:
+        client.models.generate_content(model=PAID_ONLY_MODEL, contents="Reply with the word OK.")
+        return False
+    except Exception as e:
+        message = str(e).lower()
+        if "free_tier" in message and "limit: 0" in message:
+            return True
+        return None
+
+
+def plan_round2(conn, n) -> list[dict]:
+    """Round 2: photo posts from the largest channels (ROUND2 says how many from each), standalone
+    (no captioned listing within 10 messages and 10 minutes), photos only, not on this laptop yet."""
+    rows = conn.execute(ROUND2_SQL).fetchall()
+    rng, plan = random.Random(SEED), []
+    for channel, count in ROUND2.items():
+        pool = [r for r in rows if r.channel.rstrip("/").endswith("/" + channel)
+                and not (image_path(r).exists() and image_path(r).stat().st_size)]
+        rng.shuffle(pool)
+        picked, topics = [], set()
+        for r in pool:   # one photo per forum topic first (championallsites: one per project)
+            if r.topic_title not in topics or not r.topic_title:
+                picked.append(r)
+                topics.add(r.topic_title)
+            if len(picked) == count:
+                break
+        plan += [{"id": r.id, "channel": r.channel, "channel_name": channel, "message_id": r.message_id,
+                  "image": image_path(r).name} for r in picked]
+    return plan[:n]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Read photo-only posts with Gemini (pilot).")
-    ap.add_argument("--sample", type=int, default=50)
+    ap.add_argument("--sample", type=int, default=50, help="round 1: posts whose image is already here")
+    ap.add_argument("--plan", type=int, help="round 2: choose this many posts to download (no Gemini calls)")
+    ap.add_argument("--round", type=int, default=1, choices=(1, 2))
+    ap.add_argument("--allow-free-tier", action="store_true", help="send images even if the key is on the free tier")
     args = ap.parse_args()
 
     with create_engine(settings.DB_URL).connect() as conn:
-        rows = [r for r in conn.execute(CANDIDATES_SQL) if image_path(r).exists() and image_path(r).stat().st_size]
-    chosen = choose(rows, args.sample)
-    print(f"candidates with a (non-empty) image on this laptop: {len(rows)}; chosen: {len(chosen)}")
+        if args.plan:
+            plan = plan_round2(conn, args.plan)
+            PLAN_FILE.parent.mkdir(parents=True, exist_ok=True)
+            PLAN_FILE.write_text(json.dumps(plan, indent=1), encoding="utf-8")
+            print(f"wrote {PLAN_FILE.relative_to(BASE_DIR)}: {len(plan)} posts")
+            return
+        if args.round == 2:
+            planned = {p["id"] for p in json.loads(PLAN_FILE.read_text(encoding="utf-8"))}
+            rows = [r for r in conn.execute(ROUND2_SQL) if r.id in planned]
+        else:
+            rows = list(conn.execute(CANDIDATES_SQL))
+    rows = [r for r in rows if image_path(r).exists() and image_path(r).stat().st_size]
+    chosen = rows if args.round == 2 else choose(rows, args.sample)
+    print(f"round {args.round}: posts with a (non-empty) image on this laptop: {len(rows)}; chosen: {len(chosen)}")
 
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     results = json.loads(OUT_FILE.read_text(encoding="utf-8")) if OUT_FILE.exists() else {}
-    # Entries of posts no longer chosen (e.g. an empty image file) are dropped.
-    results = {k: v for k, v in results.items() if k in {str(r.id) for r in chosen}}
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    tier = free_tier(client)
+    if tier is not False and not args.allow_free_tier:
+        sys.exit("The Gemini key is on the free tier (or its tier cannot be told), where Google may use the "
+                 "images. Turn on billing for the key's project in Google AI Studio, or pass --allow-free-tier.")
     pipeline = ValuationPipeline()
 
     for i, row in enumerate(chosen, 1):
@@ -151,15 +230,15 @@ def main() -> None:
             answer, tokens, seconds = read_image(client, image_path(row))
             copied = re.sub(r"\n{3,}", "\n\n", answer.get("text", "")).strip()
             results[key] = {
-                "channel": row.channel.rsplit("/", 1)[-1], "message_id": row.message_id,
+                "round": args.round, "channel": row.channel.rsplit("/", 1)[-1], "message_id": row.message_id,
                 "image": image_path(row).name, "stored_location": row.location,
                 "text": copied, "shows": answer.get("shows", ""), "tokens": tokens, "seconds": round(seconds, 1),
                 "parsed": parse(pipeline, row, copied),
             }
             print(f"{i:>3}/{len(chosen)} {key}: {tokens['input']}+{tokens['output']} tokens, {seconds:.1f}s")
         except Exception as e:
-            results[key] = {"channel": row.channel.rsplit("/", 1)[-1], "message_id": row.message_id,
-                            "error": f"{type(e).__name__}: {str(e)[:200]}"}
+            results[key] = {"round": args.round, "channel": row.channel.rsplit("/", 1)[-1],
+                            "message_id": row.message_id, "error": f"{type(e).__name__}: {str(e)[:200]}"}
             print(f"{i:>3}/{len(chosen)} {key}: ERROR {type(e).__name__}")
         OUT_FILE.write_text(json.dumps(results, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
         time.sleep(SECONDS_BETWEEN_CALLS)
