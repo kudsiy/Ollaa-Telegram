@@ -162,8 +162,10 @@ async def scrape_forum_group(client, budget, channel: str) -> int:
     return total
 
 
-async def scrape(client, budget) -> None:
+async def scrape(client, budget) -> tuple[int, list]:
+    """Reads every channel and forum group; returns (new messages saved, chats skipped)."""
     sources = [(c, False) for c in REGULAR_CHANNELS] + [(g, True) for g in FORUM_GROUPS]
+    new_total, skipped = 0, []
     for i, (channel, forum) in enumerate(sources):
         if i:
             await safety.pause(safety.PAUSE_BETWEEN_CHANNELS)
@@ -172,13 +174,16 @@ async def scrape(client, budget) -> None:
             reader = scrape_forum_group if forum else scrape_regular_channel
             new = await asyncio.wait_for(reader(client, budget, channel), FORUM_TIMEOUT if forum else CHANNEL_TIMEOUT)
             print(f"  {new} new messages")
+            new_total += new
         except (*safety.CHANNEL_PROBLEMS, ValueError) as e:   # left, renamed or private: skip this one only
             print(f"  skipped: {type(e).__name__}")
+            skipped.append(channel)
         except RPCError as e:
             raise safety.stop_after_warning(budget, e, f"while reading {channel}")
         except (OSError, asyncio.TimeoutError) as e:
             raise safety.SafetyStop(f"Network problem while reading {channel} ({type(e).__name__}): the run "
                                     "stopped. Try again later.")
+    return new_total, skipped
 
 
 async def main() -> int:
@@ -193,13 +198,16 @@ async def main() -> int:
                                     flood_sleep_threshold=safety.FLOOD_SLEEP_THRESHOLD)
             try:
                 await safety.connect_with_existing_login(client, budget)
-                await scrape(client, budget)
+                new_total, skipped = await scrape(client, budget)
             finally:
                 await client.disconnect()
     except safety.SafetyStop as e:
         print(f"\nSTOPPED: {e}")
         return 2
-    print("\nScraping complete.")
+    read = len(REGULAR_CHANNELS) + len(FORUM_GROUPS) - len(skipped)
+    print(f"\nScraping complete: {new_total} new messages saved from {read} channels and groups"
+          + (f" ({len(skipped)} skipped: {', '.join(skipped)})" if skipped else "")
+          + f"; {budget.state['requests']} of {safety.DAILY_REQUEST_CAP} Telegram requests used today.")
     return 0
 
 

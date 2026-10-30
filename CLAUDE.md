@@ -51,12 +51,22 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
 - **One login, one computer.** Use one login file on one computer only. Never copy a
   `.session` file to another computer, and never use one login from two places at once:
   Telegram ends a login used from two internet addresses at the same time.
-- **This laptop has no working login** (checked 28 October 2026; the old
-  `session.session` in the project root is logged out and is not used). Do not log in
-  here.
+- **The one login is made on this laptop, by hand, by the owner** (owner's decision,
+  30 October 2026): `src/telegram_login.py`, which only the owner runs, in CMD; never run
+  it yourself or from another script. It asks for the phone number (twice; it must match
+  `TG_PHONE`), the code and the two-step password, all typed hidden and never printed;
+  makes only the login file; refuses when a login file exists, while the scraper or
+  listener runs, or while Telegram use is paused; and afterwards pauses Telegram use until
+  midnight and for at least 12 hours, so nothing scrapes on the day of the login. Checked
+  by `tests/test_telegram_login.py` with a fake Telegram. The old `session.session` in the
+  project root is logged out and is not used.
 - **As few logins as possible.** Each new login is a new device for Telegram. Keep the
-  working login file; never delete it to "fix" an error; never add scripts that open the
-  account (`src/srctest_scrape_channel.py`, which made a second session, was removed).
+  working login file; never delete it to "fix" an error. `telegram_login.py` is the only
+  program that makes a login; never add others (`src/srctest_scrape_channel.py`, which
+  made a second session, was removed).
+- **After a run:** `database\scrape_check.py` (read-only, never contacts Telegram) shows
+  whether the login file is there, today's runs and requests, any pause and why, and the
+  raw messages saved in the last 24 hours per channel.
 - **Read only.** Scripts only read channels the account already follows: no sending
   messages, no joining or leaving channels, no reactions, no contacting anyone.
 - **Run the scraper once or twice a day, never in a loop**, and never at the same time

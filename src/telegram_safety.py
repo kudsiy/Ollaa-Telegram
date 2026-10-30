@@ -169,9 +169,8 @@ class DailyBudget:
     def check_not_blocked(self) -> None:
         until = self.state.get("blocked_until")
         if until and datetime.fromisoformat(until) > now():
-            raise SafetyStop(f"Telegram gave a warning earlier ({self.state.get('block_reason')}), so Telegram is "
-                             f"not used again until {datetime.fromisoformat(until):%Y-%m-%d %H:%M} (Addis Ababa "
-                             "time).")
+            raise SafetyStop(f"Telegram use is paused until {datetime.fromisoformat(until):%Y-%m-%d %H:%M} (Addis "
+                             f"Ababa time): {self.state.get('block_reason')}.")
 
     def start_scraper_run(self) -> None:
         self.new_day()
