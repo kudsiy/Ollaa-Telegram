@@ -172,5 +172,59 @@ for text, channel, expected in BET_AFRI:
     print(f"{'ok  ' if ok else 'FAIL'} {channel} post: {got}" + ("" if ok else f"  (expected RENT, {expected})")
           + f" | {text[:40]}")
 
+# Mistakes found in the scrape of 1 November 2026 (task S19). Each text is shortened from a real post.
+MENU = ("\n----------***----------\nአፓርትመንት ቤቶችን ለማየት👉https://t.me/a \nኮንዶሚኒየም 20/80 ለማየት👉 https://t.me/b \n"
+        "ቪላ:ህንፃዎችን ለማየት👉https://t.me/c\nመሬትና መጋዘን ለማየት👉 https://t.me/d \n")
+S19 = [
+    # A channel's menu of links ("land and warehouses") says nothing about the property.
+    ("አያት አካባቢ የሚሸጥ\n94 ካሬ\nG+4 ቆንጆ ቤት\nዋጋ 35 ሚሊየን" + MENU, {"property_type": "VILLA", "sale_price_birr": 35_000_000}),
+    ("ባለ1 መኝታ ለሽያጭ የቀረበ ኮንዶሚኒየም\nሀያት\n45ካሬ\nዋጋ 5 ሚሊየን" + MENU, {"property_type": "CONDOMINIUM"}),
+    ("አስቸኳይ ሽያጭ መሬት\nአያት 49\n90 ካሬሜትር\nዋጋ 8,000,000 million" + MENU, {"property_type": "LAND"}),
+    # A real warehouse in the same channel stays one; so does a warehouse above a menu.
+    ("መጋዘን----001\nለሽያጭ የቀረበ መጋዝን\nቃሊቲ\n250ካሬ\nዋጋ 12.5 ሚሊዮን" + MENU, {"property_type": "WAREHOUSE"}),
+    # One "to see" link in an advert is not a menu.
+    ("የሚሸጥ መጋዘን\nቃሊቲ\n500 ካሬ\nፎቶውን ለማየት👉 https://t.me/e\nዋጋ 40 ሚሊዮን", {"property_type": "WAREHOUSE"}),
+    # "current" and "different" contain "rent"; a real rental still is one.
+    ("#Gazebo Skyline current progress", {"intent": "UNKNOWN", "listing_class": "INVALID"}),
+    ("In just two days, foundation concrete is underway on two different sites.", {"intent": "UNKNOWN"}),
+    ("Apartment for rent in Bole, 2 bedrooms, 60,000 birr per month", {"intent": "RENT", "rent_price_birr": 60_000}),
+    ("#HouseForRent በቦሌ 3 መኝታ ቤት 60,000 ብር", {"intent": "RENT"}),
+    # The broker's 2% is not the price: bank part plus cash part is.
+    ("አስቸኳይ ሽያጭ\nአያት አካባቢ\nባንክ አለባት\n150 ካሬ\n#ባንክ 18 ሚሊዮን\n#ካሽ  4 ሚሊዮን\nCaution 2% comission of the total\n"
+     "Amount applied 440,000 birr", {"sale_price_birr": 22_000_000}),
+    ("የሚሸጥ ቤት\n180 ካሬ\nአያት ባንክ ያለበት\nG+3\nባንክ 25 ሚሊየን\nካሽ 12 ሚሊየን\nCaution 2% comission is total\n"
+     "Sum of 37,000,000 is\n740,000 birr applied", {"sale_price_birr": 37_000_000}),
+    # Two ways to pay are not two parts of one price.
+    ("የሚሸጥ አፓርታማ\nበካሽ 5.7 ሚሊየን\nበባንክ 6 ሚሊየን", {"sale_price_birr": 5_700_000}),
+    # A comma for the decimal point; a price alone on its line.
+    ("የሚሸጥ ኮንዶሚኒየም አያት\nስፋት 86ካሬ\nዋጋ 8,5 ሚሊየን ብር", {"sale_price_birr": 8_500_000}),
+    ("Figa Noah\n115 sqm\n3 bed room\nPrice 17,5 mil derder Alew", {"intent": "SALE", "sale_price_birr": 17_500_000}),
+    ("ለሽያጭ የቀረበ G+3\nአያት 49\n75 ካሬ\n6 መኝታ ቤት\n18,500,000\n", {"sale_price_birr": 18_500_000}),
+    # ...but a bare number under "down payment" is not the price.
+    ("ለሽያጭ የቀረበ አፓርታማ\nቦሌ\n75 ካሬ\nቅድመ ክፍያ\n1,500,000\n", {"sale_price_birr": None}),
+    # ...and the first price of a list stays the price.
+    ("የሚሸጥ አፓርታማ\nType E 63 kare\n7,586,400birr\nType G 124 kare\n14,976,000\n", {"sale_price_birr": 7_586_400}),
+    # Thousands in a size.
+    ("🚨 የሚሸጥ ቤት!\nአካባቢ፦ ቦሌ\nስፋት፦ 1,000 ካሬ ሜትር\nዋጋ፦ 200 ሚሊዮን ብር", {"plot_sqm": 1000}),
+    # Goods that are not property; a house in the same channel stays a listing.
+    ("የሚሸጠው እቃ :- የፍሬን ዲስክ (አባ ድላ)\n🟡 ዋጋ እና አድራሻ : - 8 ሺ 7,200 ብር (ካራ ቆሬ)", {"listing_class": "ADVERTISEMENT"}),
+    ("የሚሸጠው እቃ :- ሞተር ብስክሌት\n🟡 ዋጋ እና አድራሻ : - 95 ሺ 80 ሺ ብር (ቦሌ አራብሳ)", {"listing_class": "ADVERTISEMENT"}),
+    ("የሚሸጠው እቃ :- G+3 ቤት (200 ካሬ)\n🟡 ዋጋ እና አድራሻ : - 37,000,000 ብር (ቃሊቲ)", {"listing_class": "PURE_SALE"}),
+    # Only the company's name, contacts and hashtags; a real project advert stays.
+    ("ሪያሊቲ  ሪልስቴት\nREALITY REAL ESTATE\nለበለጠ መረጃ\n0911000000\n0922000000\n#RealEstate #PropertyForSale #DreamHome",
+     {"listing_class": "ADVERTISEMENT", "location": "noise"}),
+    ("ሪያሊቲ አምባሳደር ፕሮጀክት\nሪያሊቲ  ሪልስቴት\nREALITY REAL ESTATE\nለበለጠ መረጃ\n0911000000\n#RealEstate",
+     {"listing_class": "ADVERTISEMENT"}),
+    ("ሪያሊቲ ሪልስቴት ባለ 3 መኝታ አፓርትመንት ለሽያጭ በቦሌ፣ 150 ካሬ፣ ዋጋ 20 ሚሊዮን ብር። ለበለጠ መረጃ 0911000000",
+     {"property_type": "APARTMENT", "sale_price_birr": 20_000_000}),
+]
+for text, expected in S19:
+    values, _, _ = build_processed_values(P, channel_row(text, "someChannel"))
+    got = {k: values[k] for k in expected}
+    ok = all(got[k] == expected[k] or (got[k] is not None and expected[k] is not None and float(got[k]) == float(expected[k]))
+             if not isinstance(expected[k], str) else got[k] == expected[k] for k in expected)
+    failures += not ok
+    print(f"{'ok  ' if ok else 'FAIL'} S19: {got}" + ("" if ok else f"  (expected {expected})") + f" | {text[:40]!r}")
+
 print(f"\n{'PASS' if not failures else f'FAILED: {failures} check(s)'}")
 sys.exit(1 if failures else 0)

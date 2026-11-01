@@ -457,11 +457,48 @@ def is_media_link_text(text: str) -> bool:
 SHARE_WORD_RE = re.compile(r"አክሲዮን|አክስዮን|shareholder", re.IGNORECASE)
 
 
+# A channel of second-hand goods names the item: "የሚሸጠው እቃ :- የፍሬን ዲስክ" (a brake disc).
+SOLD_ITEM_RE = re.compile(r"የሚሸጠው\s*እቃ\s*[:：\-]*\s*([^\n]*)")
+PROPERTY_WORD_RE = re.compile(r"ቤት|መሬት|ቦታ|ካሬ|አፓርታማ|አፓርትመንት|ኮንዶ|ቪላ|ህንፃ|ሕንፃ|ሱቅ|ቢሮ|መጋዘን|g\s*\+|ጂ\s*\+", re.IGNORECASE)
+
+
 def is_noise_advert(text: str) -> bool:
     if not text:
         return False
+    item = SOLD_ITEM_RE.search(text)
+    if item and not PROPERTY_WORD_RE.search(item.group(1)):
+        return True
     return bool(VEHICLE_ADVERT_RE.search(text) or CEREMONY_ADVERT_RE.search(text)
                 or len(SHARE_WORD_RE.findall(text)) >= 2)
+
+
+# A caption that is only the company's name, contacts and hashtags says nothing about a
+# property: "ሪያሊቲ ሪልስቴት / REALITY REAL ESTATE / ለበለጠ መረጃ / <phones> / #RealEstate".
+COMPANY_NAME_RE = re.compile(r"ሪያሊቲ\s*ሪል(?:እ)?ስቴት|reality\s*real\s*estate", re.IGNORECASE)
+CAPTION_FILLER_RE = re.compile(r"ለበለጠ\s*መረጃ|#\S+|\+?\d[\d\s-]{7,}\d", re.IGNORECASE)
+
+
+def is_company_caption(text: str) -> bool:
+    if not text or not COMPANY_NAME_RE.search(text):
+        return False
+    rest = CAPTION_FILLER_RE.sub(" ", COMPANY_NAME_RE.sub(" ", strip_links(text)))
+    return len(rest.strip()) < MIN_READABLE_CHARS
+
+
+# --- Numbers written unusually ---------------------------------------------------
+# "8,5 ሚሊየን" (a comma for the decimal point) is 8.5 million; "4,500 ካሬ" is 4500 m².
+COMMA_DECIMAL_RE = re.compile(r"(?<![\d,.])(\d{1,3}),(\d{1,2})(?=\s*" + MILLION_WORD + r")", re.IGNORECASE)
+COMMA_AREA_RE = re.compile(r"(?<![\d,.])(\d{1,2}),(\d{3})(?=\s*(?:ካሬ|sqm|sq\.?m|m2|m²))", re.IGNORECASE)
+# The broker's own fee: "Caution 2% comission of the total / Amount applied 440,000 birr",
+# "Caution 2% comission is total / Sum of 37,000,000 is / 740,000 birr applied".
+COMMISSION_NOTE_RE = re.compile(r"[^\n]*\d\s*%\s*com+ission[^\n]*(?:\s*[^\n]*?){0,2}\bapplied\b[^\n]*", re.IGNORECASE)
+
+
+def normalize_numbers(text: str) -> str:
+    """The text with these written the usual way, and the broker's fee left out."""
+    text = COMMISSION_NOTE_RE.sub(" ", text or "")
+    text = COMMA_DECIMAL_RE.sub(r"\1.\2", text)
+    return COMMA_AREA_RE.sub(r"\1\2", text)
 
 
 # --- Sale or rent ---------------------------------------------------------------
@@ -470,7 +507,9 @@ def is_noise_advert(text: str) -> bool:
 FOOTER_RE = re.compile(
     r"ለ\s*ክቡራን\s*ደንበኞቻችን"
     r"|(?:የሚሸጥ|የሚከራይ)[^\n]{0,30}?ቤት\s*ም?\s*(?:ሆነ|ወይም)?\s*መኪና[^\n]{0,30}?(?:ካሎት|ካለዎት|ከልወ|ከለወ|ይላኩ)"
-    r"|የህንፃ\s*[፣,]?\s*የቪላ\s*እና\s*አፓርታማ",
+    r"|የህንፃ\s*[፣,]?\s*የቪላ\s*እና\s*አፓርታማ"
+    # A menu of the channel's other links: "አፓርትመንት ቤቶችን ለማየት👉 ... መሬትና መጋዘን ለማየት👉 ..."
+    r"|[^\n]*ለማየት\s*👉[^\n]*\s+[^\n]*ለማየት\s*👉",
 )
 
 
@@ -502,6 +541,11 @@ INCOME_RE = re.compile(
 )
 
 
+# Words that merely contain "rent": "current progress", "#Current_Progress", "different".
+# (Not every word ending in "rent": "#HouseForRent" and "#AddisAbabaRentals" are rentals.)
+NOT_RENT_WORD_RE = re.compile(r"(?<![a-z])(?:current|different|parent|apparent|transparent|torrent)", re.IGNORECASE)
+
+
 def without_income(text: str, reach: int = 40) -> str:
     """The text with everything within `reach` characters of an income word blanked out."""
     if not text:
@@ -530,8 +574,13 @@ CASH_RE = re.compile(
 )
 
 
+# "ባንክ አለባት ... ባንክ 18 ሚሊዮን ... ካሽ 4 ሚሊዮን": it says the house carries a loan, and gives both parts.
+HAS_LOAN_RE = re.compile(r"ባንክ\s*(?:አለባት|አለበት|ያለበት)")
+PLAIN_LOAN_RE = re.compile(r"(?<!በ)ባንክ\s*[:፦]?\s*" + _LOAN_AMOUNT, re.IGNORECASE)
+
+
 def _amount_value(m) -> Optional[int]:
-    raw = m.group("amount") or m.group("amount2")
+    raw = m.groupdict().get("amount") or m.groupdict().get("amount2")
     million = re.search(MILLION_WORD, raw, re.IGNORECASE)
     value = _to_number(re.sub(MILLION_WORD + r".*", "", raw, flags=re.IGNORECASE).strip())
     if value is None:
@@ -542,6 +591,10 @@ def _amount_value(m) -> Optional[int]:
 def cash_plus_loan(text: str) -> Optional[tuple[int, int]]:
     """(cash part, bank loan the buyer takes over), when the text gives both."""
     loan, cash = LOAN_RE.search(text or ""), CASH_RE.search(text or "")
+    if not loan and HAS_LOAN_RE.search(text or ""):
+        loan = PLAIN_LOAN_RE.search(text or "")
+        if loan:   # "ባንክ 25 ሚሊየን / ካሽ 12 ሚሊየን": the 25 belongs to the bank, not to the "ካሽ" after it
+            cash = CASH_RE.search(text, loan.end()) or cash
     if not loan or not cash:
         return None
     loan_v, cash_v = _amount_value(loan), _amount_value(cash)

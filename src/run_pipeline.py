@@ -8,10 +8,13 @@ from processor import (
     LABELED_BUILTUP_SQM_RE,
     MILLION_RE,
     MILLION_WORD,
+    NOT_RENT_WORD_RE,
     RENT_MARKERS_RE,
     SALE_MARKERS_RE,
     _clean_area_value,
     cash_plus_loan,
+    is_company_caption,
+    normalize_numbers,
     extract_bedrooms,
     extract_area_breakdown,
     extract_labeled_location,
@@ -204,6 +207,7 @@ class ValuationPipeline:
         if not text:
             return ""
         t = unicodedata.normalize("NFKC", text).lower()
+        t = NOT_RENT_WORD_RE.sub(" ", t)
         t = re.sub(r"\s+", " ", t)
         return t.strip()
 
@@ -339,6 +343,7 @@ class ValuationPipeline:
         # A link inside a real listing does not make it noise (photo-only posts
         # are handled before this, see process()).
         if len(strip_links(text_lower).strip()) < MIN_READABLE_CHARS: return True
+        if is_company_caption(text): return True
         return False
     def extract_g_plus_level(self, text):
         t = self._norm(text)
@@ -808,7 +813,7 @@ class ValuationPipeline:
 
         # A price per m² is neither a total nor a size: read those from the text without it.
         # NFKC turns decorative digits and letters ("𝟭𝟮,𝟵𝟵𝟵,𝟬𝟬𝟬 𝗘𝗧𝗕") into plain ones.
-        number_source  = unicodedata.normalize("NFKC", text or "")
+        number_source  = normalize_numbers(unicodedata.normalize("NFKC", text or ""))
         asking_per_sqm = find_price_per_sqm(number_source)
         number_text    = strip_price_per_sqm(number_source)
 
@@ -923,7 +928,7 @@ class ValuationPipeline:
 AREA_PATTERNS = [
     r'(?<![\d.,])(\d{2,5})(?:\.\d+)?(?:\s*\(\d+(?:\.\d+)?\))?\s*(?:ካሬ|sqm|sq\.?m|m2|m²)',   # "158.72 ካሬ" is 158
 ]
-TOTAL_AREA_RE = re.compile(r"(?:total|ጠቅላላ\s*ስፋት)[\s.\-:፦…]*(\d{2,5})\s*(?:m2|m²|sqm|ካሬ)", re.IGNORECASE)
+TOTAL_AREA_RE = re.compile(r"(?:total|ጠቅላላ\s*(?:የመሬት\s*)?ስፋት)[\s.\-:፦…]*(\d{2,5})\s*(?:m2|m²|sqm|ካሬ)", re.IGNORECASE)
 
 
 def extract_area_from_text(text: str):
@@ -982,7 +987,7 @@ PRICE_BIRR_MAX = 500_000_000 # above this = extraction error
 # down payment, advance, loan, repayment, income, commission, a rent (paid now or
 # expected), a profit, the remaining balance, a bank loan.
 NOT_A_TOTAL_RE = re.compile(
-    r"ቅድመ\s*ክፍያ|ቅድሚያ|ብድር|ተመላሽ|ገቢ|ኮሚሽን|down\s*payment|advance|loan|income|commission"
+    r"ቅድመ\s*ክፍያ|ቅድሚያ|ብድር|ተመላሽ|ገቢ|ኮሚሽን|down\s*payment|advance|loan|income|com+ission"
     r"|ተከራ|መከራየት|ይከራያል|ኪራይ|\brent|per\s*month|/\s*months?|monthly|በወር|ወርሃዊ|ወርሀዊ"
     r"|ትርፍ|ቀሪ|(?<!በ)ባንክ|annual|yearly",
     re.IGNORECASE,
@@ -999,6 +1004,10 @@ HEADING_PRICE_RE = re.compile(
 )
 
 
+# A price alone on its line: "18,500,000" (not below "ቅድመ ክፍያ:", a down payment).
+BARE_PRICE_LINE_RE = re.compile(r"^[^\w\n]*(?P<num>\d{1,3}(?:,\d{3}){2,})[^\w\n]*$", re.MULTILINE)
+
+
 def _not_a_total(t: str, start: int, end: int) -> bool:
     """A down payment, rent, income, … next to this number in the same sentence, and no
     "total" just before it."""
@@ -1013,7 +1022,7 @@ def extract_prices(text: str, property_type: str | None = None, intent: str | No
     rent_price   = None
     rent_advance = None
 
-    rent_context = any(x in t for x in [
+    rent_context = any(x in NOT_RENT_WORD_RE.sub(" ", t) for x in [
         "በወር", "per month", "monthly", "ኪራይ", "rent", "ወርሃዊ",
         "የሚከራይ", "ሚከራይ", "ይከራያል", "ለሚከራዩ",
     ])
@@ -1079,6 +1088,13 @@ def extract_prices(text: str, property_type: str | None = None, intent: str | No
             break
         if found:
             break
+
+    if sale_price is None and intent != "RENT":
+        for m in BARE_PRICE_LINE_RE.finditer(t):
+            line_before = t[:m.start()].rstrip().rsplit("\n", 1)[-1]
+            if not NOT_A_TOTAL_RE.search(line_before):
+                sale_price = int(m.group("num").replace(",", ""))
+                break
 
     # A rent given as "Price: 100,000 per month", without "ብር" (not "Price (USD): 1780").
     if intent == "RENT" and rent_price is None and not re.search(r"\busd\b|\$|dollar|ዶላር", t):
