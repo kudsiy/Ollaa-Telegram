@@ -100,7 +100,8 @@ input[type=text]{width:100%;box-sizing:border-box;margin-top:6px}@media print{de
 
 
 def mask(text_: str) -> str:
-    return CONTACT_RE.sub("<contact>", text_ or "")
+    # Twice: two numbers written together ("0911...0922...") leave a part after the first pass.
+    return CONTACT_RE.sub("<contact>", CONTACT_RE.sub("<contact> ", text_ or ""))
 
 
 def main() -> None:

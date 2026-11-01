@@ -257,11 +257,25 @@ of the 174 had a different price from the listing kept (for example flats of 47 
 Jemo 3 and Jemo 1, posted on one template). It compared how texts look and ignored prices.
 It was removed, and `run_all.py` now uses `dedup_strict.py`.
 
-**Earlier deletions need review.** 593 messages were removed before 26 October 2026, most likely by
-that same script. Parsed again today (read only): 375 would be usable and 98 would fit the
-sale sample, and 91 of those 98 have no stored listing with the same type, place, price and size. So
-up to about 83 different properties may have been lost. They have not been read one by one
-and nothing has been restored.
+**Earlier deletions, reviewed (task S21, nothing restored).** `database/review_earlier_deletions.py`
+parses the kept-out messages again and compares them with the stored listings by the same rules:
+
+| Removed by | Messages | Usable | Usable, a true repeat | Usable, no match or price differs | Would fit the sale sample and repeat nothing |
+|---|---|---|---|---|---|
+| Old near-duplicate step (`semantic_dedup.py`) | 593 | 375 | 55 | 320 | 83 |
+| Old rule: same text | 125 | 69 | 69 | 0 | 0 |
+| Old rule: same price, size and location | 97 | 89 | 34 | 55 | 38 (not yet read) |
+
+- **Same text** was sound: every usable message repeats a stored listing.
+- **The near-duplicate step removed real listings.** The first lines of all 83 were read: they are
+  real adverts, with different places, sizes or prices, such as 3-bedroom flats of 166 m² at Kazanchis and
+  of 170 m² at Megenagna. 6 are 3 properties advertised twice at different prices (2112 and 2869, 5616 and
+  5618, 5884 and 5933), and 3 more (2314, 2721, 6321) look like a stored property at another price. So about
+  **77 different properties** were lost from the sale sample, which could rise from 457 to about 540.
+- **The same parser mistakes are in them:** about 17 of the 83 show a wrong type or place (for example 2033, an
+  apartment called an office; 5911, 5 Kilo placed in Mexico). Restoring them adds listings, not accuracy.
+- 218 of the 593 are not usable (adverts, junk). The list of 83 is in
+  `data/review/earlier_deletions.html` (not committed).
 
 ## Fitness for a hedonic price model
 
@@ -360,7 +374,8 @@ Other things seen, not counted as wrong:
 1. Finish the accuracy check with the owner and correct the sample: the type rules first, then
    adverts listing several units.
 2. Decide on the 91 houses whose built-up size is a copy of one stated size.
-3. Review the 593 earlier deletions: up to about 83 different properties may have been lost.
+3. Bring back the listings the old near-duplicate step removed (about 77 more different properties for
+   the sale sample), and read the 38 removed by the old same-price rule.
 4. Keep scraping regularly: posts now come with their real dates, and the busiest channels
    post 40 messages in about two days, so a run at least every two days avoids new gaps.
 5. Fetch the real posting dates from Telegram for the 684 undated usable listings (the
