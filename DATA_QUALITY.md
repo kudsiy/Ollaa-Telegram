@@ -19,7 +19,7 @@ parser; 247 of the usable listings hold at least one of them.
 - **3,401 listings (64%) are photo-only posts** (`MEDIA_PENDING`). The photo pilot
   (`MEDIA_PILOT.md`) found they rarely carry a price or a size.
 - **469 sale listings are ready for a hedonic model** (price, size, named place, known
-  type, priced in birr, no obvious outlier), **but 17 of them have the wrong type** (see
+  type, priced in birr, no obvious outlier), **but 16 of them have the wrong type** (see
   "Known mistakes"). Only **35 rent listings** are, so a rent model is not possible yet.
 - Bedrooms are known for 56% of the model sample (62% of its homes). Floor, bathrooms,
   posting date, building height, finishing and payment terms are known for about a third
@@ -63,7 +63,7 @@ them out permanently (`processing_exclusions`).
 | Condominium | 55 | 19 | 0 | 74 |
 | Commercial building (whole building) | 50 | 3 | 0 | 53 |
 | Office | 40 | 9 | 0 | 49 |
-| Warehouse (27 of these are wrong, see "Known mistakes") | 44 | 3 | 0 | 47 |
+| Warehouse (26 of these are wrong, see "Known mistakes") | 44 | 3 | 0 | 47 |
 | Single room | 0 | 47 | 0 | 47 |
 | Studio | 15 | 29 | 0 | 44 |
 | Land | 34 | 1 | 0 | 35 |
@@ -177,10 +177,10 @@ out of the model samples:
 
 | Listing | Channel | Stored value | What the advert says |
 |---|---|---|---|
-| 6726 | ApartmentForYouAyatRealEstate | shop, 250,000 birr for 20 m² | a developer's advert for shops; the price is not the total |
+| 6726 | ApartmentForYouAyatRealEstate | shop, 250,000 birr for 20 m² | a developer's shops from 20 m²; 250,000 birr is the price per m² |
 | 6902 | ET_Creatives_Homes_And_Cars | 7,200 birr | a brake disc for a car, not a property |
-| 6930 | houseapartmentcarreleator | "warehouse", 440,000 birr, 150 m² | a house: 18 million bank + 4 million cash; 440,000 is the 2% commission |
-| 6931 | houseapartmentcarreleator | "warehouse", 740,000 birr, 180 m² | a G+3 house: 25 million bank + 12 million cash; 740,000 is the 2% commission |
+| 6930 | houseapartmentcarreleator | "warehouse", 440,000 birr, 150 m² | a house: 18 million bank + 4 million cash; "440,000 birr" is the stated 2% commission |
+| 6931 | houseapartmentcarreleator | "warehouse", 740,000 birr, 180 m² | a G+3 house: 25 million bank + 12 million cash; "740,000 birr" is the stated 2% commission |
 | 7372 | smartdealers | warehouse, 450 million birr, 200 m² | the plot is 4,500 m²; 200 m² is one part of the property |
 
 Before this scrape none did. On 27 October 34 did. Reading their adverts
@@ -202,10 +202,12 @@ rule began reading what each post offers):
 Reading the 336 new usable listings showed these parser mistakes. They are not fixed yet
 (a parser change needs the owner's approval and an old-against-new comparison):
 
-- **27 houses and plots are called warehouses.** Every post of houseapartmentcarreleator
-  (13) and hugeAddisababamarket2025 (14), which share the same adverts, ends with a menu of
-  links, one of them "land and warehouses" (መሬትና መጋዘን). The parser reads that menu as the
-  property type. 17 of them are in the sale sample, so its 26 warehouses are really about 9.
+- **26 houses and plots are called warehouses.** Many posts of houseapartmentcarreleator
+  and hugeAddisababamarket2025 (15 of the 40 read from each), which share the same adverts,
+  end with a menu of links, one of them "land and warehouses" (መሬትና መጋዘን). The parser
+  reads that menu as the property type. Of the 27 usable "warehouses" from these channels
+  only one (6983) is really a warehouse. 16 of the wrong ones are in the sale sample, so its
+  26 warehouses are really about 10.
 - **5 "rent" listings are construction news** ("Gazebo Skyline current progress"): the
   word "current" contains "rent". They have no price, so they are not in the model samples.
 - **72 new usable listings have neither a price nor a size**; 15 of them are only the
@@ -220,7 +222,7 @@ Reading the 336 new usable listings showed these parser mistakes. They are not f
 
 **Sale sample: 469 listings.** Each has a price, a size (plot for land), a named place and
 a known type, is priced in birr, and has no obvious outlier. By type: apartment 207,
-villa 108, condominium 48, shop 36, warehouse 26 (17 of them wrongly typed, see "Known
+villa 108, condominium 48, shop 36, warehouse 26 (16 of them wrongly typed, see "Known
 mistakes"), land 23, office 14, studio 7. Whole buildings are not in it (no built-up size,
 see above). 12 look like reposts of the same advert (same type, place, price and size).
 
@@ -252,7 +254,7 @@ usable listings (2046, 7249, 7251, 7303).
 
 ## What would improve the data most
 
-1. Fix the parser mistakes above (27 wrong warehouses first), so the sale sample's types
+1. Fix the parser mistakes above (26 wrong warehouses first), so the sale sample's types
    can be trusted.
 2. Keep scraping regularly: posts now come with their real dates, and the busiest channels
    post 40 messages in about two days, so a run at least every two days avoids new gaps.
