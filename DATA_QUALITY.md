@@ -2,15 +2,15 @@
 
 State of the `ollaa` database on 1 November 2026, after the first scrape with the new
 login (S18), parser fixes (S19), duplicate removal and an accuracy check (S20), and the return of
-listings the old duplicate steps had removed (S22, S24). Every number below
+listings the old duplicate steps had removed (S22, S24), and the clearing of copied built-up sizes (S25). Every number below
 comes from `database/data_quality.py` (read-only), which can be run again at any time:
 
     venv\Scripts\python.exe database\data_quality.py
 
 The listings were produced by the fixed parser (tasks S5–S9, S12 and S19). Re-processing every
 stored listing with today's code changes nothing (`src/reprocess.py`: "Listings that would
-change: 0"). 423 values that earlier hand repairs set are kept on purpose and win over the
-parser; 247 of the usable listings hold at least one of them.
+change: 0"). 332 values that earlier hand repairs set are kept on purpose and win over the
+parser; 167 of the usable listings hold at least one of them.
 
 ## Summary
 
@@ -18,16 +18,17 @@ parser; 247 of the usable listings hold at least one of them.
   34 channels and groups): 1,299 for sale, 273 for rent, 5 for both.
 - **3,401 listings (59%) are photo-only posts** (`MEDIA_PENDING`). The photo pilot
   (`MEDIA_PILOT.md`) found they rarely carry a price or a size.
-- **576 sale listings are ready for a hedonic model** (price, size, named place, known type, priced
-  in birr, no obvious outlier, no repeat); the sample grew by 85 in S22 and 34 in S24. Some may still be a
-  property re-advertised (see "Duplicates"); read it as about 560 to 575 different properties. Only **35 rent listings** are ready, so a rent
-  model is not possible yet.
+- **485 sale listings are ready for a hedonic model** (price, size, named place, known type, priced
+  in birr, no obvious outlier, no repeat). It was 576 until 91 houses lost a built-up size that had been
+  copied from one stated size (task S25). Some may still be a property re-advertised (see "Duplicates");
+  read it as about 470 to 485 different properties. Only **35 rent listings** are ready, so a rent model is
+  not possible yet.
 - **An accuracy check found this sample not yet reliable enough for a thesis:** of 60 drawn at
   random, 20 (33%) have at least one value the advert contradicts, most often the type (see
   "Accuracy check"). Nothing has been corrected yet; the owner is checking the same 60.
-- **91 of the 118 houses in the sample have one size stored as both plot and built-up**, from
-  an old repair, so their built-up size is really a guess (see "Houses and plot size").
-- Bedrooms are known for 58% of the model sample (65% of its homes). Floor, bathrooms,
+- **Only 27 houses are left in the sale sample; 241 more have a plot size only.** A model using plot
+  size as its own variable could use them; the sample as defined today needs a built-up size for a house.
+- Bedrooms are known for 66% of the model sample (77% of its homes). Floor, bathrooms,
   posting date, building height, finishing and payment terms are known for about a third
   or less, too few to use as model variables.
 
@@ -259,11 +260,11 @@ rooms with other codes and sizes. The floor is now read from the text, and nearl
 numbers. Listing 3785, removed in S20 by the looser rule (7th floor against 8th), was brought back.
 
 **What is still not certain.** In the sample, 15 listings in 7 groups look like one property whose
-price changed and were kept, so up to 8 of the 576 may not be different properties (for example 7150
-and 2704). 7 more extra copies share type, place, price and size but differ in floor, bedrooms or second
+price changed and were kept, so up to 8 of the 485 may not be different properties (for example 7150
+and 2704). 4 more extra copies share type, place, price and size but differ in floor, bedrooms or second
 size, or hold protected values, and 6 of the listings returned in S24 are uncertain (below). A property
 advertised by two brokers with different prices or wording cannot always be detected, and different units
-at one price can look alike, so read 576 as about 560 to 575 different properties.
+at one price can look alike, so read 485 as about 470 to 485 different properties.
 
 **The old step.** `semantic_dedup.py` compared how texts look and ignored prices. A preview on 5,300
 listings showed it would delete 174 usable listings, 130 with a different price from the one kept (for
@@ -298,31 +299,31 @@ stored listing with the same price and size. The 28 different and 6 uncertain on
 
 ## Fitness for a hedonic price model
 
-**Sale sample: 576 listings.** Each has a price, a size (plot for land), a named place and
+**Sale sample: 485 listings.** Each has a price, a size (plot for land), a named place and
 a known type, is priced in birr, has no obvious outlier and repeats no other listing. By type:
-apartment 259, villa 118, condominium 86, land 43, shop 35, office 15, warehouse 12, studio 8.
-Whole buildings are not in it (no built-up size, see above).
+apartment 259, condominium 86, land 43, shop 35, villa 27, office 15, warehouse 12, studio 8.
+Whole buildings and houses with a plot size only are not in it (no built-up size).
 
 **Left out by the owner's decision (1 November 2026):**
 
 - **6930**: 22 million birr for 150 m²; the advert does not say whether it is land or a house.
 - **6726**: 250,000 birr is the price per m², read as the total; the unit's total is not stated.
 
-| Variable | Known in the sale sample (576) | Use in a model |
+| Variable | Known in the sale sample (485) | Use in a model |
 |---|---|---|
 | Price, size, type, named place | 100% (by definition; see "Accuracy check") | core variables |
 | Map coordinates | 86% | usable (rough, one point per place) |
-| Sub-city | 74% | usable once the place table assigns the missing sub-cities |
-| Bedrooms | 58% (homes only: 65% of 471) | usable for homes, with the missing ones handled (a "not stated" category or a smaller sample) |
-| Floor | 34% | too incomplete |
-| Bathrooms | 23% (homes: 27%) | too incomplete |
-| Posting date | 37% | too incomplete for a time trend so far; it grows with each scrape |
-| Building height (G+n) | 14% | too incomplete |
-| Finishing | 18% | too incomplete |
-| Payment terms | 17% | too incomplete |
+| Sub-city | 76% | usable once the place table assigns the missing sub-cities |
+| Bedrooms | 66% (homes only: 77% of 380) | usable for homes, with the missing ones handled (a "not stated" category or a smaller sample) |
+| Floor | 40% | too incomplete |
+| Bathrooms | 26% (homes: 31%) | too incomplete |
+| Posting date | 39% | too incomplete for a time trend so far; it grows with each scrape |
+| Building height (G+n) | 6% | too incomplete |
+| Finishing | 20% | too incomplete |
+| Payment terms | 19% | too incomplete |
 
-Location is thin at the neighbourhood level. The 576 listings fall in 63 places, but only
-26 places have 5 or more listings and 17 have 10 or more. Only 28 place-and-type
+Location is thin at the neighbourhood level. The 485 listings fall in 58 places, but only
+25 places have 5 or more listings and 16 have 10 or more. Only 24 place-and-type
 combinations have 5 or more. Sub-city fixed effects, or distance from coordinates, are
 more realistic than one dummy per neighbourhood.
 
@@ -336,32 +337,32 @@ usable listings (2046, 7249, 7251, 7303).
 
 ### Houses and plot size
 
-Sizes have two separate fields, `plot_sqm` and `builtup_sqm`. Nothing is guessed for the 5
-houses 6920, 6929, 6946, 6969 and 6979: their plot size is in `plot_sqm` and `builtup_sqm`
-is empty, so no data needed to change. The sample needs a built-up size for a house, so they
-are outside it, ready for a model that uses plot size as its own variable.
+Sizes have two separate fields, `plot_sqm` and `builtup_sqm`. No built-up size is guessed: where an advert
+gives one size for a house, it is the plot and built-up stays empty.
 
-| Houses (villas, townhouses) | Listings |
-|---|---|
-| In the sale sample, with a built-up and a different plot size | 27 |
-| In the sale sample, with the same number stored as both | 91 |
-| In the sale sample, with a built-up size only, or a plot size only | 0 |
-| **All houses in the sale sample** | **118** |
-| Outside the sample, otherwise fit, with a plot size only (including the 5 above) | 150 |
+**Copied sizes cleared (task S25, the owner's decision).** 91 houses in the sale sample had one stated size stored as both
+plot and built-up, by a repair before 26 October 2026, kept as a protected value. Where the advert
+says, that size was usually the land ("የቦታ ስፋት 250 ካሬ"; "1,000 m² in a CCD compound" for a G+1 house). The 91
+protections were released (`database/migrations/2026_11_01_s25_clear_copied_builtup.py`, backup
+`backups/ollaa_2026-11-01_before_S25.dump`) and `reprocess.py` updated exactly those 91: built-up is empty, the plot
+size is unchanged. Protected values went from 423 to 332. The sale sample went from 576 to 485.
 
-**The 91 are a problem.** Their built-up size is a copy of one stated size, set by a repair before
-26 October 2026, and is kept as a protected value. Where the advert says, the size is usually the
-land ("የቦታ ስፋት 250 ካሬ"; "1,000 m² in a CCD compound" for a G+1 house). So their price per
-built-up m² is not reliable, and only 27 houses in the sample have two real sizes. Releasing these
-protections would leave 91 fewer houses in the sample as it is defined today, and needs the
-owner's decision.
+| Houses (villas, townhouses) | Before | Now |
+|---|---|---|
+| In the sale sample, with a built-up and a different plot size | 27 | 27 |
+| In the sale sample, with the same number stored as both | 91 | 0 |
+| **All houses in the sale sample** | **118** | **27** |
+| Outside the sample, otherwise fit, with a plot size only | 150 | 241 |
+
+19 other houses outside the sample (no price or no named place) still hold the same kind of copied size. They
+are protected and were not part of the owner's decision.
 
 ## Accuracy check
 
 60 listings were drawn at random from the sale sample when it held 457 listings, before S22
-(`random.seed(20261101)`; all 60 are still in it), and
+(`random.seed(20261101)`; 47 are still in it, the 13 houses having left in S25), and
 each advert was read against the stored type, place, price, size and bedrooms by Claude. The
-owner, a valuer, is checking the same 60: `database/accuracy_check.py` writes the file
+owner, a valuer, is checking the same 60 (their results have not reached Claude yet): `database/accuracy_check.py` writes the file
 `data/accuracy_check/accuracy_check_60.html` (not committed). These are Claude's counts, not yet
 confirmed. Nothing has been corrected.
 
@@ -393,8 +394,7 @@ Other things seen, not counted as wrong:
 
 1. Finish the accuracy check with the owner and correct the sample: the type rules first, then
    adverts listing several units.
-2. Decide on the 91 houses whose built-up size is a copy of one stated size. 150 more houses have a
-   plot size only, so a model with plot size as its own variable could use far more houses.
+2. Decide how to model houses: 241 with a plot size only are outside the sample, against 27 inside it.
 3. Keep scraping regularly: posts now come with their real dates, and the busiest channels
    post 40 messages in about two days, so a run at least every two days avoids new gaps.
 4. Fetch the real posting dates from Telegram for the 868 undated usable listings (the

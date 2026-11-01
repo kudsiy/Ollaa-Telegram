@@ -151,8 +151,9 @@ full run needs the owner's approval again.
 - The 829 protected values left after S8 were kept on purpose by the owner (see
   `database/migrations/2026_10_27_s8_release_protections.py`); 749 remained after S9 and
   636 after S12, as the parser came to agree with the others, 622 after the owner
-  released 14 "advert" labels on real rentals in S13, and 423 after S14 (192 retired as
-  the parser agreed, 7 wrong Bet_afri labels released by the owner). Do not release them
+  released 14 "advert" labels on real rentals in S13, 423 after S14 (192 retired as
+  the parser agreed, 7 wrong Bet_afri labels released by the owner), and 332 after S25 (the
+  owner released 91 built-up sizes copied from one stated size). Do not release them
   without asking.
 
 ## How the project runs
