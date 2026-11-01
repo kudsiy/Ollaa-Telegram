@@ -10,8 +10,10 @@ Two listings are the same property only if:
      footers are left out (and the same forum topic); or
   2. same facts: a usable listing with the same type, named place, price and size, and no
      different bedrooms or floor; or
-  3. nearly the same words: 95% or more alike, with the same type and place, and no different
+  3. nearly the same words: 95% or more alike, with the same type and place, the same numbers
+     (a broker's template with another code or room size is another property), and no different
      price, size, bedrooms or floor.
+Floors are also read from the text ("3floor", "ግራውንድ ፍሎር"), as the parser misses some.
 A price change is never treated as a repeat: such pairs are only reported.
 
 Of each group one listing stays: one with a protected value (hand repair) first, then the
@@ -44,7 +46,26 @@ from settings import DB_URL  # noqa: E402
 NEARLY_SAME = 95
 MIN_WORDS_CHARS = 15
 _CONTACT_RE = re.compile(r"https?://\S+|t\.me/\S+|@\w+|#\S+|\+?\d[\d\s-]{8,}\d", re.IGNORECASE)
+_GROUND_RE = re.compile(r"ግራውንድ\s*(?:ፍሎር|ላይ)|ደረጃ\s*[=:፦]?\s*(?:00\s*/?\s*)?ግራውንድ|\bground\s*(?:floor|f\b)|•\s*ground\s*•")
+_FLOOR_RE = re.compile(r"(?<![\d+])(\d{1,2})\s*(?:ኛ|ተኛ|th|st|nd|rd)?\s*(?:ፎቅ|ፍሎር|floor|f\b)")
 RULES = {1: "same words", 2: "same type, place, price and size", 3: "nearly the same words"}
+
+
+def _plain(text_: str) -> str:
+    return _CONTACT_RE.sub(" ", unicodedata.normalize("NFKC", strip_footer(text_ or "")).lower())
+
+
+def numbers_of(text_: str) -> set:
+    return set(re.findall(r"\d+(?:[.,]\d+)*", _plain(text_)))
+
+
+def floor_of(r):
+    """The floor the advert states: 0 for the ground floor (not "ground parking" or "under ground water")."""
+    t = _plain(r.raw_text)
+    if _GROUND_RE.search(t):
+        return 0
+    m = _FLOOR_RE.search(t)
+    return int(m.group(1)) if m else r.floor_level
 
 
 def words_of(text_: str) -> str:
@@ -74,7 +95,7 @@ def no_conflict(a, b) -> bool:
     return (a.property_type == b.property_type and a.location == b.location and a.intent == b.intent
             and not differ(price_of(a), price_of(b)) and not differ(a.builtup_sqm, b.builtup_sqm)
             and not differ(a.plot_sqm, b.plot_sqm) and not differ(a.bedrooms, b.bedrooms)
-            and not (a.floor_level and b.floor_level and a.floor_level != b.floor_level))
+            and not differ(floor_of(a), floor_of(b)))
 
 
 def find_pairs(rows):
@@ -109,7 +130,8 @@ def find_pairs(rows):
                     continue
                 if fuzz.ratio(texts[a.id], texts[b.id], score_cutoff=NEARLY_SAME):
                     if no_conflict(a, b):
-                        pairs.append((a.id, b.id, 3))
+                        if numbers_of(a.raw_text) == numbers_of(b.raw_text):
+                            pairs.append((a.id, b.id, 3))
                     elif differ(price_of(a), price_of(b)) and not differ(size_of(a), size_of(b)):
                         price_changed.append((a.id, b.id))
     return pairs, price_changed

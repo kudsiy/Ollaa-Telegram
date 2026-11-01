@@ -54,6 +54,17 @@ check("same facts but different bedrooms",
       [row("1", "ምርጥ ቤት አንድ", **one), row("2", "ሌላ ቤት ሁለት", **{**one, "bedrooms": 3})], [])
 check("same facts but different floors",
       [row("1", "ምርጥ ቤት አንድ", floor_level=2, **one), row("2", "ሌላ ቤት ሁለት", floor_level=5, **one)], [])
+check("same facts, the floor only in the words: 3floor and 5floor",
+      [row("1", "Bole Denbel 3 Beds 3floor 165sqm", **one), row("2", "Bole Denbel 3 Beds 5floor 165sqm", **one)], [])
+check("same facts, ground floor and 3rd floor",
+      [row("1", "ጀሞ1 ደረጃ=00/ ግራውንድ ላይ", **one), row("2", "ጀሞ1 ሌላ ቤት 3ኛ ፎቅ ላይ", **one)], [])
+check("ground parking is not the ground floor",
+      [row("1", "ግራውንድ የመኪና ማቆሚያ 3ኛ ፎቅ አለው", **one), row("2", "ሌላ ቤት 3ኛ ፎቅ ላይ ነው", **one)], ["1"])
+check("a broker's template with another code and room size",
+      [row("1", "የሚከራይ ቤት CODE BT 1222 ኪራይ 10,000 ብር አንድ ክፍል 3.5X3.5 ሊሾ ወለል ብሎኬት ግቢ ውስጥ ሰፈሩ ሲኤምሲ ሚካኤል ከመገናኛ አንድ ታክሲ",
+           intent="RENT", property_type="SINGLE_ROOM", rent_price_birr=10_000),
+       row("2", "የሚከራይ ቤት CODE BT 1307 ኪራይ 10,000 ብር አንድ ክፍል 4X4 ሊሾ ወለል ብሎኬት ግቢ ውስጥ ሰፈሩ ሲኤምሲ ሚካኤል ከመገናኛ አንድ ታክሲ",
+           intent="RENT", property_type="SINGLE_ROOM", rent_price_birr=10_000)], [])
 check("same facts but no named place",
       [row("1", "ምርጥ ቤት አንድ", **one), row("2", "ሌላ ቤት ሁለት", **{**one, "location": "other_addis"})], [])
 check("same facts, place unknown for both",

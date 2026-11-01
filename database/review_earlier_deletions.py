@@ -1,11 +1,12 @@
 r"""
 review_earlier_deletions.py
 ---------------------------
-Reviews the messages kept out before 26 October 2026 (task S21). 593 of them were most likely
-removed by the old semantic_dedup.py, which ignored prices. Each is parsed again and compared with
-the stored listings by the rules of dedup_strict.py. Read-only: nothing is restored. Prints the
-numbers and writes data/review/earlier_deletions.html (contacts masked; data/ is never committed)
-with the messages that would fit the sale sample and repeat no stored listing.
+Reviews the messages kept out before 26 October 2026 (tasks S21, S22). The 593 removed by the old
+semantic_dedup.py were brought back in S22; those removed by the two older rules remain. Each is
+parsed again and compared with the stored listings by the rules of dedup_strict.py. Read-only:
+nothing is restored. Prints the numbers and writes data/review/earlier_deletions.html (contacts
+masked; data/ is never committed) with the messages of the same-price rule that would fit the sale
+sample and repeat no stored listing.
 
 Usage:
     venv\Scripts\python.exe database\review_earlier_deletions.py
@@ -31,8 +32,7 @@ from run_pipeline import ValuationPipeline  # noqa: E402
 from settings import DB_URL  # noqa: E402
 
 OUT = BASE_DIR / "data" / "review" / "earlier_deletions.html"
-GROUPS = {"removed before": "old near-duplicate step (semantic_dedup.py)",
-          "duplicate: same text": "old rule: same text",
+GROUPS = {"duplicate: same text": "old rule: same text",
           "duplicate: same price": "old rule: same price, size and location"}
 NO_MATCH, PRICE_DIFFERS = "no match", "same advert, price differs"
 STORED, OTHER = "repeat of a stored listing", "repeat of another removed message"
@@ -88,7 +88,7 @@ def main() -> None:
         print(f"  all:     {dict(Counter(status.values()))}")
         print(f"  usable:  {dict(Counter(status[r.id] for r in usable))}")
         print(f"  fit the sale sample: {dict(Counter(status[r.id] for r in removed if fits_sale(r)))}")
-        if start != "removed before":
+        if start != "duplicate: same price":
             continue
         read = sorted((r for r in removed if fits_sale(r) and status[r.id] in (NO_MATCH, PRICE_DIFFERS)),
                       key=lambda r: int(r.id[1:]))
