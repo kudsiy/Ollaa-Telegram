@@ -153,8 +153,8 @@ full run needs the owner's approval again.
   636 after S12, as the parser came to agree with the others, 622 after the owner
   released 14 "advert" labels on real rentals in S13, 423 after S14 (192 retired as
   the parser agreed, 7 wrong Bet_afri labels released by the owner), 332 after S25 (the
-  owner released 91 built-up sizes copied from one stated size), and 324 after S26 (8 retired
-  as the parser agreed). Do not release them without asking.
+  owner released 91 built-up sizes copied from one stated size), 324 after S26 (8 retired
+  as the parser agreed), and 321 after S27 (the owner released 3 wrong types on flats). Do not release them without asking.
 
 ## How the project runs
 

@@ -12,7 +12,8 @@ show each original advert next to its stored type, place, price, size and bedroo
 the owner's own check. Contacts are masked. Read-only; data/ is never committed.
 
 WRONG and NOTES hold Claude's own reading of the adverts, shown closed in the file so the owner can
-check first. Nothing is corrected until the owner confirms.
+check first. Nothing is corrected until the owner confirms. They describe the values stored when each
+round was drawn, so a file written again after a correction shows the new value beside the old reading.
 
 Usage:
     venv\Scripts\python.exe database\accuracy_check.py              (round 2)
