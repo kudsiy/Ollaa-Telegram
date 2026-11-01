@@ -97,6 +97,37 @@ def _clean_area_value(raw: str | None) -> Optional[int]:
     return None
 
 
+# A size followed or preceded by these words is the land or the building's footprint, not a unit:
+# "1,496 ካሬ ላይ ያረፈ", "ጠቅላላ የመሬት ስፋት 4500 ካሬ", "34ሺ ካሬ ላይ ያረፈ ኮምፓዉንድ".
+_NOT_A_UNIT_AFTER_RE = re.compile(r"\s*(?:ሜትር\s*)?(?:ላይ\s*(?:ያረፈ|የሚገኝ|የተገነባ)|በይዞታ|ይዞታ|ኮም?ፓዉ?ን?ድ|compound|የካሬ\s*አማራጭ)", re.IGNORECASE)
+# (Also the end of a range: "ከ15 ካሬ እስከ 1000 ካሬ", "ከ11ካሬ - 77ካሬ".)
+_NOT_A_UNIT_BEFORE_RE = re.compile(r"(?:(?:ይዞታ|የመሬት|የቦታ|ያረፈ|ኮም?ፓዉ?ን?ድ|land|plot|compound)[^\d\n]{0,15}|እስከ\s*|ካሬ\s*[-–—]\s*)$", re.IGNORECASE)
+_HOME_SIZE_RE = re.compile(r"የቤት\s*ስፋት\s*[:፦=]?\s*(\d{2,4})")
+
+
+def first_unit_size(text: str) -> Optional[int]:
+    """The size of the first unit an advert offers, which goes with its first price: a flat's size
+    labelled as such, else the first size that is not the land ("40 ካሬ ... 5.3 ሚሊየን / 37 ካሬ ... 5.2
+    ሚሊየን" is 40, not the smallest)."""
+    if not text:
+        return None
+    m = _HOME_SIZE_RE.search(text)
+    if m and _clean_area_value(m.group(1)) is not None:
+        return _clean_area_value(m.group(1))
+    for match in LABELED_BUILTUP_SQM_RE.finditer(text):
+        value = _clean_area_value(match.group(1))
+        if value is not None:
+            return value
+    for match in GENERIC_AREA_RE.finditer(text):
+        value = _clean_area_value(match.group(1))
+        if value is None or _NOT_A_UNIT_AFTER_RE.match(text, match.end()):
+            continue
+        if _NOT_A_UNIT_BEFORE_RE.search(text[max(0, match.start() - 30): match.start()]):
+            continue
+        return value
+    return None
+
+
 def extract_area_breakdown(text: str) -> tuple[Optional[int], Optional[int]]:
     if not text:
         return None, None
@@ -178,19 +209,42 @@ def parse_million_amount(text: str) -> Optional[int]:
 
 # --- Bedroom extractor --------------------------------------------------------
 # "3 መኝታ" => 3
-BEDROOM_RE = re.compile(r"(\d+)\s*መኝታ")
+MAX_BEDROOMS = 15
+# "3 መኝታ", "2ምኝታ" (a common spelling), "5 ምቹ መኝታ" (5 comfortable bedrooms).
+BEDROOM_RE = re.compile(r"(\d+)\s*(?:(?:ሰፋፊ|ሰፊ|ምቹ|ትልልቅ|ዘመናዊ)\s*)?[መም]ኝታ")
+# "ባለ ሶስት መኝታ", "ባለሁለት መኝታ": the number in words.
+BEDROOM_WORDS = {"አንድ": 1, "ሁለት": 2, "ሶስት": 3, "ሦስት": 3, "አራት": 4, "አምስት": 5, "ስድስት": 6}
+BEDROOM_WORD_RE = re.compile(r"(?:ባለ\s*)?(" + "|".join(BEDROOM_WORDS) + r")\s*[መም]ኝታ")
+# "Bedroom: 3", "መኝታ ቤቶች፦ 4", "መኝታ ቤት፦ 2".
+BEDROOM_LABEL_RE = re.compile(r"(?:[መም]ኝታ(?:\s*ቤቶ?ች?|\s*ቤት)?|bedrooms?|beds?)\s*[:፦]\s*(\d+)", re.IGNORECASE)
 
 
 def extract_bedrooms(text: str) -> Optional[int]:
     if not text:
         return None
-    m = BEDROOM_RE.search(text)
-    if not m:
+    for pattern in (BEDROOM_RE, BEDROOM_LABEL_RE):
+        for m in pattern.finditer(text):
+            if 1 <= int(m.group(1)) <= MAX_BEDROOMS:
+                return int(m.group(1))
+    m = BEDROOM_WORD_RE.search(text)
+    return BEDROOM_WORDS[m.group(1)] if m else None
+
+
+def bedrooms_of_size(text: str, size) -> Optional[int]:
+    """An advert with several units: the bedrooms stated on the line of this size, or on the line
+    before ("ባለ 2 መኝታ 106 ካሬ ጀምሮ / ባለ 3 መኝታ 139 ካሬ ጀምሮ")."""
+    if not text or size is None:
         return None
-    try:
-        return int(m.group(1))
-    except ValueError:
-        return None
+    lines = [line for line in text.split("\n") if line.strip()]
+    wanted = re.compile(rf"(?<![\d.,]){int(size)}(?:\.\d+)?\s*(?:\(\d+(?:\.\d+)?\)\s*)?(?:ካሬ|kare|sqm|sq\.?m|m2|m²)", re.IGNORECASE)
+    for i, line in enumerate(lines):
+        if wanted.search(line):
+            for candidate in (line, lines[i - 1] if i else ""):
+                beds = extract_bedrooms(candidate)
+                if beds is not None:
+                    return beds
+            return None
+    return None
 
 
 # --- Price extraction with context --------------------------------------------
@@ -494,9 +548,18 @@ COMMA_AREA_RE = re.compile(r"(?<![\d,.])(\d{1,2}),(\d{3})(?=\s*(?:ካሬ|sqm|sq\
 COMMISSION_NOTE_RE = re.compile(r"[^\n]*\d\s*%\s*com+ission[^\n]*(?:\s*[^\n]*?){0,2}\bapplied\b[^\n]*", re.IGNORECASE)
 
 
+# "4.300,000" is 4,300,000.
+DOT_THOUSANDS_RE = re.compile(r"(?<![\d,.])(\d{1,2})\.(\d{3}),(\d{3})(?![\d,])")
+# A second-hand channel's reduced price, the old one first: "ዋጋ እና አድራሻ : - 21 ሚ 20 ሚ ብር".
+_OLD_AMOUNT = r"\d[\d,.]*(?:\s*(?:ሚ|ሺ)(?![ሀ-፿]))?"
+REDUCED_PRICE_RE = re.compile(r"(ዋጋ\s*እና\s*አድራሻ\s*[:፦]?\s*-?\s*)" + _OLD_AMOUNT + r"\s+(?=\d)")
+
+
 def normalize_numbers(text: str) -> str:
-    """The text with these written the usual way, and the broker's fee left out."""
+    """The text with these written the usual way, and the broker's fee and old price left out."""
     text = COMMISSION_NOTE_RE.sub(" ", text or "")
+    text = REDUCED_PRICE_RE.sub(r"\1", text)
+    text = DOT_THOUSANDS_RE.sub(r"\1,\2,\3", text)
     text = COMMA_DECIMAL_RE.sub(r"\1.\2", text)
     return COMMA_AREA_RE.sub(r"\1\2", text)
 
@@ -590,6 +653,9 @@ def _amount_value(m) -> Optional[int]:
 
 def cash_plus_loan(text: str) -> Optional[tuple[int, int]]:
     """(cash part, bank loan the buyer takes over), when the text gives both."""
+    # "የባንክ እዳ 30 ሚሊዮን አለበት ... ለጁ 48 ሚሊዮን" (a loan of 30 million, 48 million in hand).
+    text = re.sub(r"(?:የ)?ባንክ\s*[እዕ]ዳ\s*", "ባንክ ", text or "")
+    text = text.replace("ለጁ", "ካሽ ")
     loan, cash = LOAN_RE.search(text or ""), CASH_RE.search(text or "")
     if not loan and HAS_LOAN_RE.search(text or ""):
         loan = PLAIN_LOAN_RE.search(text or "")

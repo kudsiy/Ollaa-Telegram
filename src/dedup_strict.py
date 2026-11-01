@@ -13,7 +13,8 @@ Two listings are the same property only if:
   3. nearly the same words: 95% or more alike, with the same type and place, the same numbers
      (a broker's template with another code or room size is another property), and no different
      price, size, bedrooms or floor.
-Floors are also read from the text ("3floor", "ግራውንድ ፍሎር"), as the parser misses some.
+Floors are also read from the text ("3floor", "ግራውንድ ፍሎር"), as the parser misses some, and two
+houses of the same size and price but different heights (G+2, G+3) are different properties.
 A price change is never treated as a repeat: such pairs are only reported.
 
 Of each group one listing stays: one with a protected value (hand repair) first, then the
@@ -48,6 +49,7 @@ MIN_WORDS_CHARS = 15
 _CONTACT_RE = re.compile(r"https?://\S+|t\.me/\S+|@\w+|#\S+|\+?\d[\d\s-]{8,}\d", re.IGNORECASE)
 _GROUND_RE = re.compile(r"ግራውንድ\s*(?:ፍሎር|ላይ)|ደረጃ\s*[=:፦]?\s*(?:00\s*/?\s*)?ግራውንድ|\bground\s*(?:floor|f\b)|•\s*ground\s*•")
 _FLOOR_RE = re.compile(r"(?<![\d+])(\d{1,2})\s*(?:ኛ|ተኛ|th|st|nd|rd)?\s*(?:ፎቅ|ፍሎር|floor|f\b)")
+_HEIGHT_RE = re.compile(r"(?:\bg|[ጂጅ])\s*\+\s*(\d{1,2})")
 RULES = {1: "same words", 2: "same type, place, price and size", 3: "nearly the same words"}
 
 
@@ -66,6 +68,12 @@ def floor_of(r):
         return 0
     m = _FLOOR_RE.search(t)
     return int(m.group(1)) if m else r.floor_level
+
+
+def height_of(r):
+    """The building's height the advert states: "G+3", "ጅ+2", "ጂ +5"."""
+    m = _HEIGHT_RE.search(_plain(r.raw_text))
+    return int(m.group(1)) if m else None
 
 
 def words_of(text_: str) -> str:
@@ -95,7 +103,7 @@ def no_conflict(a, b) -> bool:
     return (a.property_type == b.property_type and a.location == b.location and a.intent == b.intent
             and not differ(price_of(a), price_of(b)) and not differ(a.builtup_sqm, b.builtup_sqm)
             and not differ(a.plot_sqm, b.plot_sqm) and not differ(a.bedrooms, b.bedrooms)
-            and not differ(floor_of(a), floor_of(b)))
+            and not differ(floor_of(a), floor_of(b)) and not differ(height_of(a), height_of(b)))
 
 
 def find_pairs(rows):

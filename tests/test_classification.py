@@ -226,5 +226,65 @@ for text, expected in S19:
     failures += not ok
     print(f"{'ok  ' if ok else 'FAIL'} S19: {got}" + ("" if ok else f"  (expected {expected})") + f" | {text[:40]!r}")
 
+# Mistakes found by the accuracy check of 60 listings (task S26). Each text is shortened from a real post.
+S26 = [
+    # Type: a word elsewhere in the advert does not make it an office, shop or warehouse.
+    ("only Fully Finished Apartment\nመገናኛ\n2 መኝታ • 8ኛ ፎቅ • 134ካሬ • 16,080,000 ETB\nProperty Management office",
+     {"property_type": "APARTMENT", "bedrooms": 2}),
+    ("የቴምር ሪልስቴት አያት ሳይታችን ባለ 2 እና ባለ 3 መኝታ\n✅ ባለ 2 መኝታ 86 ካሬ\n✅ ባለ 3 መኝታ 106 ካሬ ጀምሮ\n✅ በካሬ 61 ሺ ጀምሮ\nTemer real estate main sale office",
+     {"property_type": "APARTMENT", "builtup_sqm": 86, "bedrooms": 2}),
+    ("የሚሸጥ G+2 መኖሪያ ቤት\n500 ካሬ\nዋጋ 110 ሚሊዮን\nOfficial (ቤት፣ ቦታ፣ ህንፃ፣ መጋዘን እና አፓርትመንት ለመሸጥ)", {"property_type": "VILLA"}),
+    ("የሚሸጥ ቤት\nአያት\n5 መኝታ\n72 ካሬ\n(ለመኖሪያ ወይም ለቢሮ)\nዋጋ 28.5 ሚሊዮን", {"bedrooms": 5}),
+    ("ለሽያጭ የቀረበ አፖርትመንት\nቃሊቲ\nአጠቃላይ ስፋት 170 ካሬ\nየቤት ስፋት 125 ካሬ\nሱቅ 20 ካሬ\nባለ3 መኝታ\nዋጋ 8,700,000 ብር",
+     {"property_type": "APARTMENT", "builtup_sqm": 125, "bedrooms": 3}),
+    ("በምርጥ ቦታ ላይ የሚገኝ ለሽያጭ የቀረበ ባለ 2ምኝታ በጎፋ መብራትኮዶሚኔም\n58ካሬ\nየመሸጫ ዋጋ 5.5 ሚሊየን", {"property_type": "CONDOMINIUM", "bedrooms": 2}),
+    ("አያት ሪል እስቴት\nበ15% ቅድመ ክፍያ\nባለ 1 መኝታ\n71 ካሬ= 7,095,385 ብር", {"property_type": "APARTMENT", "builtup_sqm": 71}),
+    # ...but real ones stay.
+    ("ሱቅ ሽያጭ በቡልጋሪያ\n20 ካሬ\nዋጋ 8,700,000 ብር", {"property_type": "COMMERCIAL"}),
+    ("የኮንዶሚኒየም ሱቅ ለሽያጭ\nቦሌ አራብሳ\n58 ካሬ\nዋጋ 8 ሚሊዮን", {"property_type": "COMMERCIAL"}),
+    ("ገላን ኮንደሚኒየም አጠገብ የንግድ ሱቆችን ከቴምር ሪልስቴት\n26 ካሬ\nዋጋ 2.5 ሚሊዮን", {"property_type": "COMMERCIAL"}),
+    ("PREMIUM WAREHOUSE FOR SALE\nጠቅላላ የመሬት ስፋት፦ 4,500 ካሬ ሜትር\nዋጋ 450 ሚሊዮን ብር", {"property_type": "WAREHOUSE", "builtup_sqm": 4500}),
+    # Land the advert opens with; a house "in a good place" is not land.
+    ("የሚሸጥ ቦታ\nሰሚት\n530 ካሬ\nመጋዘን ያለው\nዋጋ 28 million", {"property_type": "LAND", "plot_sqm": 530}),
+    ("ለሽያጭ የቀረበ በምርጥ ቦታ ላይ የሚገኝ ቤት\nጀሞ 1\n250 ካሬ\nዋጋ 20 ሚሊዮን", {"property_type": "VILLA"}),
+    # A whole building, with its loan and its cash part.
+    ("ለሽያጭ የቀረበ ፊኒሺንግ ደረጃ ላይ የሚገኝ #ህንፃ\nመገናኛ\nስፋት 250 ካሬ/300ካሬይዞታ\nቤዝመንት +ጂ +5 ህንፃ\nየባንክ እዳ 30 ሚሊዮን አለበት\nለጁ 48 ሚሊዮን ይፈልጋል\n#ቤት ፣ #ቦታ፣#መጋዘን ፣#ህንፃ",
+     {"property_type": "COMMERCIAL_BUILDING", "sale_price_birr": 78_000_000}),
+    # Land on the title deed and land held: no built-up size.
+    ("የሚሸጥ ቤት CMC\nG+3\nስፋት 120m2 በካርታ 160ካሬ በይዞታ\nዋጋ 35 ሚሊየን ብር", {"property_type": "VILLA", "builtup_sqm": None, "plot_sqm": 160}),
+    ("G+3 ቪላ መገናኛ\nየቦታ ስፋት፦ በካርታ 250 ካሬ | በይዞታ 305 ካሬ\nዋጋ 150 ሚሊየን ብር", {"builtup_sqm": None, "plot_sqm": 305}),
+    # ...but a house with a land and a footprint keeps both.
+    ("ለሽያጭ ቤት ቦሌ\nG+2\n200 ካሬ\nህንፃው ያረፈው 175 ካሬ ላይ\nዋጋ 60 ሚሊዮን", {"plot_sqm": 200, "builtup_sqm": 175}),
+    # Size and bedrooms of the first unit, which goes with the first price.
+    ("የሚሸጡ ኮንዶሚኒየሞች\nጀሞ1\nባለ1 መኝታ\n40 ካሬ\nየመሸጫ ዋጋ 5.3 ሚሊየን ብር\nጀሞ1\n37 ካሬ\nየመሸጫ ዋጋ 5.2 ሚሊየን ብር",
+     {"builtup_sqm": 40, "sale_price_birr": 5_300_000}),
+    ("ሱቆች ቃሊቲ\nግራውንድ ላይ 26 ካሬ\nጠቅላላ ዋጋ = 4.5 ሚልዮን ብር\n4ተኛ ላይ 23 ካሬ\nጠቅላላ ዋጋ = 2.5 ሚልዮን ብር", {"builtup_sqm": 26}),
+    ("የቴምር አፓርትመንት ሳርቤት\nባለ 2 መኝታ 106 ካሬ ጀምሮ\nባለ 3 መኝታ 139 ካሬ ጀምሮ\nዋጋ 12,190,000 ብር", {"builtup_sqm": 106, "bedrooms": 2}),
+    ("አፓርትመንት\n1,496 ካሬ ላይ ያረፈ\n1Bed=80m²=10mil\n2Bed=110m²=13.7mil", {"builtup_sqm": 80, "bedrooms": 1}),
+    ("ሱቆች ከ15 ካሬ እስከ 100 ካሬ\n30 ካሬ ዋጋ 5,000,000 ብር\n", {"builtup_sqm": 30}),
+    # Bedrooms in words and labels; a price is not a bedroom count.
+    ("አፓርትመንት ቦሌ\nባለ ሶስት መኝታ\n162 ካሬ\nዋጋ 12,960,000 ብር", {"bedrooms": 3}),
+    ("Price (ETB): 14,500,000\nType: Apartment\nSize: 141sqm\nBedroom: 3", {"bedrooms": 3}),
+    ("የሚሸጥ ቪላ\nመኝታ ቤቶች፦ 4 ሰፊ\n250 ካሬ\nዋጋ 30 ሚሊዮን ብር", {"bedrooms": 4}),
+    ("Amdehun\n3Bed=148m²=15.5mil", {"bedrooms": 3}),
+    # Prices: the reduced one; a dot among the thousands.
+    ("የሚሸጥ G+3 ቤት (94 ካሬ)\n🟡 ዋጋ እና አድራሻ : - 21 ሚ 20 ሚ ብር (አለም ባንክ)", {"sale_price_birr": 20_000_000}),
+    ("የሚሸጥ G+3 ቤት (200 ካሬ)\n🟡 ዋጋ እና አድራሻ : - 43,000,000 37,000,000 ብር (ቃሊቲ)", {"sale_price_birr": 37_000_000}),
+    ("ሽያጭ ጀሞ1 ኮንደምኒዮም\nባለ 1 መኝታ\n46 ካሬ\nዋጋ 4.300,000 ብር", {"sale_price_birr": 4_300_000, "property_type": "CONDOMINIUM"}),
+    # Places: the top of the advert, not a channel's standing hashtags.
+    ("Urgent Sale in Kazanchis!\nType: 2 Bedroom Apartment\nSize: 137 m2\nTotal Price: 12.8 Million ETB\n#Bole #Kazanchis", {"location": "kazanchis"}),
+    ("only Fully Finished Apartment\nአያት በሻሌ :ሰንሻይን ፊት ለፊት\n3Beds • 2Floor• 130Sqm • 14,499,000 ETB\n#ሰሚት #ፊጋ", {"location": "ayat_zone"}),
+    ("only Fully Finished Apartment\n𝗚𝗲𝗿𝗷𝗶:𝗶𝗺𝗽𝗲𝗿𝗶𝗮𝗹\n142sqm• 𝟮𝟰,𝟵𝟵𝟵,𝟬𝟬𝟬 𝗘𝗧𝗕", {"location": "gerji"}),
+    ("ቦሌ : ቅንጡ አፓርትመንት\n150 ካሬ\nዋጋ 20 ሚሊዮን ብር\n#BoleBulbula", {"location": "bole_bulbula"}),
+    ("ከዚህ ቀደም አራት ኪሎ እና መርካቶ ላይ ያስረከበው ቴምር። አሁን በፒያሳ አፓርትመንት\n100 ካሬ\nዋጋ 11.5 ሚሊዮን", {"location": "piassa"}),
+]
+for text, expected in S26:
+    values, _, _ = build_processed_values(P, channel_row(text, "someChannel"))
+    got = {k: (float(values[k]) if isinstance(values[k], (int, float)) or hasattr(values[k], "as_tuple") else values[k]) for k in expected}
+    want = {k: (float(v) if isinstance(v, int) else v) for k, v in expected.items()}
+    ok = got == want
+    failures += not ok
+    print(f"{'ok  ' if ok else 'FAIL'} S26: {got}" + ("" if ok else f"  (expected {want})") + f" | {text[:40]!r}")
+
 print(f"\n{'PASS' if not failures else f'FAILED: {failures} check(s)'}")
 sys.exit(1 if failures else 0)

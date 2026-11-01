@@ -11,8 +11,11 @@ from processor import (
     NOT_RENT_WORD_RE,
     RENT_MARKERS_RE,
     SALE_MARKERS_RE,
+    GENERIC_AREA_RE,
     _clean_area_value,
+    bedrooms_of_size,
     cash_plus_loan,
+    first_unit_size,
     is_company_caption,
     normalize_numbers,
     extract_bedrooms,
@@ -50,6 +53,31 @@ SALE_ONLY_PRICE = 5_000_000
 
 def is_rent_only_channel(source_channel) -> bool:
     return bool(source_channel) and source_channel.rstrip("/") in {c.rstrip("/") for c in RENT_ONLY_CHANNELS}
+
+
+TITLE_AND_HOLDING_RE = re.compile(r"በካርታ[\s\S]{0,40}?በይዞታ|በይዞታ[\s\S]{0,40}?በካርታ|on\s+donation", re.IGNORECASE)
+# A broker's list of what it sells: "ቤት፣ ቦታ፣ ህንፃ፣ መጋዘን እና አፓርትመንት", "#ቤት ፣ #ቦታ፣#መጋዘን ፣#ህንፃ".
+_LISTED = r"#?(?:የ)?(?:ቤት|ቦታ|ህንፃ|ሕንፃ|መጋዘን|መጋዝን|አፓርት|ቪላ|ሱቅ|ቢሮ|መሬት)\S{0,6}?"
+SERVICE_LIST_RE = re.compile(r"(?:" + _LISTED + r"\s*[፣,]\s*){2,}" + _LISTED + r"(?:\s*(?:እና|and)\s*\S+)?")
+# The advert opens by offering a shopping centre: "ዘመናዊ የንግድ ሞል", "የንግድ ማዕከል".
+COMMERCIAL_HEADLINE_RE = re.compile(r"የንግድ\s*(?:ሞል|ማዕከል|ማእከል)")
+# Next to a condominium word, these say the condominium is a landmark or the shop's building.
+CONDO_NOT_OFFERED_RE = re.compile(r"\S*\s*(?:\S+\s+){0,3}?(?:አጠገብ|ሱቅ|ሱቆ|ነዋሪ)")
+# The advert opens by offering land: "የሚሸጥ ቦታ", "ለአፓርትመንት ግንባታ የሚሆኑ ቦታዎች", "Plot for sale".
+LAND_HEADLINE_RE = re.compile(r"(?:የሚሸጥ|ለሽያጭ(?:\s*የቀረበ)?)(?:\s+(?!በ)\S+)?\s+(?:ቦታ|መሬት)(?![ሀ-፿])(?!\s*ላይ)|(?<!የንግድ )(?:ቦታ|መሬት)\s*(?:ለሽያጭ|የሚሸጥ)"
+                              r"|የሚሆኑ\s+ቦታዎች|\b(?:plot|land)\s+(?:is\s+)?for\s+sale")
+# Words that say a home is offered ("የንግድ ቤቶች", commercial premises, is not one).
+HOME_WORD_RE = re.compile(r"(?<!ለ)(?:አፓርት|አፖርት|አፓርታማ)|(?<!for )apartment|መኖሪያ|(?<!የንግድ )ቤቶች|[መም]ኝታ|bedroom|\bbeds?\b"
+                          r"|ኮንዶ|ኮንደ|ኮዶሚ|condo|\bvilla|ቪላ|\bhouse\b|duplex")
+# A developer's homes are flats: "አያት ሪል እስቴት ... ባለ 1 መኝታ 71 ካሬ ... 15% ቅድመ ክፍያ", "ቴምር ... ቤቶች ... በካሬ".
+DEVELOPER_RE = re.compile(r"ሪል\s*እ?ስቴት|real\s*estate")
+SOLD_IN_STAGES_RE = re.compile(r"ቅድመ\s*ክፍያ|በካሬ|ካሬ\s*ዋጋ|per\s*(?:sqm|m2|m²)")
+DEVELOPER_HOME_RE = re.compile(r"[መም]ኝታ|ቤቶች")
+
+
+def without_service_lists(text: str) -> str:
+    """The text without a broker's list of what it sells."""
+    return SERVICE_LIST_RE.sub(" ", text or "")
 
 
 class ValuationPipeline:
@@ -129,7 +157,7 @@ class ValuationPipeline:
         # PROPERTY TYPES — RESIDENTIAL
         # ==========================================================
         self.TYPE_CONDOMINIUM = [
-            "condominium", "condo", "ኮንዶሚኒየም", "ኮንደሚኒየም", "ኮንዶ",
+            "condominium", "condo", "ኮንዶሚኒየም", "ኮንደሚኒየም", "ኮንዶ", "ኮዶሚ", "ኮንደም",
             "40/60", "20/80",
         ]
 
@@ -368,16 +396,20 @@ class ValuationPipeline:
     # A whole building for sale: "ህንፃ ለሽያጭ", "ለሽያጭ የቀረበው ህንፃ" (the building offered for sale),
     # "the building owner", "building for sale", "ከ1ኛ እስከ 3ኛ ፎቅ" (from the 1st to the 3rd floor).
     WHOLE_BUILDING_RE = re.compile(
-        r"ህንፃ\s*ለሽያጭ|(?:የሚሸጥ|ለሽያጭ)[^\n]{0,15}?ህንፃ|ሙሉ\s*ህንፃ|የህንፃ\s*ባለቤት|ህንፃው\s*(?:ይሸጣል|ለሽያጭ)"
+        r"ህንፃ\s*ለሽያጭ|(?:የሚሸጥ|ለሽያጭ)(?:(?!አፓርት|አፓርታማ|አፖርት|ኮንዶ)[^\n]){0,30}?ህንፃ|ሙሉ\s*ህንፃ|የህንፃ\s*ባለቤት|ህንፃው\s*(?:ይሸጣል|ለሽያጭ)"
         r"|ከ\s*\d+\s*ኛ\s*እስከ\s*\d+\s*ኛ"
         r"|building\s*for\s*sale|whole\s*building|mixed[\s-]*used?\s*building")
 
     def classify_type(self, text):
-        text = strip_footer(text)
+        text = without_service_lists(strip_footer(text))
         t = self._norm(text)
         g_plus_level = self.extract_g_plus_level(t)
+        # A shop, office or warehouse must be offered: not a hashtag, not a broker's list of what
+        # it sells ("ቤት፣ ቦታ፣ ህንፃ፣ መጋዘን እና አፓርትመንት"), and not after the words of a home
+        # ("Fully Finished Apartment ... Property Management office", "ባለ 3 መኝታ ... ሱቅ 20 ካሬ").
+        offered = self._offered_text(text)
 
-        has_bedroom = "መኝታ" in t or "bed" in t
+        has_bedroom = "መኝታ" in t or "ምኝታ" in t or "bed" in t
         has_floor_context = g_plus_level is not None or "ፎቅ" in t or "floor" in t
         apartment_word = bool(self.APARTMENT_WORD_RE.search(t))
 
@@ -390,37 +422,43 @@ class ValuationPipeline:
         if any(x in t for x in ["studio", "ስቱዲዮ"]):
             return "STUDIO", 0.95
 
+        if LAND_HEADLINE_RE.search(t[:80]) and not has_bedroom:
+            return "LAND", 0.9
+
         # One flat, shop or office in a G+12 building is not the building.
         unit_in_tall_building = False
         if g_plus_level is not None and g_plus_level >= 5:
             if (apartment_word or self.UNIT_IN_BUILDING_RE.search(t)) and not self.WHOLE_BUILDING_RE.search(t):
                 # A flat, unless the text clearly offers an office, shop or warehouse ("ቢሮ" and
                 # "ሱቅ" alone are often just the building's other floors).
-                clearly_other = (any(w in t for w in self.TYPE_WAREHOUSE)
-                                 or any(w in t for w in self.TYPE_OFFICE if w != "ቢሮ")
-                                 or any(w in t for w in self.TYPE_COMMERCIAL if w not in ("ሱቅ", "ሱቃ", "ሱቆ")))
+                clearly_other = (any(w in offered for w in self.TYPE_WAREHOUSE)
+                                 or any(w in offered for w in self.TYPE_OFFICE if w != "ቢሮ")
+                                 or any(w in offered for w in self.TYPE_COMMERCIAL if w not in ("ሱቅ", "ሱቃ", "ሱቆ")))
                 if apartment_word and not clearly_other:
                     return "APARTMENT", 0.9
                 unit_in_tall_building = True   # a shop or office if the text says so, else a flat
             else:
                 return "COMMERCIAL_BUILDING", 0.95
 
+        if COMMERCIAL_HEADLINE_RE.search(t[:200]) and not has_bedroom:
+            return "COMMERCIAL", 0.9
+
         # Commercial / Industrial first (before residential checks)
-        if any(w in t for w in self.TYPE_WAREHOUSE) or "መጋዘን" in t:
+        if any(w in offered for w in self.TYPE_WAREHOUSE) or "መጋዝን" in offered:
             return "WAREHOUSE", 0.95
 
         # "ቢሮ" (office) appears in channel footers; only treat it as a signal
         # when it occurs in the first 300 characters of the message.
         _office_no_biro = [w for w in self.TYPE_OFFICE if w != "ቢሮ"]
-        _biro_in_prefix = "ቢሮ" in t[:300]
-        if any(w in t for w in _office_no_biro) or _biro_in_prefix:
+        _biro_in_prefix = "ቢሮ" in offered[:300]
+        if any(w in offered for w in _office_no_biro) or _biro_in_prefix:
             return "OFFICE", 0.9
 
         # "ሱቅ" / "ሱቃ" / "ሱቆ" (shop) appear in footers; same 300-char rule.
         _suq_words = {"ሱቅ", "ሱቃ", "ሱቆ"}
         _commercial_no_suq = [w for w in self.TYPE_COMMERCIAL if w not in _suq_words]
-        _suq_in_prefix = any(w in t[:300] for w in _suq_words)
-        if any(w in t for w in _commercial_no_suq) or _suq_in_prefix:
+        _suq_in_prefix = any(w in offered[:300] for w in _suq_words)
+        if any(w in offered for w in _commercial_no_suq) or _suq_in_prefix:
             return "COMMERCIAL", 0.9
 
         # Residential
@@ -429,6 +467,10 @@ class ValuationPipeline:
 
         if unit_in_tall_building:
             return "APARTMENT", 0.9
+
+        if (g_plus_level is None and "ቪላ" not in t and "villa" not in t and DEVELOPER_RE.search(t)
+                and SOLD_IN_STAGES_RE.search(t) and DEVELOPER_HOME_RE.search(t)):
+            return "APARTMENT", 0.85
 
         # A G+1 to G+4 house with its bedrooms is a villa, unless one of its floors is
         # what is offered ("4ኛ ፎቅ", "5th floor") or its text, not just a hashtag
@@ -475,6 +517,15 @@ class ValuationPipeline:
             return "SINGLE_ROOM", 0.9
 
         return "UNKNOWN", 0.0
+
+    def _offered_text(self, text) -> str:
+        """The advert without hashtags, up to the first words of a home."""
+        t = self._norm(self.HASHTAG_RE.sub(" ", text or ""))
+        for home in HOME_WORD_RE.finditer(t):
+            if home.group().startswith(("ኮንዶ", "ኮንደ", "ኮዶሚ", "condo")) and CONDO_NOT_OFFERED_RE.match(t, home.end()):
+                continue   # "ገላን ኮንደሚኒየም አጠገብ የንግድ ሱቆች", "የኮንዶሚኒየም ሱቅ"
+            return t[:home.start()]
+        return t
 
     # ==========================================================
     # STEP 3b — PROPERTY SUBTYPE
@@ -534,6 +585,12 @@ class ValuationPipeline:
 
         inferred_plot, inferred_built = extract_area_breakdown(text)
 
+        # "ስፋት 120 ካሬ በካርታ / 160 ካሬ በይዞታ", "300 m² on donation (325 m²)": both are the land (on the
+        # title deed, and held), so no built-up size is known.
+        if p_type in ("VILLA", "TOWNHOUSE", "LAND") and TITLE_AND_HOLDING_RE.search(text):
+            sizes = [v for v in (_clean_area_value(m.group(1)) for m in GENERIC_AREA_RE.finditer(text)) if v]
+            return max(sizes, default=raw_area), None, 0.95, 0.0
+
         # A whole building's area is its land or the ground it stands on, not its floor
         # area, unless the text calls a size built-up or floor area.
         if p_type == "COMMERCIAL_BUILDING":
@@ -548,7 +605,7 @@ class ValuationPipeline:
                              if v is not None), None)
             total = TOTAL_AREA_RE.search(text)
             total = _clean_area_value(total.group(1)) if total else None
-            return None, labelled or total or inferred_built or raw_area, 0.0, 0.9
+            return None, labelled or total or first_unit_size(text) or inferred_built or raw_area, 0.0, 0.9
 
         if intent not in ["SALE", "MIXED", "RENT"]:
             return None, None, 0.0, 0.0
@@ -559,7 +616,7 @@ class ValuationPipeline:
         plot_keywords  = ["plot", "land", "compound", "total area", "ይዞታ", "መሬት", "ቦታ"]
 
         if p_type in ("APARTMENT", "CONDOMINIUM"):
-            built = inferred_built or raw_area
+            built = first_unit_size(text) or inferred_built or raw_area
             # Over 1,000 m² is the site or the building ("Apartment 3B+G+14 4000 ካሬ"), not one flat.
             return None, built if built and built <= 1000 else None, 0.0, 0.95
 
@@ -822,6 +879,9 @@ class ValuationPipeline:
         plot, built, plot_c, built_c = self.resolve_area(intent, p_type, area, number_text)
         if built is not None and built < 1:
             built = None
+
+        # Several units in one advert: the bedrooms of the unit whose size was stored.
+        beds = bedrooms_of_size(number_text, built) or beds
 
         payment                     = self.extract_payment(text)
         finish, finish_c            = self.extract_finish(text)

@@ -1,17 +1,22 @@
 r"""
 accuracy_check.py
 -----------------
-The accuracy check of the sale sample for the owner's thesis (task S20): 60 listings drawn
-at random (random.seed(20261101) on the 457 listings of the sale sample, sorted by id, on 1
-November 2026). Writes data/accuracy_check/accuracy_check_60.html, which shows each original
-advert next to its stored type, place, price, size and bedrooms, with boxes for the owner's
-own check. Contacts are masked. Read-only; data/ is never committed.
+The accuracy checks of the sale sample for the owner's thesis, 60 listings drawn at random each time.
+Round 1 (task S20): random.seed(20261101) on the 457 listings of the sample, 1 November 2026.
+Round 2 (task S26), after the parser fixes: random.seed(20261102) on the 492 listings of the sample,
+leaving out round 1's; 2 listings that a later fix took out of the sample were replaced with
+random.Random(20261103).
 
-CHECKED holds Claude's own reading of the same 60 adverts, shown closed in the file so the
-owner can check first. Nothing is corrected until the owner confirms.
+Writes data/accuracy_check/accuracy_check_60.html (round 1) or accuracy_check_60_round2.html, which
+show each original advert next to its stored type, place, price, size and bedrooms, with boxes for
+the owner's own check. Contacts are masked. Read-only; data/ is never committed.
+
+WRONG and NOTES hold Claude's own reading of the adverts, shown closed in the file so the owner can
+check first. Nothing is corrected until the owner confirms.
 
 Usage:
-    venv\Scripts\python.exe database\accuracy_check.py
+    venv\Scripts\python.exe database\accuracy_check.py              (round 2)
+    venv\Scripts\python.exe database\accuracy_check.py --round 1
 """
 
 import html
@@ -29,7 +34,7 @@ from sqlalchemy import create_engine, text  # noqa: E402
 from data_quality import place_name  # noqa: E402
 from settings import DB_URL  # noqa: E402
 
-OUT = BASE_DIR / "data" / "accuracy_check" / "accuracy_check_60.html"
+OUT_DIR = BASE_DIR / "data" / "accuracy_check"
 CONTACT_RE = re.compile(r"\(?\+?\(?251\)?[\s-]*\d[\d\s-]{7,12}|(?<!\d)0[79][\d\s-]{7,11}\d|@\w+|https?://\S+|t\.me/\S+"
                         r"|(?<![\d,.])\d{7,}(?![\d,.])|\bwww\.\S+", re.IGNORECASE)
 
@@ -90,6 +95,31 @@ NOTES = {
 IDS = ("1 21 37 40 1017 1019 1020 1031 1036 1111 1123 1143 1210 1222 1260 1273 1283 1288 1312 1316 1582 1727 1737 1738 "
        "1809 1893 1962 2086 2088 2095 2236 2335 2341 2370 2372 2405 2426 2444 2504 2505 2519 2699 2842 2901 3216 3325 "
        "4222 5479 5552 5841 6255 6632 6693 7042 7062 7106 7156 7187 7333 7421").split()
+IDS_2 = (
+       "25 45 1021 1040 1099 1102 1106 1124 1240 1271 1294 1295 1446 1456 1724 1730 1744 1745 "
+       "1815 2342 2392 2440 2485 2493 2509 2595 2611 2641 2707 2870 2887 2982 2984 3403 3551 "
+       "3621 5327 5339 5348 5382 5461 5554 5561 5564 5573 5601 5615 5628 5676 5727 5882 6346 "
+       "6651 6662 6831 6833 6866 7152 7161 7537 "
+       ).split()
+WRONG_2 = {
+    "1099": {"type": "flats, not an office; the type is a protected value"},
+    "1744": {"type": "flats, not an office; the type is a protected value"},
+    "2342": {"price": "no unit is priced: an advert for several sites, 99,935 birr per m² times the 300 m²",
+             "size": "300 m² is the top of a range for shops; the flats start at 60 m²"},
+    "2887": {"type": "a list of several projects; the first is 2-bedroom flats, not a studio",
+             "place": "the first project is at Keraniyo", "size": "the first flat is 100 m², not 44 m²"},
+}
+NOTES_2 = {
+    "1240": "300 m² is the footprint of a G+3 house, stored as its built-up size",
+    "2493": "284 m² is the footprint of the house, stored as its built-up size",
+    "1271": "G+4 guesthouse: 150 m² in the title and 200 m² as the area",
+    "2392": "a plot size is stored for a flat, not in the advert",
+    "5564": "a built-up size is stored for land, not in the advert",
+    "5601": "3-bedroom stated, not stored; price worked out from the price per m²",
+    "5615": "a list of studios and flats; the first is stored; the plot size of 76 m² is a 3-bedroom flat's size",
+    "1744": "also nearly the same advert as 1745",
+}
+ROUNDS = {1: (IDS, WRONG, NOTES, "accuracy_check_60.html"), 2: (IDS_2, WRONG_2, NOTES_2, "accuracy_check_60_round2.html")}
 STYLE = """
 body{font:15px/1.5 system-ui,sans-serif;margin:16px;color:#1b1b1b;background:#fff}
 table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:8px;vertical-align:top;text-align:left}
@@ -105,16 +135,19 @@ def mask(text_: str) -> str:
 
 
 def main() -> None:
+    round_no = int(sys.argv[sys.argv.index("--round") + 1]) if "--round" in sys.argv else 2
+    ids, wrong, notes, file_name = ROUNDS[round_no]
+    out_file = OUT_DIR / file_name
     with create_engine(DB_URL).connect() as conn:
         rows = conn.execute(text("""
             SELECT p.*, t.text AS advert, t.channel, t.message_id FROM processed_listings p
-            JOIN telegram_listings t ON p.id = t.id::text WHERE p.id = ANY(:ids)"""), {"ids": IDS}).fetchall()
+            JOIN telegram_listings t ON p.id = t.id::text WHERE p.id = ANY(:ids)"""), {"ids": ids}).fetchall()
     rows.sort(key=lambda r: int(r.id))
-    missing = set(IDS) - {r.id for r in rows}
+    missing = set(ids) - {r.id for r in rows}
     if missing:
         sys.exit(f"No longer stored: {sorted(missing)}")
     out = [f"<!doctype html><meta charset=utf-8><title>Accuracy check: 60 listings</title><style>{STYLE}</style>",
-           "<h1>Accuracy check: 60 random listings from the sale sample</h1>",
+           f"<h1>Accuracy check, round {round_no}: 60 random listings from the sale sample</h1>",
            "<p>Read each advert, compare it with the stored values, and tick what is wrong. Contacts are masked. "
            "Then tell Claude the listing numbers and what is wrong; nothing is changed until you confirm. "
            "“My reading” under each advert is Claude's own view: open it only after your own check.</p>",
@@ -128,20 +161,20 @@ def main() -> None:
                   f"<b>Bedrooms:</b> {r.bedrooms if r.bedrooms is not None else '—'}")
         boxes = "".join(f"<label><input type=checkbox> {x} wrong</label>" for x in ("Type", "Place", "Price", "Size", "Bedrooms"))
         boxes = "<label><input type=checkbox> All right</label>" + boxes + "<input type=text placeholder='Note'>"
-        mine = [f"<b>{k}</b>: {html.escape(v)}" for k, v in WRONG.get(r.id, {}).items()]
-        if r.id in NOTES:
-            mine.append("note: " + html.escape(NOTES[r.id]))
+        mine = [f"<b>{k}</b>: {html.escape(v)}" for k, v in wrong.get(r.id, {}).items()]
+        if r.id in notes:
+            mine.append("note: " + html.escape(notes[r.id]))
         reading = "; ".join(mine) or "no problem found"
         out.append(f"<tr><td>{n}<br><small>listing {r.id}</small></td><td><small>{html.escape(channel)}</small>"
                    f"<div class=ad>{html.escape(mask(r.advert))}</div>"
                    f"<details><summary>My reading</summary>{reading}</details></td>"
                    f"<td class=v>{stored}</td><td>{boxes}</td></tr>")
     out.append("</table>")
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text("\n".join(out), encoding="utf-8")
-    fields = Counter(f for wrong in WRONG.values() for f in wrong)
-    print(f"Wrote {OUT}")
-    print(f"Listings with at least one wrong value: {len(WRONG)} of {len(rows)}; by field: {dict(fields.most_common())}")
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_file.write_text("\n".join(out), encoding="utf-8")
+    fields = Counter(f for values in wrong.values() for f in values)
+    print(f"Wrote {out_file}")
+    print(f"Listings with at least one wrong value: {len(wrong)} of {len(rows)}; by field: {dict(fields.most_common())}")
 
 
 if __name__ == "__main__":

@@ -453,22 +453,38 @@ def _match_inside_hashtag(tag: str) -> Optional[str]:
     return None
 
 
+HEADLINE_CHARS = 160
+RENT_TEMPLATE_RE = re.compile(r"CODE\s+V?(?:BT|BZ)\b")
+WIDE_AREAS = {"bole_main", "ayat_zone"}
+# "ከዚህ ቀደም አራት ኪሎ እና መርካቶ ላይ ... ያስረከበው" (sites it delivered before) is not where this one is.
+PAST_SITES_RE = re.compile(r"ከዚህ\s*ቀደም[^።\n]*")
+
+
 def find_location(text: str, label: Optional[str] = None) -> str:
     """
-    The location code for a listing: from its location label if it has one
-    ("Location: Bole"), else its hashtags ("#ቦሌ"), else the whole text.
+    The location code for a listing: from its location label if it has one ("Location: Bole"),
+    else the place named at the top of the advert (a channel's standing hashtags such as "#Bole
+    #ሰሚት" do not say where this property is), else its hashtags ("#ቦሌ"), else the whole text.
     """
     if label:
         code = match_text(label)
         if code:
             return code
+    # Decorative letters such as "𝗞𝗮𝘇𝗮𝗻𝗰𝗵𝗶𝘀" become plain ones.
+    text = unicodedata.normalize("NFKC", text or "")
+    # (Not in the Bet_afri template: its top lists the taxi routes, its hashtags the place.)
+    top = None if RENT_TEMPLATE_RE.search(text) else match_text(PAST_SITES_RE.sub(" ", re.sub(r"#[^\s#]+", " ", text))[:HEADLINE_CHARS])
+    tagged = None
     for tag in re.findall(r"#([^\s#]+)", text or ""):
-        if tag == "22":   # "#22" on its own is the 22 area
-            return "haya_hulet"
-        code = match_text(tag) or _match_inside_hashtag(tag)
-        if code:
-            return code
-    return match_text(text) or UNKNOWN
+        tagged = "haya_hulet" if tag == "22" else (match_text(tag) or _match_inside_hashtag(tag))   # "#22": the 22 area
+        if tagged:
+            break
+    if top:
+        # "ቦሌ : መድሃንያለም ... #መድሃንያለም": a hashtag can name the exact place inside a wide area at the top.
+        if top in WIDE_AREAS and tagged and tagged != top and PLACES[tagged].sub_city == PLACES[top].sub_city:
+            return tagged
+        return top
+    return tagged or match_text(text) or UNKNOWN
 
 
 def city_of(code: Optional[str]) -> str:

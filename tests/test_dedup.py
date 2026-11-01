@@ -65,6 +65,8 @@ check("a broker's template with another code and room size",
            intent="RENT", property_type="SINGLE_ROOM", rent_price_birr=10_000),
        row("2", "የሚከራይ ቤት CODE BT 1307 ኪራይ 10,000 ብር አንድ ክፍል 4X4 ሊሾ ወለል ብሎኬት ግቢ ውስጥ ሰፈሩ ሲኤምሲ ሚካኤል ከመገናኛ አንድ ታክሲ",
            intent="RENT", property_type="SINGLE_ROOM", rent_price_birr=10_000)], [])
+check("same facts but different building heights",
+      [row("1", "የሚሸጥ ቤት G+2 ኮምፓውንድ", **one), row("2", "ሌላ ቤት ጂ +3 ኮምፓውንድ", **one)], [])
 check("same facts but no named place",
       [row("1", "ምርጥ ቤት አንድ", **one), row("2", "ሌላ ቤት ሁለት", **{**one, "location": "other_addis"})], [])
 check("same facts, place unknown for both",
