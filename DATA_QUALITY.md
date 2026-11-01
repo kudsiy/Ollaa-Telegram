@@ -276,11 +276,24 @@ messages again:
 |---|---|---|---|---|---|
 | Old near-duplicate step (`semantic_dedup.py`) | 593 | 375 | about 50 | 83 | **brought back by the owner's decision, 1 Nov 2026** |
 | Old rule: same text | 125 | 69 | 69 | 0 | kept out: sound |
-| Old rule: same price, size and location | 97 | 89 | 33 | 38 | kept out; the 38 are **not yet read** (`data/review/earlier_deletions.html`) |
+| Old rule: same price, size and location | 97 | 89 | 33 | 38 | kept out; the 38 were read (below) and **wait for the owner's decision** |
 
 The returned listings have the same parser mistakes: about 17 of the 83 sample-fit ones show a wrong type
 or place in their first lines (for example 2033, an apartment called an office; 5911, 5 Kilo placed in
 Mexico). They were not in the accuracy check's draw.
+
+**The 38 of the old same-price rule (task S23, nothing restored).** The first lines of each were read
+next to any stored listing with the same price and size (`data/review/earlier_deletions.html`):
+
+- **28 look like different properties**, mostly condominiums in Ayat 49, Jemo and Bole Arabsa that now
+  match no stored listing at all.
+- **6 are uncertain** (45 and 5391; 1722; 1730; 2593; 5889): the same price and size as another listing,
+  but another floor, area or building height.
+- **4 are repeats** of stored listings: 10 (listing 1), 2972 (5393), and at another price 2717 (1036) and
+  2732 (2735, 7160).
+- About 5 of the 38 show a wrong type (for example 1302, a condominium called land).
+- Why the old rule removed them cannot be shown now; most likely the parser of that time read other values.
+- The other 51 usable messages of this rule that would not fit the sale sample were not read.
 
 ## Fitness for a hedonic price model
 
@@ -381,7 +394,7 @@ Other things seen, not counted as wrong:
    adverts listing several units.
 2. Decide on the 91 houses whose built-up size is a copy of one stated size. 150 more houses have a
    plot size only, so a model with plot size as its own variable could use far more houses.
-3. Read the 38 messages removed by the old same-price rule.
+3. Decide on the 38 messages removed by the old same-price rule: 28 look different, 6 are uncertain.
 4. Keep scraping regularly: posts now come with their real dates, and the busiest channels
    post 40 messages in about two days, so a run at least every two days avoids new gaps.
 5. Fetch the real posting dates from Telegram for the 851 undated usable listings (the

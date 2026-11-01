@@ -34,6 +34,23 @@ from settings import DB_URL  # noqa: E402
 OUT = BASE_DIR / "data" / "review" / "earlier_deletions.html"
 GROUPS = {"duplicate: same text": "old rule: same text",
           "duplicate: same price": "old rule: same price, size and location"}
+# Claude's reading of the first lines of the 38 (1 November 2026); the others look like different properties.
+READING = {
+    "10": "repeat: same advert as stored listing 1",
+    "2717": "repeat at another price: stored listing 1036 (Megenagna, 134 m², 8th floor, 16,080,000); type should be apartment",
+    "2732": "repeat at another price: stored listings 2735 and 7160 (4 Kilo Ambassador Mall, 123 m²)",
+    "2972": "repeat: stored listing 5393, same broker (Bole Arabsa, 54 m², 1st floor, 4.5 million)",
+    "45": "uncertain: maybe 5391 at another price (Ayat 49, 72 m², 10th floor)",
+    "5391": "uncertain: maybe 45 at another price (Ayat 49, 72 m², 10th floor)",
+    "1722": "uncertain: stored 1890 has the same size and price in Jemo 1, but on the 3rd floor",
+    "1730": "uncertain: stored 5616 has the same size, price and floor, but in Jemo 1, not Jemo 3",
+    "2593": "uncertain: stored 3003 and 1212 have the same size and price at Ayat, but G+3 and G+2; type should be building",
+    "5889": "uncertain: stored 3791 has the same broker, size and price at Wesen, but on the 4th floor",
+    "1302": "different; type should be condominium, not land",
+    "2971": "different; type should be studio, not apartment",
+    "5679": "different; part-built (2 slabs), stored as land",
+    "5700": "different; part-built (3 slabs), stored as land",
+}
 NO_MATCH, PRICE_DIFFERS = "no match", "same advert, price differs"
 STORED, OTHER = "repeat of a stored listing", "repeat of another removed message"
 
@@ -97,14 +114,14 @@ def main() -> None:
         out = [f"<!doctype html><meta charset=utf-8><title>Earlier deletions</title><style>{STYLE}</style>",
                f"<h1>{len(read)} messages removed earlier that would fit the sale sample</h1>",
                "<p>Nothing has been restored. The values are what today's parser reads from each message. Contacts are "
-               "masked.</p><table><tr><th>Message</th><th>Advert</th><th>What the parser reads</th><th>Compared with stored</th></tr>"]
+               "masked.</p><table><tr><th>Message</th><th>Advert</th><th>What the parser reads</th><th>Rules</th><th>My reading</th></tr>"]
         for r in read:
             fmt = lambda v: f"{v:g} m²" if v is not None else "—"  # noqa: E731
             out.append(f"<tr><td>{r.id[1:]}<br><small>{html.escape(r.source_channel.rsplit('/', 1)[-1])}</small></td>"
                        f"<td class=ad>{html.escape(mask(r.raw_text))}</td>"
                        f"<td class=v>{r.property_type}<br>{html.escape(dq.place_name(r.location))}<br>{r.sale_price_birr:,.0f} birr<br>"
                        f"built-up {fmt(r.builtup_sqm)}<br>plot {fmt(r.plot_sqm)}<br>bedrooms {r.bedrooms if r.bedrooms is not None else '—'}</td>"
-                       f"<td>{status[r.id]}</td></tr>")
+                       f"<td>{status[r.id]}</td><td>{html.escape(READING.get(r.id[1:], 'different property'))}</td></tr>")
         OUT.parent.mkdir(parents=True, exist_ok=True)
         OUT.write_text("\n".join(out) + "</table>", encoding="utf-8")
     print(f"\nWrote {OUT}")
