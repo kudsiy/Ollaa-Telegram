@@ -53,6 +53,13 @@ FIELDS = [  # (label, test on one listing)
 ]
 NO_SUB_CITY = ("no place found", "sub-city not recorded")
 
+# Left out of the model samples by the owner's decision (1 November 2026), whatever their values.
+MODEL_EXCLUDED = {
+    "6726": "shop advert: 250,000 birr is the price per m², read as the total (the unit's total is not stated)",
+    "6930": "22 million birr for 150 m²: the advert does not say whether it is land or a house",
+}
+HOUSES = ("VILLA", "TOWNHOUSE")
+
 
 def sub_city(code):
     if code in (None, UNKNOWN, NOISE):
@@ -97,6 +104,23 @@ def outlier_reasons(r):
         if r.bedrooms is not None and r.bedrooms > UNIT_BEDROOMS_MAX:
             reasons.append(f"{r.property_type.lower()} with {r.bedrooms} bedrooms")
     return reasons
+
+
+def model_ready(r, price_field):
+    """Fit for a hedonic model: price, size, named place, known type, in birr, no obvious outlier."""
+    return (getattr(r, price_field) is not None and size_of(r) is not None
+            and r.location not in (None, UNKNOWN, NOISE) and r.property_type != "UNKNOWN"
+            and r.price_currency == "ETB" and not outlier_reasons(r) and r.id not in MODEL_EXCLUDED)
+
+
+def is_usable(r):
+    return (r.listing_class not in EXCLUDED_CLASSES and r.property_type not in EXCLUDED_TYPES
+            and r.intent in ("SALE", "RENT", "MIXED"))
+
+
+def sale_sample(rows):
+    """The sale sample of the hedonic model."""
+    return [r for r in rows if is_usable(r) and r.intent in ("SALE", "MIXED") and model_ready(r, "sale_price_birr")]
 
 
 def table(headers, rows):
@@ -216,16 +240,13 @@ def main():
            for r, why in sorted(flagged, key=lambda x: int(x[0].id))])
 
     # ── Hedonic model sample ─────────────────────────────────────────────
-    def model_ready(r, price_field):
-        return (getattr(r, price_field) is not None and size_of(r) is not None
-                and r.location not in (None, UNKNOWN, NOISE) and r.property_type != "UNKNOWN"
-                and r.price_currency == "ETB" and not outlier_reasons(r))
-
-    sale = [r for r in usable if r.intent in ("SALE", "MIXED") and model_ready(r, "sale_price_birr")]
+    sale = sale_sample(usable)
     rent = [r for r in usable if r.intent == "RENT" and model_ready(r, "rent_price_birr")]
     print("## Listings fit for a hedonic model\n")
     print("Price, size (plot for land), a named place and a known type; priced in birr; "
           "no obvious outlier.\n")
+    print("Left out by the owner's decision: "
+          + "; ".join(f"{k} ({why})" for k, why in sorted(MODEL_EXCLUDED.items())) + ".\n")
     for label, sample in (("Sale", sale), ("Rent", rent)):
         places_n = Counter(r.location for r in sample)
         cells = Counter((r.location, r.property_type) for r in sample)
@@ -249,6 +270,17 @@ def main():
     print(f"Homes only (apartments, condominiums, villas, studios, townhouses) in the sale sample: "
           f"{len(homes)}; bedrooms known for {pct(sum(1 for r in homes if r.bedrooms is not None), len(homes))}, "
           f"bathrooms for {pct(sum(1 for r in homes if r.bathrooms is not None), len(homes))}.\n")
+    houses = [r for r in sale if r.property_type in HOUSES]
+    plot_only = [r for r in usable if r.intent in ("SALE", "MIXED") and r.property_type in HOUSES
+                 and r.builtup_sqm is None and r.plot_sqm is not None and r.sale_price_birr is not None
+                 and r.location not in (None, UNKNOWN, NOISE) and r.price_currency == "ETB"
+                 and not outlier_reasons(r) and r.id not in MODEL_EXCLUDED]
+    both = [r for r in houses if r.plot_sqm is not None]
+    copied = [r for r in both if float(r.plot_sqm) == float(r.builtup_sqm)]
+    print(f"Houses (villas, townhouses) in the sale sample: {len(houses)}; built-up size only "
+          f"{len(houses) - len(both)}; two different sizes, built-up and plot {len(both) - len(copied)}; the same number "
+          f"stored as both {len(copied)}; plot size only 0 (the sample needs a built-up size for a house). "
+          f"Outside the sample, otherwise fit, with a plot size only: {len(plot_only)}.\n")
     reposts = Counter((r.property_type, r.location, r.sale_price_birr, size_of(r)) for r in sale)
     print(f"Possible reposts in the sale sample (same type, place, price and size): "
           f"{sum(n - 1 for n in reposts.values() if n > 1)} extra copies in "

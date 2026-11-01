@@ -356,8 +356,8 @@ def main():
                critical=False)
 
     # ── STEP 6: SEMANTIC DEDUP ────────────────────────────────
-    step(6, "Semantic deduplication (this takes ~10 minutes)")
-    run_script("semantic_dedup.py", critical=False)
+    step(6, "Removing listings that repeat the same property")
+    run_script("dedup_strict.py", extra_args=["--apply"], critical=False)
 
     # ── STEP 7: REFRESH VIEWS ────────────────────────────────
     step(7, "Refreshing materialized views")

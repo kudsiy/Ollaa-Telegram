@@ -175,6 +175,15 @@ full run needs the owner's approval again.
   calls the parser without the channel rules, so its posts get them at the next
   re-processing.
 - `src/run_all.py` runs scrape → ETL → repair scripts → dedup → views → report.
+- Duplicates are removed only by `src/dedup_strict.py` (report first, then `--apply`; task S20):
+  same words, same type+place+price+size, or nearly the same words with nothing in conflict.
+  A changed price is never a repeat, a protected listing is never removed, and `tests/test_dedup.py`
+  checks the rules. `semantic_dedup.py` was removed: it compared how texts look, ignored
+  prices, and would have deleted different flats posted on one template; never bring it back.
+  The first job of `dedup_and_fix_locations.py` (run without `--location-only`) and `dedup_fast.py`
+  are just as crude: do not run them.
+- The sale and rent samples of the hedonic model are defined in `database/data_quality.py`
+  (`sale_sample`, `model_ready`); `MODEL_EXCLUDED` holds listings the owner left out, with why.
 - `src/processor.py` holds shared price, area and label helpers used by the pipeline.
   Price reading (decimals, spellings of "million", prices per m²) is checked by
   `tests/test_prices.py`; run it after any change to prices. After any parser change,

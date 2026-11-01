@@ -1,9 +1,8 @@
 r"""
 dedup_fast.py — Fast pre-deduplication for Ollaa processed_listings
 
-Run BEFORE semantic_dedup.py. This catches ~70% of duplicates in seconds
-using phone number + price + location fingerprinting and fuzzy matching.
-Semantic dedup then handles the rest (same listing, no phone number).
+NOT IN USE: its columns no longer exist and it would treat one broker's different listings in
+one place as repeats. Duplicates are removed by dedup_strict.py.
 
 Usage:
   python src\dedup_fast.py            # dry run — shows what would be flagged
