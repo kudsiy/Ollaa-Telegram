@@ -25,6 +25,7 @@ listing it repeats, so it never comes back; to undo, delete that row and run etl
 Usage:
     venv\Scripts\python.exe src\dedup_strict.py            (report only)
     venv\Scripts\python.exe src\dedup_strict.py --apply
+    venv\Scripts\python.exe src\dedup_strict.py --apply --only 1744    (only the listings named)
 """
 
 import argparse
@@ -200,12 +201,15 @@ def load(conn):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="remove the repeats (default: report only)")
+    parser.add_argument("--only", nargs="+", metavar="ID", help="consider only these listings for removal")
     args = parser.parse_args()
     engine = create_engine(DB_URL)
     with engine.connect() as conn:
         rows = load(conn)
         protected = {r[0] for r in conn.execute(text("SELECT DISTINCT listing_id FROM listing_overrides"))}
     removals, price_changed = plan(rows, protected)
+    if args.only:
+        removals = [x for x in removals if x[0] in args.only]
     by_id = {r.id: r for r in rows}
     sample = {r.id for r in dq.sale_sample(rows)}
     print(f"Listings checked: {len(rows):,}")
