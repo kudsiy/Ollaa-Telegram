@@ -180,7 +180,13 @@ full run needs the owner's approval again.
 - Duplicates are removed only by `src/dedup_strict.py` (report first, then `--apply`; task S20):
   same words, same type+place+price+size, or nearly the same words with nothing in conflict.
   A changed price is never a repeat, a protected listing is never removed, and `tests/test_dedup.py`
-  checks the rules. `semantic_dedup.py` was removed: it compared how texts look, ignored
+  checks the rules. **Standing rule (owner, 2 November 2026):** when two listings are clearly the same
+  advert (same channel or same agent, same property, same place, same price and size, only small wording
+  differences like a greeting or a discount line), remove the newer copy without asking and keep the one
+  with the most complete details: read each pair in the report, then `dedup_strict.py --apply --same-source`
+  (it backs up first), and list what was removed in `DATA_QUALITY.md`. Ask the owner only when the price or
+  size differs between the copies; such pairs are not removed. Repeats from different channels and different
+  agents are not covered by this rule, so show them to the owner before removing them. `semantic_dedup.py` was removed: it compared how texts look, ignored
   prices, and would have deleted different flats posted on one template; never bring it back.
   The first job of `dedup_and_fix_locations.py` (run without `--location-only`) and `dedup_fast.py`
   are just as crude: do not run them.

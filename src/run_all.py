@@ -357,7 +357,7 @@ def main():
 
     # ── STEP 6: SEMANTIC DEDUP ────────────────────────────────
     step(6, "Removing listings that repeat the same property")
-    run_script("dedup_strict.py", extra_args=["--apply"], critical=False)
+    run_script("dedup_strict.py", extra_args=["--apply", "--same-source"], critical=False)
 
     # ── STEP 7: REFRESH VIEWS ────────────────────────────────
     step(7, "Refreshing materialized views")

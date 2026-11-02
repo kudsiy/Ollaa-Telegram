@@ -18,21 +18,30 @@ houses of the same size and price but different heights (G+2, G+3) are different
 A price change is never treated as a repeat: such pairs are only reported.
 
 Of each group one listing stays: one with a protected value (hand repair) first, then the
-one in the model sample, then the most complete, then the newest. A listing with a protected
+one in the model sample, then the most complete, then the oldest. A listing with a protected
 value is never removed. A removed listing's message goes to processing_exclusions, with the
 listing it repeats, so it never comes back; to undo, delete that row and run etl_runner.py.
+--apply takes a backup first, and removes nothing if the backup fails.
+
+The owner's standing rule (CLAUDE.md): repeats from the same channel or the same agent (same
+phone or username) are removed without asking, with --same-source. Other repeats are only
+removed once the owner has seen them.
 
 Usage:
     venv\Scripts\python.exe src\dedup_strict.py            (report only)
+    venv\Scripts\python.exe src\dedup_strict.py --apply --same-source
     venv\Scripts\python.exe src\dedup_strict.py --apply
     venv\Scripts\python.exe src\dedup_strict.py --apply --only 1744    (only the listings named)
 """
 
 import argparse
+import os
 import re
+import subprocess
 import sys
 import unicodedata
 from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "database"))
@@ -43,8 +52,9 @@ from sqlalchemy import create_engine, text  # noqa: E402
 import data_quality as dq  # noqa: E402
 from locations import NOISE, UNKNOWN  # noqa: E402
 from processor import is_photo_only, strip_footer  # noqa: E402
-from settings import DB_URL  # noqa: E402
+from settings import DB_ADMIN_USER, DB_HOST, DB_NAME, DB_PORT, DB_URL, admin_config  # noqa: E402
 
+BACKUP_DIR = Path(__file__).resolve().parents[1] / "backups"
 NEARLY_SAME = 95
 MIN_WORDS_CHARS = 15
 _CONTACT_RE = re.compile(r"https?://\S+|t\.me/\S+|@\w+|#\S+|\+?\d[\d\s-]{8,}\d", re.IGNORECASE)
@@ -105,6 +115,12 @@ def no_conflict(a, b) -> bool:
             and not differ(price_of(a), price_of(b)) and not differ(a.builtup_sqm, b.builtup_sqm)
             and not differ(a.plot_sqm, b.plot_sqm) and not differ(a.bedrooms, b.bedrooms)
             and not differ(floor_of(a), floor_of(b)) and not differ(height_of(a), height_of(b)))
+
+
+def same_source(a, b) -> bool:
+    """The same channel, or the same agent: a phone number or username in common."""
+    return any(getattr(a, f, None) and getattr(a, f, None) == getattr(b, f, None)
+               for f in ("source_channel", "contact_phone", "contact_username"))
 
 
 def find_pairs(rows):
@@ -183,7 +199,9 @@ def plan(rows, protected):
 
     def keep_rank(i):
         r = by_id[i]
-        return (i in protected, i in in_sample, sum(getattr(r, f) is not None for f in filled), _order(i))
+        # A higher Telegram message number is a newer post, so it is the copy that goes.
+        return (i in protected, i in in_sample, sum(getattr(r, f) is not None for f in filled),
+                -(getattr(r, "message_id", None) or 0), _order(i))
 
     removals = []
     for group in groups:
@@ -194,23 +212,41 @@ def plan(rows, protected):
 
 def load(conn):
     return conn.execute(text("""
-        SELECT p.*, t.topic_title FROM processed_listings p
+        SELECT p.*, t.topic_title, t.message_id FROM processed_listings p
         LEFT JOIN telegram_listings t ON p.id = t.id::text""")).fetchall()
+
+
+def backup() -> Path:
+    """A full backup of the database; stops the program if it fails."""
+    from export_schema import pg_tool
+
+    BACKUP_DIR.mkdir(exist_ok=True)
+    path = BACKUP_DIR / f"ollaa_{datetime.now():%Y-%m-%d_%H%M}_before_dedup.dump"
+    result = subprocess.run(
+        [pg_tool("pg_dump"), "-h", DB_HOST, "-p", str(DB_PORT), "-U", DB_ADMIN_USER, "-Fc", "-f", str(path), DB_NAME],
+        env=dict(os.environ, PGPASSWORD=admin_config()["password"]), capture_output=True)
+    if result.returncode:
+        sys.exit(f"Backup failed, nothing was removed: {result.stderr.decode(errors='replace').strip()}")
+    return path
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="remove the repeats (default: report only)")
     parser.add_argument("--only", nargs="+", metavar="ID", help="consider only these listings for removal")
+    parser.add_argument("--same-source", action="store_true",
+                        help="only repeats from the same channel or the same agent")
     args = parser.parse_args()
     engine = create_engine(DB_URL)
     with engine.connect() as conn:
         rows = load(conn)
         protected = {r[0] for r in conn.execute(text("SELECT DISTINCT listing_id FROM listing_overrides"))}
     removals, price_changed = plan(rows, protected)
+    by_id = {r.id: r for r in rows}
     if args.only:
         removals = [x for x in removals if x[0] in args.only]
-    by_id = {r.id: r for r in rows}
+    if args.same_source:
+        removals = [x for x in removals if same_source(by_id[x[0]], by_id[x[1]])]
     sample = {r.id for r in dq.sale_sample(rows)}
     print(f"Listings checked: {len(rows):,}")
     print(f"Repeats found: {len(removals)}; {dict(Counter(RULES[r] for _, _, r in removals))}")
@@ -218,9 +254,16 @@ def main() -> None:
           f"{sum(i in sample for i, _, _ in removals)}")
     print(f"Sale sample: {len(sample)} -> {len(sample - {i for i, _, _ in removals})} different properties")
     print(f"Look alike but the price differs (not removed): {len(price_changed)}")
+    for gone, keep, _ in removals:
+        source = "same channel or agent" if same_source(by_id[gone], by_id[keep]) else "different channel and agent"
+        print(f"  {gone} repeats {keep} ({source})")
     if not args.apply:
         print("REPORT ONLY: nothing was changed (use --apply).")
         return
+    if not removals:
+        print("Nothing to remove.")
+        return
+    print(f"Backup: {backup()}")
     with engine.begin() as conn:
         conn.execute(text("SET LOCAL application_name = 'dedup_strict.py'"))
         for gone, keep, rule in removals:

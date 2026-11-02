@@ -82,6 +82,20 @@ check("two protected listings both stay",
       [row("1", "ምርጥ ቤት አንድ", **one), row("2", "ሌላ ቤት ሁለት", **one)], [], protected=["1", "2"])
 check("the listing with more details is the one kept",
       [row("1", "ምርጥ ቤት አንድ", bathrooms=2, **one), row("2", "ሌላ ቤት ሁለት", **one)], ["2"], kept="1")
+check("the newer post goes, as stored ids run the other way",
+      [row("1", "ምርጥ ቤት አንድ", message_id=276, **one), row("2", "ሌላ ቤት ሁለት", message_id=273, **one)], ["1"], kept="2")
+check("the newer post stays when it has more details",
+      [row("1", "ምርጥ ቤት አንድ", message_id=276, bathrooms=2, **one), row("2", "ሌላ ቤት ሁለት", message_id=273, **one)], ["2"], kept="1")
+
+sources = [("same channel", dict(source_channel="a"), dict(source_channel="a"), True),
+           ("same phone in two channels", dict(source_channel="a", contact_phone="1"), dict(source_channel="b", contact_phone="1"), True),
+           ("same username in two channels", dict(source_channel="a", contact_username="x"), dict(source_channel="b", contact_username="x"), True),
+           ("two channels, other agents", dict(source_channel="a", contact_phone="1"), dict(source_channel="b", contact_phone="2"), False),
+           ("nothing known", {}, {}, False)]
+for label, a, b, expected in sources:
+    ok = ds.same_source(SimpleNamespace(**a), SimpleNamespace(**b)) == expected
+    failures += not ok
+    print(f"{'ok  ' if ok else 'FAIL'} same source: {label}")
 
 print(f"\n{'PASS' if not failures else f'FAILED: {failures} check(s)'}")
 sys.exit(1 if failures else 0)
