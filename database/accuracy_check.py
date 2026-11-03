@@ -6,17 +6,21 @@ Round 1 (task S20): random.seed(20261101) on the 457 listings of the sample, 1 N
 Round 2 (task S26), after the parser fixes: random.seed(20261102) on the 492 listings of the sample,
 leaving out round 1's; 2 listings that a later fix took out of the sample were replaced with
 random.Random(20261103).
+Round 3 (task S30), after the scrape of 3 November 2026: random.Random(20261104).sample(pool, 60), where
+pool is the 391 ids of the 493 listings of the sample, sorted as whole numbers, leaving out rounds 1 and 2.
+Each advert was read in full.
 
-Writes data/accuracy_check/accuracy_check_60.html (round 1) or accuracy_check_60_round2.html, which
-show each original advert next to its stored type, place, price, size and bedrooms, with boxes for
-the owner's own check. Contacts are masked. Read-only; data/ is never committed.
+Writes data/accuracy_check/accuracy_check_60.html (round 1), accuracy_check_60_round2.html or
+accuracy_check_60_round3.html, which show each original advert next to its stored type, place, price,
+size and bedrooms, with boxes for the owner's own check. Contacts are masked. Read-only; data/ is never
+committed.
 
 WRONG and NOTES hold Claude's own reading of the adverts, shown closed in the file so the owner can
 check first. Nothing is corrected until the owner confirms. They describe the values stored when each
 round was drawn, so a file written again after a correction shows the new value beside the old reading.
 
 Usage:
-    venv\Scripts\python.exe database\accuracy_check.py              (round 2)
+    venv\Scripts\python.exe database\accuracy_check.py              (round 3)
     venv\Scripts\python.exe database\accuracy_check.py --round 1
 """
 
@@ -36,8 +40,10 @@ from data_quality import place_name  # noqa: E402
 from settings import DB_URL  # noqa: E402
 
 OUT_DIR = BASE_DIR / "data" / "accuracy_check"
-CONTACT_RE = re.compile(r"\(?\+?\(?251\)?[\s-]*\d[\d\s-]{7,12}|(?<!\d)0[79][\d\s-]{7,11}\d|@\w+|https?://\S+|t\.me/\S+"
-                        r"|(?<![\d,.])\d{7,}(?![\d,.])|\bwww\.\S+", re.IGNORECASE)
+# "@ Name" with a space is a username too; "Active @ March 22" is a date.
+CONTACT_RE = re.compile(r"\(?\+?\(?251\)?[\s-]*\d[\d\s-]{7,12}|(?<!\d)0[79][\d\s-]{7,11}\d|@\w+"
+                        r"|@\s+(?!(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b)[^\W\d]\w*(?:\s+\w\b)?"
+                        r"|https?://\S+|t\.me/\S+|(?<![\d,.])\d{7,}(?![\d,.])|\bwww\.\S+", re.IGNORECASE)
 
 # id: {field: what the advert says}, for values that contradict the advert.
 WRONG = {
@@ -120,7 +126,46 @@ NOTES_2 = {
     "5615": "a list of studios and flats; the first is stored; the plot size of 76 m² is a 3-bedroom flat's size",
     "1744": "also nearly the same advert as 1745",
 }
-ROUNDS = {1: (IDS, WRONG, NOTES, "accuracy_check_60.html"), 2: (IDS_2, WRONG_2, NOTES_2, "accuracy_check_60_round2.html")}
+IDS_3 = (
+       "38 42 100 392 1018 1199 1309 1330 1726 1742 1814 1967 2020 2079 2112 2293 2368 2373 2397 2400 2427 2438 "
+       "2499 2597 2610 2623 2628 2673 2738 2869 2967 2970 2983 3440 5313 5329 5337 5356 5368 5391 5550 5565 5576 "
+       "5596 5602 5748 5857 5889 5920 6298 6709 6978 6985 7069 7141 7319 7468 7674 7675 7742 "
+       ).split()
+WRONG_3 = {
+    "1199": {"bedrooms": "56.5 m² is the studio; 1 bedroom belongs to the 77.2 m² unit"},
+    "1330": {"size": "the price of 5,624,190 birr is for 45 m², not 60 m²"},
+    "2438": {"place": "Awarre, not Kality (Kality is a shop site further down); the place is a protected value",
+             "price": "78 m² is 5.4 million; 8.5 million is the long-payment price of 80 m²"},
+    "2610": {"type": "apartments at Bole Dembel (1 to 3 bedrooms, lift), not a villa"},
+    "2623": {"price": "9.1 million is the top of the range, about 114 m²; 106 m² at 80,000 birr per m² is about 8.5 million"},
+    "5596": {"place": "Gelan, opposite Robik Hotel, not Kality"},
+    "7319": {"type": "a commercial property with 40 shops, 2 warehouses and a house, not a warehouse"},
+}
+NOTES_3 = {
+    "1199": "the plot size of 77 m² is another unit's size; price worked out from 91,530 birr per m² times 56 m² (the advert says 56.5)",
+    "1309": "the protected plot size of 139 m² is the 3-bedroom unit's size; the advert lists two sites, the first is stored",
+    "1726": "a further 550,000 birr is still owed; 4.6 million is the price in hand",
+    "1742": "a built-up size is stored for land, not in the advert",
+    "1814": "one size stated; the same number is stored as built-up and plot",
+    "1967": "several sizes; price worked out from 68,000 birr per m² times 112 m²",
+    "2112": "3,862 m² on the deed and 4,000 m² held are both land; 3,862 is stored as built-up; the same land as 2869, at 150 million",
+    "2368": "right area; the advert says Bole Atlas; one size stated, the same number is stored as built-up and plot",
+    "2400": "a list of six flats; the first is stored",
+    "2499": "175 m² is the footprint of the house, stored as its built-up size",
+    "2610": "the plot size of 166 m² is the 3-bedroom unit's size",
+    "2628": "several sites and sizes; price worked out from 99,000 birr per m² times 73 m²",
+    "2673": "one size stated; the same number is stored as built-up and plot",
+    "2869": "3,862 m² on the deed and 4,000 m² held are both land; 3,862 is stored as built-up; the same land as 2112, at 160 million",
+    "2983": "a balance is still owed, amount not stated",
+    "5329": "right area; the advert says Bole Beshale; a debt is still owed, amount not stated",
+    "5356": "right area; the advert says Yeka Abado; a list of three flats, the first is stored",
+    "5602": "a range of sizes; price worked out from 107,000 birr per m² times 121 m²",
+    "5857": "the area line says Ayat, the description says Sarbet",
+    "7141": "a bank loan of 3 million is on it; the advert does not say whether 6.3 million includes it",
+    "7319": "4,500 m² is stored as built-up; the advert does not say whether it is the land",
+}
+ROUNDS = {1: (IDS, WRONG, NOTES, "accuracy_check_60.html"), 2: (IDS_2, WRONG_2, NOTES_2, "accuracy_check_60_round2.html"),
+          3: (IDS_3, WRONG_3, NOTES_3, "accuracy_check_60_round3.html")}
 STYLE = """
 body{font:15px/1.5 system-ui,sans-serif;margin:16px;color:#1b1b1b;background:#fff}
 table{border-collapse:collapse;width:100%}td,th{border:1px solid #bbb;padding:8px;vertical-align:top;text-align:left}
@@ -136,7 +181,7 @@ def mask(text_: str) -> str:
 
 
 def main() -> None:
-    round_no = int(sys.argv[sys.argv.index("--round") + 1]) if "--round" in sys.argv else 2
+    round_no = int(sys.argv[sys.argv.index("--round") + 1]) if "--round" in sys.argv else 3
     ids, wrong, notes, file_name = ROUNDS[round_no]
     out_file = OUT_DIR / file_name
     with create_engine(DB_URL).connect() as conn:
