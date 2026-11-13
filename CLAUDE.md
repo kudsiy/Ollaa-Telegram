@@ -52,7 +52,9 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
   `.session` file to another computer, and never use one login from two places at once:
   Telegram ends a login used from two internet addresses at the same time.
 - **The one login is on this laptop, made by hand by the owner** (owner's decision; logged
-  in on 30 October 2026 at 20:53) with `src/telegram_login.py`, which only the owner runs,
+  in on 30 October 2026 at 20:53, and again on 13 November 2026 at 21:11 after the owner ended
+  that login from the phone by accident on 10 November; the ended file is kept, unused, as
+  `data/sessions/ollaa_session.ended-2026-11-10.session`) with `src/telegram_login.py`, which only the owner runs,
   in CMD; never run it yourself or from another script. It asks for the phone number (twice; it must match
   `TG_PHONE`), the code and the two-step password, all typed hidden and never printed;
   makes only the login file; refuses when a login file exists, while the scraper or
