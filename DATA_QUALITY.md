@@ -1,9 +1,9 @@
 # Ollaa-Telegram: data quality report
 
-State of the `ollaa` database on 3 November 2026, after the first scrape with the new
+State of the `ollaa` database on 15 November 2026, after the first scrape with the new
 login (S18), parser fixes (S19), duplicate removal and an accuracy check (S20), and the return of
 listings the old duplicate steps had removed (S22, S24), the clearing of copied built-up sizes (S25), parser fixes
-from the accuracy check (S26), the owner's corrections after it (S27 to S29), and the scrape of 3 November (S30). Every number below
+from the accuracy check (S26), the owner's corrections after it (S27 to S29), and the scrapes of 3 November (S30) and 15 November (S32). Every number below
 comes from `database/data_quality.py` (read-only), which can be run again at any time:
 
     venv\Scripts\python.exe database\data_quality.py
@@ -15,23 +15,23 @@ parser; 162 of the usable listings hold at least one of them.
 
 ## Summary
 
-- **1,616 usable listings** out of 5,914 stored listings (6,278 raw Telegram messages from
-  34 channels and groups): 1,329 for sale, 282 for rent, 5 for both.
-- **3,494 listings (59%) are photo-only posts** (`MEDIA_PENDING`). The photo pilot
+- **1,755 usable listings** out of 6,307 stored listings (6,691 raw Telegram messages from
+  34 channels and groups): 1,442 for sale, 308 for rent, 5 for both.
+- **3,721 listings (59%) are photo-only posts** (`MEDIA_PENDING`). The photo pilot
   (`MEDIA_PILOT.md`) found they rarely carry a price or a size.
-- **493 sale listings are ready for a hedonic model** (price, size, named place, known type, priced
+- **525 sale listings are ready for a hedonic model** (price, size, named place, known type, priced
   in birr, no obvious outlier). Some may be a property re-advertised (see "Duplicates"); read it as
-  about 480 to 493 different properties. Only **34 rent
+  about 510 to 525 different properties. Only **36 rent
   listings** are ready, so a rent model is not possible yet.
 - **Accuracy improved, by Claude's reading: 20 of 60 random listings (33%) had a value the advert
   contradicts before the parser fixes of task S26, 6 of a new random 60 (10%, likely 5% to 20%) after
   them, and 7 of a third random 60 (12%, likely 6% to 22%) on 3 November.** The third round confirms the
   second; 10% and 12% are the same within the margin of error. The owner has not yet checked any of the
   three sets (see "Accuracy check").
-- **Only 15 houses are in the sale sample; 260 more have a plot size only.** A model using plot size
+- **Only 16 houses are in the sale sample; 284 more have a plot size only.** A model using plot size
   as its own variable could use them; the sample as defined today needs a built-up size for a house.
-- Bedrooms are known for 73% of the model sample (88% of its homes). Floor, bathrooms, posting date,
-  building height, finishing and payment terms are known for 42% or less, too few to use as model
+- Bedrooms are known for 74% of the model sample (88% of its homes). Floor, bathrooms, posting date,
+  building height, finishing and payment terms are known for 45% or less, too few to use as model
   variables.
 
 ## Definitions
@@ -49,100 +49,101 @@ parser; 162 of the usable listings hold at least one of them.
 
 | Step | Listings |
 |---|---|
-| Stored listings | 5,914 |
-| Photo or file only, text not read yet (`MEDIA_PENDING`) | −3,494 |
-| Service or share adverts, inquiries ("looking for"), junk | −738 |
-| Property post, but neither sale nor rent could be told | −66 |
-| **Usable listings** | **1,616** |
+| Stored listings | 6,307 |
+| Photo or file only, text not read yet (`MEDIA_PENDING`) | −3,721 |
+| Service or share adverts, inquiries ("looking for"), junk | −764 |
+| Property post, but neither sale nor rent could be told | −67 |
+| **Usable listings** | **1,755** |
 
-The 364 raw messages without a listing are deleted duplicates and junk; the database keeps
+The 384 raw messages without a listing are deleted duplicates and junk; the database keeps
 them out permanently (`processing_exclusions`).
 
 ## Sale and rent, property types
 
 | Type | Sale | Rent | Both | Total |
 |---|---|---|---|---|
-| Apartment | 453 | 91 | 2 | 546 |
-| Villa (houses, G+0 to G+4) | 375 | 27 | 1 | 403 |
-| Unknown type | 156 | 5 | 1 | 162 |
-| Condominium | 116 | 19 | 0 | 135 |
-| Land | 82 | 6 | 0 | 88 |
-| Single room | 0 | 64 | 0 | 64 |
-| Commercial (shop) | 41 | 21 | 0 | 62 |
-| Commercial building (whole building) | 55 | 5 | 0 | 60 |
-| Studio | 19 | 33 | 1 | 53 |
-| Office | 17 | 8 | 0 | 25 |
-| Warehouse | 11 | 3 | 0 | 14 |
+| Apartment | 486 | 99 | 2 | 587 |
+| Villa (houses, G+0 to G+4) | 422 | 30 | 1 | 453 |
+| Unknown type | 160 | 5 | 1 | 166 |
+| Condominium | 123 | 21 | 0 | 144 |
+| Land | 86 | 6 | 0 | 92 |
+| Single room | 0 | 72 | 0 | 72 |
+| Commercial (shop) | 46 | 22 | 0 | 68 |
+| Commercial building (whole building) | 61 | 5 | 0 | 66 |
+| Studio | 19 | 37 | 1 | 57 |
+| Office | 21 | 8 | 0 | 29 |
+| Warehouse | 14 | 3 | 0 | 17 |
 | Townhouse | 4 | 0 | 0 | 4 |
-| **Total** | **1,329** | **282** | **5** | **1,616** |
+| **Total** | **1,442** | **308** | **5** | **1,755** |
 
 ## Where the listings are
 
 | Sub-city | Sale | Rent | Both | Total |
 |---|---|---|---|---|
-| Bole | 436 | 79 | 2 | 517 |
-| Yeka | 104 | 68 | 0 | 172 |
-| Kirkos | 85 | 18 | 1 | 104 |
-| Kolfe | 64 | 13 | 0 | 77 |
-| Arada | 67 | 0 | 0 | 67 |
-| Nifas Silk | 49 | 11 | 0 | 60 |
-| Akaki | 26 | 4 | 0 | 30 |
+| Bole | 460 | 89 | 2 | 551 |
+| Yeka | 119 | 77 | 0 | 196 |
+| Kirkos | 89 | 18 | 1 | 108 |
+| Kolfe | 72 | 13 | 0 | 85 |
+| Arada | 70 | 0 | 0 | 70 |
+| Nifas Silk | 53 | 13 | 0 | 66 |
+| Akaki | 27 | 4 | 0 | 31 |
 | Lideta | 14 | 1 | 0 | 15 |
 | Addis Ketema | 3 | 1 | 0 | 4 |
 | Gulele | 1 | 2 | 0 | 3 |
 | Lemi Kura | 1 | 0 | 0 | 1 |
-| Sheger City (outside Addis Ababa) | 24 | 0 | 0 | 24 |
-| Gelan, Dukem (counted as Addis Ababa) | 8 | 1 | 0 | 9 |
-| Place named, sub-city not in the place table | 305 | 57 | 0 | 362 |
-| No place found in the text | 142 | 27 | 2 | 171 |
+| Sheger City (outside Addis Ababa) | 28 | 0 | 0 | 28 |
+| Gelan, Dukem (counted as Addis Ababa) | 9 | 1 | 0 | 10 |
+| Place named, sub-city not in the place table | 333 | 59 | 0 | 392 |
+| No place found in the text | 163 | 30 | 2 | 195 |
 
-The 362 listings without a sub-city name a real place (Summit, Figa, Jacros, Bulgaria,
+The 392 listings without a sub-city name a real place (Summit, Figa, Jacros, Bulgaria,
 German Square and others) that `src/locations.py` does not yet assign to a sub-city.
 
-84 different places are named. The 20 most frequent:
+85 different places are named. The 20 most frequent (21, as two share 20th place):
 
 | Place | Sub-city | Sale | Rent | Both | Total |
 |---|---|---|---|---|---|
-| Ayat | Bole | 201 | 9 | 1 | 211 |
-| Bole | Bole | 90 | 29 | 0 | 119 |
-| Summit | — | 84 | 5 | 0 | 89 |
-| Megenagna | Yeka | 59 | 7 | 0 | 66 |
-| CMC | Yeka | 32 | 30 | 0 | 62 |
-| Piassa | Arada | 59 | 0 | 0 | 59 |
-| Kazanchis | Kirkos | 45 | 11 | 1 | 57 |
-| Figa | — | 43 | 5 | 0 | 48 |
-| Bole Bulbula | Bole | 39 | 9 | 0 | 48 |
-| Sarbet / Old Airport | Nifas Silk | 35 | 8 | 0 | 43 |
-| Jemo | Kolfe | 38 | 5 | 0 | 43 |
-| Ayat 49 | Bole | 37 | 3 | 0 | 40 |
+| Ayat | Bole | 208 | 14 | 1 | 223 |
+| Bole | Bole | 98 | 33 | 0 | 131 |
+| Summit | — | 93 | 7 | 0 | 100 |
+| Megenagna | Yeka | 68 | 8 | 0 | 76 |
+| CMC | Yeka | 37 | 35 | 0 | 72 |
+| Piassa | Arada | 60 | 0 | 0 | 60 |
+| Kazanchis | Kirkos | 46 | 11 | 1 | 58 |
+| Figa | — | 49 | 5 | 0 | 54 |
+| Bole Bulbula | Bole | 40 | 10 | 0 | 50 |
+| Sarbet / Old Airport | Nifas Silk | 37 | 10 | 0 | 47 |
+| Jemo | Kolfe | 42 | 5 | 0 | 47 |
+| Ayat 49 | Bole | 39 | 3 | 0 | 42 |
+| Gerji | Yeka | 7 | 26 | 0 | 33 |
 | Summit 72 | — | 32 | 0 | 0 | 32 |
-| Gerji | Yeka | 7 | 24 | 0 | 31 |
-| Mexico | Kirkos | 24 | 5 | 0 | 29 |
-| Jacros | — | 16 | 13 | 0 | 29 |
-| Haya Hulet (22) | Bole | 11 | 15 | 1 | 27 |
+| Mexico | Kirkos | 26 | 5 | 0 | 31 |
+| Jacros | — | 17 | 13 | 0 | 30 |
+| Haya Hulet (22) | Bole | 13 | 15 | 1 | 29 |
+| Kality | Akaki | 23 | 4 | 0 | 27 |
 | Bole Arabsa | Bole | 23 | 3 | 0 | 26 |
-| Kality | Akaki | 22 | 4 | 0 | 26 |
-| Wello Sefer | Bole | 18 | 2 | 0 | 20 |
+| Sheger City | Sheger City | 22 | 0 | 0 | 22 |
+| Wello Sefer | Bole | 20 | 2 | 0 | 22 |
 
 ## How complete each field is (usable listings)
 
-| Field | Sale (1,329) | Rent (282) | Both (5) | All (1,616) |
+| Field | Sale (1,442) | Rent (308) | Both (5) | All (1,755) |
 |---|---|---|---|---|
-| Price (sale or rent) | 85% | 75% | 0% | 83% |
-| Size (built-up or plot) | 80% | 21% | 40% | 69% |
-| Bedrooms | 53% | 49% | 60% | 52% |
+| Price (sale or rent) | 85% | 74% | 0% | 83% |
+| Size (built-up or plot) | 80% | 20% | 40% | 69% |
+| Bedrooms | 52% | 49% | 60% | 51% |
 | Bathrooms | 17% | 4% | 20% | 14% |
 | Named place | 89% | 90% | 60% | 89% |
-| Sub-city | 66% | 70% | 60% | 67% |
-| Map coordinates (from the place table) | 77% | 72% | 60% | 76% |
-| Property type | 88% | 98% | 80% | 90% |
+| Sub-city | 66% | 71% | 60% | 67% |
+| Map coordinates (from the place table) | 76% | 73% | 60% | 75% |
+| Property type | 89% | 98% | 80% | 91% |
 | Floor | 20% | 24% | 20% | 21% |
-| Finishing | 16% | 11% | 0% | 15% |
+| Finishing | 15% | 12% | 0% | 15% |
 | Payment terms | 16% | 5% | 0% | 14% |
 | Building height (G+n) | 20% | 5% | 0% | 17% |
-| Posting date | 42% | 69% | 20% | 47% |
+| Posting date | 47% | 71% | 20% | 51% |
 
-**Price, size, bedrooms and place all known: 576 listings (36%)**: 543 sale, 33 rent.
+**Price, size, bedrooms and place all known: 612 listings (35%)**: 577 sale, 35 rent.
 
 Things to know about these fields:
 
@@ -150,9 +151,9 @@ Things to know about these fields:
   a sale price; most were sale adverts that mention their rental income, the rest stored
   the monthly rent in the sale-price field. Now no rent listing has a sale price and no
   sale listing has a rent.
-- **US dollar prices**: 62 usable listings quote US dollars, often per m² or per month.
+- **US dollar prices**: 67 usable listings quote US dollars, often per m² or per month.
   They are not converted and are left out of the model samples.
-- **Posting dates**: known for 758 usable listings (11 in 2025, 747 in 2026). The
+- **Posting dates**: known for 897 usable listings (11 in 2025, 886 in 2026). The
   other 858 only have the date they were collected (28 Dec 2025 – 15 Apr 2026), which is
   an upper bound, not the posting date.
 - **Coordinates** are one point per place (neighbourhood centre), and some are rough. They
@@ -165,9 +166,9 @@ Things to know about these fields:
 
 ## Photo-only posts (`MEDIA_PENDING`)
 
-3,494 listings (59% of all stored listings) are photos or files without readable text.
-952 of them get a place from their forum topic; everything else about them is unknown.
-4,460 images wait in `media_queue`, none read yet. The photo pilot (`MEDIA_PILOT.md`) found
+3,721 listings (59% of all stored listings) are photos or files without readable text.
+962 of them get a place from their forum topic; everything else about them is unknown.
+4,856 images wait in `media_queue`, none read yet. The photo pilot (`MEDIA_PILOT.md`) found
 that of 45 photos, 3 carried the words of an offer and none had a price and a size, so
 reading them is not advised.
 
@@ -286,11 +287,35 @@ with the most complete details stays. The owner is asked only when the price or 
 | 7793 | 7799 | 3 Nov 2026 | one agent, Bet_afri and Betafrivip, code VBT 211, same words: Addisu Gebeya, 2 bedrooms, rent 60,000 birr |
 | 7696 | 3313 | 3 Nov 2026 | one channel, same words: a broker's list of services, no property |
 | 7737 | 7008 | 3 Nov 2026 | one channel, same words: realityaddisababa's name and contacts, no property |
+| 7967 | 7008 | 15 Nov 2026 | one channel, same words: realityaddisababa's name and contacts, no property |
+| 7968 | 7008 | 15 Nov 2026 | the same, posted again |
+| 7969 | 7008 | 15 Nov 2026 | the same, posted again |
+| 7966 | 7012 | 15 Nov 2026 | one channel, same words: the name of realityaddisababa's Palace View project and contacts, no details |
+| 8119 | 7325 | 15 Nov 2026 | one channel (ETHIOhouseagents), same words: Summit, 3 bedrooms, 115 m², 5.7 million birr (was in the sale sample) |
+| 7905 | 3313 | 15 Nov 2026 | one channel, same words: a broker's list of services, no property |
+| 1896 | 7916 | 15 Nov 2026 | one channel, same words: "write to the admin" caption, no property (the copy with a posting date stays) |
+| 7924 | 7956 | 15 Nov 2026 | one agent, two channels, code 829, same words: house at Shegole, 164 m², 16 million birr |
+| 7926 | 7957 | 15 Nov 2026 | one agent, two channels, code 827, same words: house behind Garment, 90 m², 5 million birr |
+| 7937 | 7961 | 15 Nov 2026 | one agent, code AP0104, same words: flats of 103, 138 and 175 m² (stored: 103 m², 9,785,000 birr) |
+| 7928 | 7961 | 15 Nov 2026 | the same advert, posted again |
+| 7940 | 7961 | 15 Nov 2026 | the same advert, posted again |
+| 7958 | 7961 | 15 Nov 2026 | the same advert, posted again in the same channel |
+| 7939 | 7960 | 15 Nov 2026 | one agent, two channels, code 823, same words: G+3 at Gelan, 72 m², 18 million birr |
+| 7947 | 7962 | 15 Nov 2026 | one agent, two channels, code 817, same words: house at Sheger City, 200 m², 8 million birr |
+| 7954 | 7963 | 15 Nov 2026 | one agent, two channels, code 0024, same words: Wingate condominium, 2 bedrooms, 71 m², 8 million birr (was in the sale sample) |
+| 8036 | 8040 | 15 Nov 2026 | one channel (AddisBrokerageNetworking), same words: Addisu Gebeya, 2 bedrooms, 83 m², 12,499,000 birr (was in the sale sample) |
+| 8057 | 8090 | 15 Nov 2026 | one agent, Bet_afri and Betafrivip, code VBT 214, same words: Shola condominium, 2 bedrooms, rent 55,000 birr |
+| 8071 | 8097 | 15 Nov 2026 | one agent, Bet_afri and Betafrivip, code VBT 213, same words: CMC, 2 bedrooms, rent 50,000 birr |
+| 7941 | 6931 | 15 Nov 2026 | one channel, new code (822, was 795), other wording: G+3 at Ayat, 180 m², 37 million birr (25 million bank and 12 million cash) |
 
 The removal of 2625 was named by the owner; its backup is `backups/ollaa_2026-11-02_2226_before_dedup.dump`. Stored listings went
 to 5,763. The scrape of 3 November (task S30) added 163, to 5,926; each of the 16 repeats reported was then read side by side and the
 12 above were removed with `dedup_strict.py --apply --same-source --only ...` (backup
 `backups/ollaa_2026-11-03_2231_before_dedup.dump`). Stored listings went to 5,914; 11 of the 12 were usable, 1 was in the sale sample.
+The scrape of 15 November (task S32) added 413, to 6,327. `dedup_strict.py` listed 27 repeats; each was read side by side.
+The 20 above dated 15 November were removed with `dedup_strict.py --apply --same-source --only ...` (backup
+`backups/ollaa_2026-11-15_2305_before_dedup.dump`). Stored listings went to 6,307; 15 of the 20 were usable, 3 were in the sale
+sample. The other 7 were left: the 4 of task S30 below (7655, 7812, 7668, 7694) and the 3 of task S32 below.
 
 **Left for the owner (task S30), not removed:**
 
@@ -303,14 +328,26 @@ to 5,763. The scrape of 3 November (task S30) added 163, to 5,926; each of the 1
 | 7692 | 6677, same channel | the price differs: villa at Summit, 150 m², 17.5 million on 31 October and 23 million on 1 November (neither is in the sale sample) |
 | 7797 | 7242, same channel | the price and the code differ: Addisu Gebeya, 3 bedrooms, rent 80,000 against 70,000 birr; maybe two flats |
 
-`dedup_strict.py` still lists 58 older pairs whose price differs; they are not new.
+**Left for the owner (task S32), not removed:**
+
+| Listing | Same as | Why it was left |
+|---|---|---|
+| 7938 (houseapartmentcarreleator) | 7959 (hugeAddisababamarket2025) | no phone or username in common, so not covered by the rule, although these two channels share one code system; both are the same government press release on a land lease auction, not a property, which the parser wrongly reads as an office for sale (neither is in the sale sample) |
+| 7856 | 7656, same channel (mygojo1) | not clearly one flat: Mexico/Lideta, 1 bedroom, 52 m², 7.5 million birr, but 7856 says ground floor and 7656 says 1st floor, with other codes (4016, 3986) and other details (neither is in the sale sample) |
+| 7899 | 6776, same channel (giftrealestateee) | not clearly one property: only 7899 names a roadside shop for sale; 6776 is the channel's contacts only (neither is a usable listing) |
+
+The scrape added 11 pairs whose price differs. All 11 were read: they are different rooms and flats for rent on Bet_afri's
+template (other codes and room sizes, for example BT 1465, a 3×3.5 m room for 11,000 birr, and BT 1488, a 3×3 m room for
+10,000 birr), not repeats.
+
+`dedup_strict.py` now lists 71 pairs whose price differs (58 before S32): the 11 new ones above, and 2 more among older listings that were not read.
 
 **What is still not certain.** In the sample, 13 listings in 6 groups look like one property whose
-price changed and were kept, so up to 7 of the 493 may not be different properties (for example 7150
-and 2704), and 2 more are the different-agent repeats above. More extra copies share type, place, price and size but differ in floor, bedrooms or second
+price changed and were kept, so up to 7 of the 525 may not be different properties (for example 7150
+and 2704), and 2 more are the different-agent repeats above (7655, 7812). More extra copies share type, place, price and size but differ in floor, bedrooms or second
 size, or hold protected values, and 6 of the listings returned in S24 are uncertain (below). A property
 advertised by two brokers with different prices or wording cannot always be detected, and different units
-at one price can look alike, so read 493 as about 480 to 493 different properties.
+at one price can look alike, so read 525 as about 510 to 525 different properties.
 
 **The old step.** `semantic_dedup.py` compared how texts look and ignored prices. A preview on 5,300
 listings showed it would delete 174 usable listings, 130 with a different price from the one kept (for
@@ -345,9 +382,9 @@ stored listing with the same price and size. The 28 different and 6 uncertain on
 
 ## Fitness for a hedonic price model
 
-**Sale sample: 493 listings.** Each has a price, a size (plot for land), a named place and
+**Sale sample: 525 listings** (493 before the scrape of 15 November). Each has a price, a size (plot for land), a named place and
 a known type, is priced in birr, has no obvious outlier and repeats no other listing. By type:
-apartment 282, condominium 101, land 62, shop 17, villa 15, studio 8, warehouse 5, office 3.
+apartment 301, condominium 108, land 65, shop 18, villa 16, studio 8, warehouse 6, office 3.
 Whole buildings and houses with a plot size only are not in it (no built-up size).
 
 **Left out by the owner's decision (1 November 2026):**
@@ -355,30 +392,30 @@ Whole buildings and houses with a plot size only are not in it (no built-up size
 - **6930**: 22 million birr for 150 m²; the advert does not say whether it is land or a house.
 - **6726**: 250,000 birr is the price per m², read as the total; the unit's total is not stated.
 
-| Variable | Known in the sale sample (493) | Use in a model |
+| Variable | Known in the sale sample (525) | Use in a model |
 |---|---|---|
 | Price, size, type, named place | 100% (by definition; see "Accuracy check") | core variables |
-| Map coordinates | 86% | usable (rough, one point per place) |
+| Map coordinates | 85% | usable (rough, one point per place) |
 | Sub-city | 77% | usable once the place table assigns the missing sub-cities |
-| Bedrooms | 73% (homes only: 88% of 406) | usable for homes, with the missing ones handled (a "not stated" category or a smaller sample) |
+| Bedrooms | 74% (homes only: 88% of 433) | usable for homes, with the missing ones handled (a "not stated" category or a smaller sample) |
 | Floor | 40% | too incomplete |
 | Bathrooms | 25% (homes: 30%) | too incomplete |
-| Posting date | 42% | too incomplete for a time trend so far; it grows with each scrape |
+| Posting date | 45% | too incomplete for a time trend so far; it grows with each scrape |
 | Building height (G+n) | 4% | too incomplete |
-| Finishing | 19% | too incomplete |
-| Payment terms | 18% | too incomplete |
+| Finishing | 20% | too incomplete |
+| Payment terms | 17% | too incomplete |
 
-Location is thin at the neighbourhood level. The 493 listings fall in 58 places, but only
-27 places have 5 or more listings and 16 have 10 or more. Only 26 place-and-type
+Location is thin at the neighbourhood level. The 525 listings fall in 62 places, but only
+28 places have 5 or more listings and 16 have 10 or more. Only 28 place-and-type
 combinations have 5 or more. Sub-city fixed effects, or distance from coordinates, are
 more realistic than one dummy per neighbourhood.
 
-**Rent sample: 34 listings** with rent, size, place and type (condominium 15, apartment 12,
+**Rent sample: 36 listings** with rent, size, place and type (condominium 17, apartment 12,
 shop 3, villa 2, others 2), so a rent model is not possible. Without requiring size there
-are 206 (apartment 73, single room 59, studio 32, condominium 16, villa 16, others 10),
+are 223 (apartment 76, single room 67, studio 36, condominium 18, villa 16, others 10),
 mostly flats, rooms and studios. That is enough to describe rents, not to model them.
 `rental_listings` (rebuilt in task S13) has one row for every rent or mixed listing with a
-rent: 216 rows, the 212 usable rentals with a rent plus 4 whose class keeps them out of the
+rent: 233 rows, the 229 usable rentals with a rent plus 4 whose class keeps them out of the
 usable listings (2046, 7249, 7251, 7303).
 
 ### Houses and plot size
@@ -393,15 +430,15 @@ protections were released (`database/migrations/2026_11_01_s25_clear_copied_buil
 `backups/ollaa_2026-11-01_before_S25.dump`) and `reprocess.py` updated exactly those 91: built-up is empty, the plot
 size is unchanged. Protected values went from 423 to 332. The sale sample went from 576 to 485.
 
-| Houses (villas, townhouses) | Before S25 | After S25 | After S26 | After S27 | After S30 |
-|---|---|---|---|---|---|
-| In the sale sample, with a built-up and a different plot size | 27 | 27 | 15 | 15 | 15 |
-| In the sale sample, with the same number stored as both | 91 | 0 | 0 | 0 | 0 |
-| **All houses in the sale sample** | **118** | **27** | **15** | **15** | **15** |
-| Outside the sample, otherwise fit, with a plot size only | 150 | 241 | 248 | 245 | 260 |
+| Houses (villas, townhouses) | Before S25 | After S25 | After S26 | After S27 | After S30 | After S32 |
+|---|---|---|---|---|---|---|
+| In the sale sample, with a built-up and a different plot size | 27 | 27 | 15 | 15 | 15 | 16 |
+| In the sale sample, with the same number stored as both | 91 | 0 | 0 | 0 | 0 | 0 |
+| **All houses in the sale sample** | **118** | **27** | **15** | **15** | **15** | **16** |
+| Outside the sample, otherwise fit, with a plot size only | 150 | 241 | 248 | 245 | 260 | 284 |
 
 In S26, houses whose two sizes are the land on the title deed and the land held ("በካርታ 120 ካሬ, በይዞታ 160 ካሬ")
-lost a built-up size that was never stated. Of the 15 left, some built-up sizes are the house's footprint ("300 ካሬ ላይ
+lost a built-up size that was never stated. Of the 15 left then, some built-up sizes are the house's footprint ("300 ካሬ ላይ
 ያረፈ", for a G+3), not its floor area.
 
 19 other houses outside the sample (no price or no named place) still hold the same kind of copied size. They
@@ -507,9 +544,9 @@ Other things seen, not counted as wrong:
 ## What would improve the data most
 
 1. The owner's own check of the round 2 and round 3 files, to confirm the 10% and the 12%.
-2. Decide how to model houses: 260 with a plot size only are outside the sample, against 15 inside it.
+2. Decide how to model houses: 284 with a plot size only are outside the sample, against 16 inside it.
 3. Keep scraping regularly: posts now come with their real dates, and the busiest channels
    post 40 messages in about two days, so a run at least every two days avoids new gaps.
 4. Fetch the real posting dates from Telegram for the 858 undated usable listings (the
    message ids are stored), so the model can include time.
-5. Give a sub-city to the places that lack one in `src/locations.py` (362 listings).
+5. Give a sub-city to the places that lack one in `src/locations.py` (392 listings).
