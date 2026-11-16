@@ -213,6 +213,13 @@ full run needs the owner's approval again.
   listing noise; a photo-only post is `MEDIA_PENDING`. (`src/fix_418.py` and
   `upgrade_brain.py`, which overwrote `run_pipeline.py` with old rules, were removed in
   S9; never bring them back.)
+- Payment terms of developer adverts (task S36): `src/payment_terms.py` reads the discount schedule, down payment, instalments,
+  interest-free, months to handover, construction progress and the price per m² as written; `run_pipeline.py` stores them
+  (columns `discount_schedule`, `instalment_count`, `instalment_months`, `instalments_follow_construction`, `interest_free`,
+  `handover_months`, `construction_progress_pct`, `price_per_sqm_stated`; protected like the other parser fields). Rent
+  adverts get none. `tests/test_payment_terms.py` checks the rules; run it after any change to them. `listener.py` does not
+  write these columns: its listings get them at the next `reprocess.py`. `database/thesis_data_check.py` (read-only) writes
+  the counts in `THESIS_DATA_CHECK.md`.
 - Photo-only posts: `src/media_pilot.py` (task S15) has Gemini copy the words in an image and
   runs them through the text parser; see `MEDIA_PILOT.md`. Its full output
   (`data/media_pilot/`) holds unmasked text with phone numbers: never commit it. Photos

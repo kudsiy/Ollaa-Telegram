@@ -42,6 +42,8 @@ INSERT INTO processed_listings (
     bedrooms, bathrooms,
     sale_price_birr, rent_price_birr, rent_advance_birr,
     payment_type, bank_loan_pct, down_payment_pct,
+    discount_schedule, instalment_count, instalment_months, instalments_follow_construction,
+    interest_free, handover_months, construction_progress_pct, price_per_sqm_stated,
     finish_state, developer,
     price_currency, price_usd, floor_level,
     contact_phone, contact_username,
@@ -56,6 +58,8 @@ VALUES (
     :bedrooms, :bathrooms,
     :sale_price_birr, :rent_price_birr, :rent_advance_birr,
     :payment_type, :bank_loan_pct, :down_payment_pct,
+    :discount_schedule, :instalment_count, :instalment_months, :instalments_follow_construction,
+    :interest_free, :handover_months, :construction_progress_pct, :price_per_sqm_stated,
     :finish_state, :developer,
     :price_currency, :price_usd, :floor_level,
     :contact_phone, :contact_username,
@@ -75,6 +79,8 @@ INSERT INTO processed_listings (
     bedrooms, bathrooms,
     sale_price_birr, rent_price_birr, rent_advance_birr,
     payment_type, bank_loan_pct, down_payment_pct,
+    discount_schedule, instalment_count, instalment_months, instalments_follow_construction,
+    interest_free, handover_months, construction_progress_pct, price_per_sqm_stated,
     finish_state, developer,
     price_currency, price_usd, floor_level,
     contact_phone, contact_username,
@@ -89,6 +95,8 @@ VALUES (
     :bedrooms, :bathrooms,
     :sale_price_birr, :rent_price_birr, :rent_advance_birr,
     :payment_type, :bank_loan_pct, :down_payment_pct,
+    :discount_schedule, :instalment_count, :instalment_months, :instalments_follow_construction,
+    :interest_free, :handover_months, :construction_progress_pct, :price_per_sqm_stated,
     :finish_state, :developer,
     :price_currency, :price_usd, :floor_level,
     :contact_phone, :contact_username,
@@ -252,7 +260,8 @@ def build_processed_values(pipeline, row):
         blob = f"{row.topic_title}\n{blob}"
 
     _channel = getattr(row, "channel", None) or ""
-    record = {"id": processed_id, "text": blob, "extracted_area": None, "source_channel": _channel}
+    record = {"id": processed_id, "text": blob, "extracted_area": None, "source_channel": _channel,
+              "topic_title": getattr(row, "topic_title", None)}
     result = pipeline.process(record)
 
     # ── Post-classification overrides ─────────────────────────────
@@ -291,6 +300,14 @@ def build_processed_values(pipeline, row):
         "payment_type":                  result.get("payment_type"),
         "bank_loan_pct":                 result.get("bank_loan_pct"),
         "down_payment_pct":              result.get("down_payment_pct"),
+        "discount_schedule":             result.get("discount_schedule"),
+        "instalment_count":              result.get("instalment_count"),
+        "instalment_months":             result.get("instalment_months"),
+        "instalments_follow_construction": result.get("instalments_follow_construction"),
+        "interest_free":                 result.get("interest_free"),
+        "handover_months":               result.get("handover_months"),
+        "construction_progress_pct":     result.get("construction_progress_pct"),
+        "price_per_sqm_stated":          result.get("price_per_sqm_birr"),
         "finish_state":                  result.get("finish_state"),
         "developer":                     result.get("developer"),
         "price_currency":                result.get("price_currency"),

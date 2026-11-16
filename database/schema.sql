@@ -2,7 +2,7 @@
 -- schema.sql: creates every table, view, materialized view,
 -- function, index and constraint of the Ollaa database, empty.
 --
--- Made by database/export_schema.py from the live database on 2026-10-27.
+-- Made by database/export_schema.py from the live database on 2026-11-16.
 -- Do not edit by hand. Change the live database, then run
 --     venv\Scripts\python.exe database\export_schema.py
 -- and prove the result with
@@ -384,7 +384,15 @@ CREATE TABLE public.processed_listings (
     floor_level integer,
     posted_at timestamp with time zone,
     listing_age_days integer,
-    listing_status text
+    listing_status text,
+    discount_schedule text,
+    instalment_count integer,
+    instalment_months integer,
+    instalments_follow_construction boolean,
+    interest_free boolean,
+    handover_months integer,
+    construction_progress_pct integer,
+    price_per_sqm_stated numeric
 );
 
 
@@ -924,7 +932,7 @@ CREATE TRIGGER processed_listings_keep_deleted_out AFTER DELETE ON public.proces
 -- Name: processed_listings processed_listings_protect_repairs; Type: TRIGGER; Schema: public
 --
 
-CREATE TRIGGER processed_listings_protect_repairs AFTER UPDATE ON public.processed_listings FOR EACH ROW EXECUTE FUNCTION public.record_listing_override('listing_status', 'intent', 'listing_class', 'valuation_eligible', 'sale_analytics_eligible', 'developer_analytics_eligible', 'property_type', 'property_subtype', 'location', 'city', 'plot_sqm', 'builtup_sqm', 'bedrooms', 'bathrooms', 'sale_price_birr', 'rent_price_birr', 'rent_advance_birr', 'payment_type', 'bank_loan_pct', 'down_payment_pct', 'finish_state', 'developer', 'price_currency', 'price_usd', 'floor_level', 'contact_phone', 'contact_username');
+CREATE TRIGGER processed_listings_protect_repairs AFTER UPDATE ON public.processed_listings FOR EACH ROW EXECUTE FUNCTION public.record_listing_override('listing_status', 'intent', 'listing_class', 'valuation_eligible', 'sale_analytics_eligible', 'developer_analytics_eligible', 'property_type', 'property_subtype', 'location', 'city', 'plot_sqm', 'builtup_sqm', 'bedrooms', 'bathrooms', 'sale_price_birr', 'rent_price_birr', 'rent_advance_birr', 'payment_type', 'bank_loan_pct', 'down_payment_pct', 'finish_state', 'developer', 'price_currency', 'price_usd', 'floor_level', 'contact_phone', 'contact_username', 'discount_schedule', 'instalment_count', 'instalment_months', 'instalments_follow_construction', 'interest_free', 'handover_months', 'construction_progress_pct', 'price_per_sqm_stated');
 
 
 --

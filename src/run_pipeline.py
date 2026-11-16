@@ -3,6 +3,7 @@ import json
 import unicodedata
 from datetime import datetime
 
+import payment_terms
 from locations import NOISE, UNKNOWN, city_of, find_location
 from processor import (
     LABELED_BUILTUP_SQM_RE,
@@ -671,24 +672,26 @@ class ValuationPipeline:
             down_payment_pct = 40
             bank_loan_pct = 60
 
-        m_loan = re.search(r'(\d{1,3})\s*%\s*(?:የባንክ\s*ብድር|bank loan|loan|ብድር)', t)
+        m_loan = re.search(r'(\d{1,3})\s*%\s*(?:የ\s*ባንክ|bank|loan|ብድር)', t)   # "40% የ ባንክ ብድር", "#45% የባንክ አማራጭ"
         if m_loan:
             try:
                 bank_loan_pct = int(m_loan.group(1))
             except ValueError:
                 pass
 
+        # "ቅድመ ክፍያ 20%", "ከ 10% ቅድሚያ ክፍያ ጀምሮ": the smallest down payment offered (S36).
+        stated = payment_terms.down_payment_pct(t)
         m_dp = re.search(r'(\d{1,3})\s*%\s*(?:down ?payment|የመጀመሪያ\s*ክፍያ|ቅድሚያ|advance)', t)
-        if m_dp:
+        if stated is not None:
+            down_payment_pct = stated
+        elif m_dp:
             try:
                 down_payment_pct = int(m_dp.group(1))
             except ValueError:
                 pass
 
-        if bank_loan_pct is not None and down_payment_pct is None and 0 < bank_loan_pct < 100:
-            down_payment_pct = 100 - bank_loan_pct
-        if down_payment_pct is not None and bank_loan_pct is None and 0 < down_payment_pct < 100:
-            bank_loan_pct = 100 - down_payment_pct
+        # A down payment and a bank loan do not make 100% (a developer's "5% ቅድመ ክፍያ" is
+        # followed by instalments and a "45% የባንክ አማራጭ"): each is kept only as stated (S36).
 
         return bank_loan_pct, down_payment_pct
 
@@ -887,6 +890,7 @@ class ValuationPipeline:
         finish, finish_c            = self.extract_finish(text)
         dev, dev_c                  = self.extract_developer(text)
         bank_loan_pct, down_pct     = self.extract_financing_details(text)
+        terms = payment_terms.extract_terms(unicodedata.normalize("NFKC", text or ""), record.get("topic_title"))
         sale_price, rent_price, rent_advance = extract_prices(number_text, property_type=p_type, intent=intent)
         biggest = max((p for p in (sale_price, rent_price) if p is not None), default=0)
         if (intent in ("RENT", "UNKNOWN", "MIXED") and not photo_only and biggest >= SALE_ONLY_PRICE
@@ -958,6 +962,9 @@ class ValuationPipeline:
             "payment_type":                  payment,
             "bank_loan_pct":                 bank_loan_pct,
             "down_payment_pct":              down_pct,
+            # A rent's "ቅድሚያ ክፍያ: የ3 ወር" is an advance, not a payment plan.
+            **(terms if intent != "RENT" else dict.fromkeys(terms)),
+            "price_per_sqm_stated":          asking_per_sqm,
             "finish_state":                  finish,
             "developer":                     dev,
             "location":                      location,

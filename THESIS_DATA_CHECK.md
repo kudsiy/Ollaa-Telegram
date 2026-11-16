@@ -17,8 +17,9 @@ State of the database on 16 November 2026: 6,304 stored listings, 1,752 usable (
   discounts, and 1 advert ties instalments to construction stages.
 - **Only 33 off-plan Bole adverts have both a unit size and a total price stored, and only 8 state a discount schedule.** That is too few
   for a market-implied discount rate model from text alone. Ready Bole apartments with price and size: **92**.
-- **None of these payment terms is stored as a field yet** except a down payment % and a bank-loan %, which the parser fills for
-  some listings. The parser should start extracting them (see the end).
+- **Since task S36 the parser stores these terms as fields** (down payment %, discount schedule, instalments, interest-free,
+  months to handover, construction progress, price per m² as written): see "Stored by the parser". Only **9 off-plan Bole adverts**
+  have a discount schedule together with a stored size and total price.
 - The largest source of developer adverts, **championallsites, is almost all photos (1,043 of 1,090 posts)**: its prices and payment
   terms are in the pictures, which only the photo reader (`media_pilot.py`, Gemini) could read.
 
@@ -76,6 +77,24 @@ Not counted above: 3,721 photo-only posts, whose words are in the picture; 1,043
 | Cash or early-payment discount | 48 (18%) | 14 (16%) | 38 |
 | Discount schedule (2 or more discount rates) | 16 (6%) | 8 (9%) | 13 |
 | Price per m² written in the advert | 66 (25%) | 28 (33%) | 50 |
+
+### Stored by the parser (task S36)
+
+The same terms as fields of `processed_listings`, filled by `src/payment_terms.py` (stricter than the word counts above, which only show that a term is mentioned):
+
+| Field | Column | All off-plan (261) | Off-plan in Bole (85) |
+|---|---|---|---|
+| Down payment % | `down_payment_pct` | 183 (70%) | 54 (64%) |
+| Discount schedule (share paid : discount) | `discount_schedule` | 29 (11%) | 12 (14%) |
+| Number of instalments | `instalment_count` | 10 (4%) | 2 (2%) |
+| Instalment period, months | `instalment_months` | 19 (7%) | 1 (1%) |
+| Instalments follow construction | `instalments_follow_construction` | 7 (3%) | 1 (1%) |
+| Interest-free | `interest_free` | 35 (13%) | 7 (8%) |
+| Months to handover | `handover_months` | 49 (19%) | 19 (22%) |
+| Construction progress % | `construction_progress_pct` | 64 (25%) | 33 (39%) |
+| Price per m² as written | `price_per_sqm_stated` | 54 (21%) | 21 (25%) |
+
+Off-plan Bole adverts with a discount schedule and a stored size and total price: 9.
 
 ### Five real examples of each (masked; the listing number is the stored id)
 
@@ -304,30 +323,35 @@ of Addis Ababa's map, not an official source: "likely" places look well inside t
 wide, and places "with no sub-city in the place table" need one. To correct a sub-city, tell Claude the right one, or change it in
 `src/locations.py` (then run `tests/test_locations.py`); the Bole counts change with it, Ayat most of all.
 
-## What the parser should start extracting
+## What the parser extracts now (task S36), and what is left
 
-For a market-implied discount rate, each advert must give the price of one unit under at least two payment options (for example the
-cash price and the instalment price), and when each payment is due. Today the stored fields hold one price and one size per advert.
-In order of value for the thesis:
+Task S36 added these fields to `processed_listings`, filled by `src/payment_terms.py` and checked by `tests/test_payment_terms.py`
+(wordings from real adverts). They are protected like other parser fields: a value corrected by hand is kept.
 
-1. **Discount schedule:** pairs of "share paid now → discount", for example "65% ለከፈለ 35% ቅናሽ", "100% ለሚከፍል 20%, 85% 17%,
-   70% …", "For 50% down payment 3%, for 100% 6%". This is the most direct measure of the developer's implied rate. New field: a list
-   of (paid %, discount %).
-2. **Down payment %** (`down_payment_pct` exists but is filled for few listings): read "ቅድመ ክፍያ 20%", "ከ 10% ቅድሚያ ክፍያ ጀምሮ",
-   "10% downpayment", and the amount when only an amount is given.
-3. **Instalment plan:** number of instalments ("16 ዙር", "14 ዙር ክፍያ"), the period ("እስከ 3 አመት", "በ12 ወር"), the size of each
-   ("5% እያንዳንዱ ዙር"), interest-free ("ያለምንም ወለድ"), and whether payments follow construction ("በግንባታ ሂደት", "payment
-   based on construction progress"). New fields: count, period in months, linked to construction (yes/no).
-4. **Handover period or date:** "መረከቢያ 2 አመት", "በ 18 ወር ቁልፍ የሚረከቡት", "6 ወር የሚረከብ", dates in the Ethiopian calendar
-   ("2018 ዓ.ም"), converted to months from the posting date. New field: months to handover.
-5. **Price per m², by payment option and finish:** "በካሬ 95,000 ብር ቀስ እያለ ለሚከፍል", "Semi finished 127,000 / full finished
-   144,000". New fields: price per m², payment option, finishing level.
-6. **Construction progress %:** from the text ("97% የደረሱ") and from luxury_freelancers' topic titles ("85% ቦሌ ደንበል").
-7. **One row per unit:** a developer advert usually lists several units (studio 40 m², 2 bedrooms 90 m², 3 bedrooms 121 m², each with
-   a total price). Storing each unit with its own size and prices would multiply the usable observations; today only the first is kept.
-8. **Developer and project name, normalized:** the `developer` field holds several spellings of one developer ("ሪያሊቲ ሪልእስቴት reality",
-   "ሪያሊቲ ሪልስቴት reality", "at reality"); the forum topic title often names the project.
+| Field | Column | What it holds |
+|---|---|---|
+| Discount schedule | `discount_schedule` | share paid now : discount, "65:35; 100:20" ("65% ከፍለው 35% ቅናሽ", "For 50% Down payment = 3% Discount") |
+| Down payment % | `down_payment_pct` (existing, now read far more often) | the smallest down payment offered below 100% |
+| Instalments | `instalment_count`, `instalment_months` | "በ16 ዙር ክፍያ" = 16; "ቀሪውን ክፍያ እስከ 3 ዓመት" = 36 months |
+| Payments follow construction | `instalments_follow_construction` | "በግንባታ ሂደት", "payment based on construction progress" (no means not stated) |
+| Interest-free | `interest_free` | "ያለምንም ወለድ", "ከወለድ ነፃ", "interest-free" (no means not stated) |
+| Months to handover | `handover_months` | "መረከቢያ 2 አመት" = 24, "በ2አመት ከ4ወር ... የሚረከቡት" = 28, "አሁን የሚረከቡት" = 0 |
+| Construction progress | `construction_progress_pct` | "97% የደረሱ", or the forum topic's title ("85% ቦሌ ደንበል") |
+| Price per m² as written | `price_per_sqm_stated` | "በካሬ 95,000 ብር" |
 
-Before the thesis relies on these fields, the photo-only developer posts matter most: championallsites alone holds 1,043, one topic per
-project. Reading them with `media_pilot.py` (Gemini, free tier) needs the owner's approval for a full run (`CLAUDE.md`), and would
-need the same new fields.
+Rent adverts get none of these (their "ቅድሚያ ክፍያ: የ3 ወር" is a rent advance). One correction came with them: the parser used to
+treat a down payment and a bank loan as adding up to 100%, so a developer's "5% ቅድመ ክፍያ" became a 95% bank loan. Each is now kept
+only as stated; `bank_loan_pct` also reads "45% የባንክ አማራጭ". Comparing the old and new parser on all 6,304 listings: 232 down payments
+and 160 bank-loan shares changed (208 down payments were found where the old rule found none), 14 developer flags followed the bank
+loan, and no other field changed.
+
+**Still left, in order of value:**
+
+1. **Prices by payment option and finish:** "በካሬ 95,000 ብር ቀስ እያለ ለሚከፍል" against the cash price, "Semi finished 127,000 / full
+   finished 144,000". With the discount schedule, this gives the cash-equivalent price.
+2. **One row per unit:** a developer advert usually lists several units, each with a size and a total price; only the first is kept.
+3. **Handover dates in the Ethiopian calendar** ("ሚያዝያ 30/2018", "2018 ዓ.ም"), turned into months from the posting date.
+4. **Developer and project names written one way:** the `developer` field holds several spellings of one developer ("ሪያሊቲ
+   ሪልእስቴት reality", "ሪያሊቲ ሪልስቴት reality", "at reality"); the forum topic title often names the project.
+5. **The photo-only developer posts:** championallsites alone holds 1,043, one topic per project. Reading them with `media_pilot.py`
+   (Gemini, free tier) needs the owner's approval for a full run (`CLAUDE.md`).

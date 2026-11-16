@@ -224,6 +224,23 @@ def main() -> None:
     table(["Field", f"All off-plan ({len(off)})", f"Off-plan in Bole ({len(off_bole)})", "Usable off-plan"],
           [[n, pct(len(h), len(off)), pct(sum(in_bole(r) for r in h), len(off_bole)), sum(r.id in usable for r in h)] for n, h in results])
 
+    print("### Stored by the parser (task S36)\n")
+    print("The same terms as fields of `processed_listings`, filled by `src/payment_terms.py` (stricter than the word counts above, "
+          "which only show that a term is mentioned):\n")
+    stored_fields = [
+        ("Down payment %", "down_payment_pct"), ("Discount schedule (share paid : discount)", "discount_schedule"),
+        ("Number of instalments", "instalment_count"), ("Instalment period, months", "instalment_months"),
+        ("Instalments follow construction", "instalments_follow_construction"), ("Interest-free", "interest_free"),
+        ("Months to handover", "handover_months"), ("Construction progress %", "construction_progress_pct"),
+        ("Price per m² as written", "price_per_sqm_stated"),
+    ]
+    has = lambda r, f: getattr(r, f, None) not in (None, False)
+    table(["Field", "Column", f"All off-plan ({len(off)})", f"Off-plan in Bole ({len(off_bole)})"],
+          [[n, f"`{f}`", pct(sum(has(r, f) for r in off), len(off)), pct(sum(has(r, f) for r in off_bole), len(off_bole))]
+           for n, f in stored_fields])
+    usable_for_rate = [r for r in off_bole if r.discount_schedule and r.sale_price_birr is not None and r.builtup_sqm is not None]
+    print(f"Off-plan Bole adverts with a discount schedule and a stored size and total price: {len(usable_for_rate)}.\n")
+
     print("### Five real examples of each (masked; the listing number is the stored id)\n")
     pattern_of = {
         "Developer or project name": DEVELOPER_NAME, "Unit size and total price (both stored)": TOTAL_PRICE,
