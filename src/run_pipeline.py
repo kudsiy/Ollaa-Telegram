@@ -4,6 +4,7 @@ import unicodedata
 from datetime import datetime
 
 import payment_terms
+from developers import DEVELOPER_NAMES, find_developer
 from locations import NOISE, UNKNOWN, city_of, find_location
 from processor import (
     LABELED_BUILTUP_SQM_RE,
@@ -106,53 +107,8 @@ class ValuationPipeline:
             "million", "ሚሊዮን", "በሽያጭ", "በሺያጭ", "ሺያጭ", "ሚሊየን",
         ]
 
-        # ==========================================================
-        # KNOWN DEVELOPERS
-        # ==========================================================
-        self.KNOWN_DEVELOPERS = {
-            "noah": "Noah Real Estate",
-            "gift": "Gift Real Estate",
-            "ayat": "Ayat Real Estate",
-            "flintstone": "Flintstone Homes",
-            "sunshine": "Sunshine Construction",
-            "yarad": "Yared Real Estate",
-            "amibara": "Amibara Properties",
-            "metro": "MetroHomes",
-            "prime": "Prime Real Estate",
-            "zaramba": "Zaramba Real Estate",
-            "sunstone": "Sunstone",
-            "nexus": "Nexus",
-            "legacy": "Legacy Real Estate",
-            "laphto": "Laphto Life Real Estate",
-            "champion": "Champion",
-            "jambo": "Jambo Real Estate",
-            "temer": "Temer",
-            "hosea": "Hosea",
-            "bamacon": "Bamacon",
-            "phison": "Phison",
-            "ovid": "Ovid",
-            "akoya": "Akoya Properties",
-            "century": "Century",
-            # Amharic
-            "ኖህ": "Noah Real Estate",
-            "ጊፍት": "Gift Real Estate",
-            "አያት": "Ayat Real Estate",
-            "ፍሊንትስቶን": "Flintstone Homes",
-            "ሀውሲንግ": "housing",
-            "ጀንቦሮ": "Jenboro",
-            "ቴምር": "Temer",
-            "ሻምፒዮን": "Champion",
-            "ዲምሲ": "DMC Real",
-            "ጃንቦ": "Jambo",
-            "ሆስይ": "Hosea",
-            "ባማኮን": "Bamacon",
-            "ፊሶን": "Phison",
-            "ኦቪድ": "Ovid",
-            "ሐሮት": "Harot",
-            "አሚባራ": "Amibara Properties",
-            "ሜትሮ": "MetroHomes",
-        }
-        self.DEVELOPER_NAMES = set(self.KNOWN_DEVELOPERS.values())
+        # Known developers, one name each: src/developers.py (task S40).
+        self.DEVELOPER_NAMES = DEVELOPER_NAMES
 
         # ==========================================================
         # PROPERTY TYPES — RESIDENTIAL
@@ -296,7 +252,7 @@ class ValuationPipeline:
     # ==========================================================
     # STEP 2 — LISTING CLASS
     # ==========================================================
-    def classify_listing_class(self, text, intent=None):
+    def classify_listing_class(self, text, intent=None, channel=None, topic=None):
         t = self._norm(text)
 
         if any(x in t for x in ["looking for", "እፈልጋለሁ"]):
@@ -332,7 +288,7 @@ class ValuationPipeline:
         rent_present = any(w in body for w in self.RENT_SIGNALS) or intent == "RENT"
         sale_present = (any(w in body for w in self.SALE_SIGNALS) or intent == "SALE") and intent != "RENT"
 
-        dev_name, dev_conf = self.extract_developer(text)
+        dev_name, dev_conf = self.extract_developer(text, channel, topic)
         is_known_developer = dev_name in self.DEVELOPER_NAMES and dev_conf >= 0.9
 
         project_signals = [
@@ -708,15 +664,9 @@ class ValuationPipeline:
     # ==========================================================
     # STEP 8 — DEVELOPER
     # ==========================================================
-    def extract_developer(self, text):
-        t = self._norm(text)
-        for key, name in self.KNOWN_DEVELOPERS.items():
-            if key.lower() in t:
-                return name, 0.95
-        m = re.search(r'([\u1200-\u137F a-zA-Z]{3,40})\s+(ሪል\s*እስቴት|real estate|development)', t)
-        if m:
-            return m.group(1).strip(), 0.85
-        return None, 0.0
+    def extract_developer(self, text, channel=None, topic=None):
+        # One name per developer, and a place ("አያት 49") is not one: see src/developers.py (S40).
+        return find_developer(text, channel, topic)
 
     # ==========================================================
     # STEP 9 — LOCATION & CITY
@@ -866,7 +816,7 @@ class ValuationPipeline:
             p_type, type_conf = ("MEDIA_LINK", 0.99) if is_media_link_text(text) else ("ADVERTISEMENT", 0.99)
         else:
             intent, intent_conf = self.classify_intent(text, source_channel=record.get("source_channel"))
-            listing_class = self.classify_listing_class(text, intent)
+            listing_class = self.classify_listing_class(text, intent, record.get("source_channel"), record.get("topic_title"))
             p_type, type_conf = self.classify_type(text)
         p_subtype                   = self.classify_subtype(text, p_type)
         beds, baths                 = self.extract_rooms(text)
@@ -888,7 +838,7 @@ class ValuationPipeline:
 
         payment                     = self.extract_payment(text)
         finish, finish_c            = self.extract_finish(text)
-        dev, dev_c                  = self.extract_developer(text)
+        dev, dev_c                  = self.extract_developer(text, record.get("source_channel"), record.get("topic_title"))
         bank_loan_pct, down_pct     = self.extract_financing_details(text)
         terms = payment_terms.extract_terms(unicodedata.normalize("NFKC", text or ""), record.get("topic_title"), built or plot)
         sale_price, rent_price, rent_advance = extract_prices(number_text, property_type=p_type, intent=intent)
@@ -897,7 +847,7 @@ class ValuationPipeline:
                 and not self.has_rent_marker(text)
                 and not is_rent_only_channel(record.get("source_channel"))):
             intent = "SALE"
-            listing_class = self.classify_listing_class(text, intent)
+            listing_class = self.classify_listing_class(text, intent, record.get("source_channel"), record.get("topic_title"))
             plot, built, plot_c, built_c = self.resolve_area(intent, p_type, area, number_text)
             if built is not None and built < 1:
                 built = None

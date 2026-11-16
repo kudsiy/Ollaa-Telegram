@@ -10,8 +10,8 @@ comes from `database/data_quality.py` (read-only), which can be run again at any
 
 The listings were produced by the fixed parser (tasks S5–S9, S12, S19 and S26). Re-processing every
 stored listing with today's code changes nothing (`src/reprocess.py`: "Listings that would
-change: 0"). 320 values that earlier hand repairs set are kept on purpose and win over the
-parser; 162 of the usable listings hold at least one of them.
+change: 0"). 315 values that earlier hand repairs set are kept on purpose and win over the
+parser; 157 of the usable listings hold at least one of them (5 were retired in task S40 when the parser came to agree).
 
 ## Summary
 

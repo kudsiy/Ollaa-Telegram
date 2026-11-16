@@ -10,13 +10,13 @@ State of the database on 16 November 2026: 6,304 stored listings, 1,752 usable (
 
 ## In short
 
-- **261 stored adverts are off-plan apartments for sale** (being built, or sold on a developer's payment plan); **85 of them are placed
-  in Bole**, but 39 of those are at Ayat, whose sub-city must be checked. 61 more adverts are unclear.
-- The payment terms the thesis needs are stated **often for the down payment, rarely for the rest**. In Bole, 62% of off-plan adverts give a down
-  payment %, 29% a handover period, 16% a cash or early-payment discount, 14% an instalment plan, 9% a schedule of several
+- **265 stored adverts are off-plan apartments for sale** (being built, or sold on a developer's payment plan); **83 of them are placed
+  in Bole**, but 36 of those are at Ayat, whose sub-city must be checked. 57 more adverts are unclear.
+- The payment terms the thesis needs are stated **often for the down payment, rarely for the rest**. In Bole, 61% of off-plan adverts give a down
+  payment %, 30% a handover period, 17% a cash or early-payment discount, 14% an instalment plan, 10% a schedule of several
   discounts, and 1 advert ties instalments to construction stages.
-- **Only 33 off-plan Bole adverts have both a unit size and a total price stored, and only 8 state a discount schedule.** That is too few
-  for a market-implied discount rate model from text alone. Ready Bole apartments with price and size: **92**.
+- **Only 32 off-plan Bole adverts have both a unit size and a total price stored, and only 8 state a discount schedule.** That is too few
+  for a market-implied discount rate model from text alone. Ready Bole apartments with price and size: **96**.
 - **Since tasks S36 and S37 the parser stores these terms as fields** (down payment %, discount schedule, instalments, interest-free,
   months to handover, construction progress, price per m² as written, and prices by payment option and finish): see "Stored by the
   parser". Only **9 off-plan Bole adverts** have a discount schedule together with a stored size and total price, and only **7
@@ -48,61 +48,61 @@ State of the database on 16 November 2026: 6,304 stored listings, 1,752 usable (
 |  | All stored adverts with text | of them usable listings | in the sale sample |
 |---|---|---|---|
 | Apartment adverts for sale (text read) | 832 | 621 | 309 |
-| **Off-plan** (being built or sold on a developer's plan) | **261** | 166 | 69 |
-| Unclear (off-plan words and finished-building words) | 61 | 51 | 25 |
-| Ready (no off-plan words) | 510 | 404 | 215 |
+| **Off-plan** (being built or sold on a developer's plan) | **265** | 169 | 69 |
+| Unclear (off-plan words and finished-building words) | 57 | 47 | 19 |
+| Ready (no off-plan words) | 510 | 405 | 221 |
 
 | Off-plan adverts | Count |
 |---|---|
-| Stored place in Bole sub-city | **85** |
-| Naming a Bole place anywhere in the text (a developer often lists several sites) | 92 |
-| Stored place in another sub-city | 112 |
-| Stored place without a sub-city in the place table | 39 |
-| No place found | 25 |
+| Stored place in Bole sub-city | **83** |
+| Naming a Bole place anywhere in the text (a developer often lists several sites) | 91 |
+| Stored place in another sub-city | 114 |
+| Stored place without a sub-city in the place table | 40 |
+| No place found | 28 |
 
-Of the 85 off-plan adverts placed in Bole, 39 are at Ayat (Ayat or Ayat 49), whose sub-city should be checked (see the last table); the others: bole_main 25, haya_hulet 10, bole_bulbula 8, bole_adeyabeba 1, bole_michael 1, bole_medhanialem 1.
+Of the 83 off-plan adverts placed in Bole, 36 are at Ayat (Ayat or Ayat 49), whose sub-city should be checked (see the last table); the others: bole_main 26, haya_hulet 10, bole_bulbula 8, bole_adeyabeba 1, bole_michael 1, bole_medhanialem 1.
 
-Off-plan adverts by the sub-city of their stored place: Bole 85, (none) 64, Kirkos 39, Yeka 30, Nifas Silk 20, Arada 20, Sheger 1, Kolfe 1, Akaki 1.
+Off-plan adverts by the sub-city of their stored place: Bole 83, (none) 68, Kirkos 41, Yeka 30, Nifas Silk 20, Arada 20, Sheger 1, Kolfe 1, Akaki 1.
 
-Not counted above: 3,721 photo-only posts, whose words are in the picture; 1,043 of them are in championallsites and 1,254 are in a forum topic or name a developer.
+Not counted above: 3,721 photo-only posts, whose words are in the picture; 1,043 of them are in championallsites and 1,488 are in a forum topic or name a developer.
 
 ## What the off-plan adverts state
 
-| Field | All off-plan (261) | Off-plan in Bole (85) | Usable off-plan |
+| Field | All off-plan (265) | Off-plan in Bole (83) | Usable off-plan |
 |---|---|---|---|
-| Developer or project name | 170 (65%) | 39 (46%) | 103 |
-| Unit size and total price (both stored) | 86 (33%) | 33 (39%) | 78 |
-| …of which the total price is written as a total | 29 (11%) | 7 (8%) | 29 |
-| Down payment as a % | 179 (69%) | 53 (62%) | 107 |
-| Down payment, any form (% or amount) | 193 (74%) | 57 (67%) | 119 |
-| Instalment plan | 54 (21%) | 12 (14%) | 46 |
+| Developer or project name | 176 (66%) | 41 (49%) | 108 |
+| Unit size and total price (both stored) | 87 (33%) | 32 (39%) | 79 |
+| …of which the total price is written as a total | 30 (11%) | 7 (8%) | 30 |
+| Down payment as a % | 182 (69%) | 51 (61%) | 109 |
+| Down payment, any form (% or amount) | 197 (74%) | 55 (66%) | 122 |
+| Instalment plan | 54 (20%) | 12 (14%) | 46 |
 | Instalments linked to construction stages | 7 (3%) | 1 (1%) | 7 |
-| Handover date or period | 71 (27%) | 25 (29%) | 35 |
-| Cash or early-payment discount | 48 (18%) | 14 (16%) | 38 |
-| Discount schedule (2 or more discount rates) | 16 (6%) | 8 (9%) | 13 |
-| Price per m² written in the advert | 66 (25%) | 28 (33%) | 50 |
+| Handover date or period | 71 (27%) | 25 (30%) | 35 |
+| Cash or early-payment discount | 50 (19%) | 14 (17%) | 40 |
+| Discount schedule (2 or more discount rates) | 17 (6%) | 8 (10%) | 14 |
+| Price per m² written in the advert | 67 (25%) | 27 (33%) | 51 |
 
 ### Stored by the parser (tasks S36, S37 and S39)
 
 The same terms as fields of `processed_listings`, filled by `src/payment_terms.py` (stricter than the word counts above, which only show that a term is mentioned):
 
-| Field | Column | All off-plan (261) | Off-plan in Bole (85) |
+| Field | Column | All off-plan (265) | Off-plan in Bole (83) |
 |---|---|---|---|
-| Down payment % | `down_payment_pct` | 183 (70%) | 54 (64%) |
+| Down payment % | `down_payment_pct` | 186 (70%) | 52 (63%) |
 | Discount schedule (share paid : discount) | `discount_schedule` | 29 (11%) | 12 (14%) |
 | Number of instalments | `instalment_count` | 10 (4%) | 2 (2%) |
 | Instalment period, months | `instalment_months` | 19 (7%) | 1 (1%) |
 | Instalments follow construction | `instalments_follow_construction` | 7 (3%) | 1 (1%) |
 | Interest-free | `interest_free` | 35 (13%) | 7 (8%) |
-| Months to handover | `handover_months` | 49 (19%) | 19 (22%) |
-| Handover date (S39) | `handover_date` | 17 (7%) | 6 (7%) |
-| Construction progress % | `construction_progress_pct` | 64 (25%) | 33 (39%) |
-| Price per m² as written | `price_per_sqm_stated` | 54 (21%) | 21 (25%) |
-| Prices by payment option or finish (S37) | `price_options` | 25 (10%) | 9 (11%) |
+| Months to handover | `handover_months` | 49 (18%) | 19 (23%) |
+| Handover date (S39) | `handover_date` | 17 (6%) | 6 (7%) |
+| Construction progress % | `construction_progress_pct` | 64 (24%) | 33 (40%) |
+| Price per m² as written | `price_per_sqm_stated` | 55 (21%) | 20 (24%) |
+| Prices by payment option or finish (S37) | `price_options` | 26 (10%) | 9 (11%) |
 | Price per m² paid at once | `cash_price_per_sqm` | 10 (4%) | 2 (2%) |
 | Price per m² paid over time | `instalment_price_per_sqm` | 7 (3%) | 2 (2%) |
 | Total of one unit paid at once | `cash_price_birr` | 9 (3%) | 3 (4%) |
-| Total of one unit paid over time | `instalment_price_birr` | 4 (2%) | 3 (4%) |
+| Total of one unit paid over time | `instalment_price_birr` | 5 (2%) | 3 (4%) |
 
 Off-plan Bole adverts with a discount schedule and a stored size and total price: 9.
 
@@ -192,6 +192,7 @@ Units priced both paid at once and another way: 16 in 5 adverts (0 units in off-
 - 1332 (ApartmentForYouAyatRealEstate, ayat_zone): “ምኘታ 140,160 ካሬዎች ተጨማሪ የሰራተኛ ምኘታ ቤት አላቸው ልዩ ቅናሽ 100%----ለከፈለ---20% ቅናሽ 85%-----ለከፈለ----17 %ቅናሽ 70%-----ለከፈለ ----14%ቅናሽ 55%----ለከፈለ-------11”
 - 1963 (Apartments_store, ayat_49): “እና 156ካሬ 💥ዋጋ: 12,727,000ብር እና 13,884,000ብር 🌟ቅናሽ ቅድመ ክፍያ: 50% ለሚከፍል 2% ቅናሽ ቅድመ ክፍያ: 100% ለሚከፍል 5% ቅናሽ 👌🏾ህንፃው ያካተተው የጂም እና ሙሉ የስፓ አገልግሎት የተሟላለት”
 - 2172 (luxury_freelancers, bole_bulbula): “tate ⚡️Discount Update for the apartments !⚡️ For 50% Down payment= 3% Discount from the total amount For 100% Down payment= 6% Discount from the t”
+- 2562 (realityaddisababa, dembel): “ላይ በሚገኘው አዲሱ ፕሮጀክታችን ላይ ልዩ ቅናሽ ይዘን መተናል! እስከ ነሐሴ 5 ድረስ ቅድመ ክፍያ ሲከፍሉ 7% ቅናሽ ያገኛሉ፣ ሙሉ ክፍያ የሚፈጽሙ ከሆነ ደግሞ የ27% ቅናሽ ይኖሮታል። ይህም ማለት በካሬ በ83,950 ብር ብቻ”
 
 **Price per m² written in the advert**
 
@@ -199,42 +200,42 @@ Units priced both paid at once and another way: 16 in 5 adverts (0 units in off-
 - 1106 (TemerApartmentShop, ayat_zone): “ዋጋ = 6.6 ሚልዮን 100% ለሚከፍል 🏦 ጠቅላላ ዋጋ = 10 ሚልዮን ቀስ እያለ 10% ለሚከፍል ⭐ በካሬ ዋጋ 95,000 ብር ቀስ እያለ ለሚከፍል ⭐ በካሬ ዋጋ 61,750 ብር 100% ለሚከፍል ለበለጠ መረጃ 09-”
 - 1210 (championrealestate, bole_main): “ሜርሻል ጀርባ) ዩኒት ኤ 162 ካሬ ሜትር ባለ ሶስት መኝታ 2ኛ እና 6ኛ ፎቅ ለሽያጭ ክፍት ሆነዋል። ◎ ዋጋ በካ.ሜ ብር 80,000 ፊኒሺንግን ጨምሮ ◎ ጠቅላላ ዋጋ ብር 12,960,000 ◎ የመጀመሪያ ቅድመ ክፍያ 50% ብር”
 - 1329 (ApartmentForYouAyatRealEstate, ayat_zone): “ንቺስ ➾በ 2017 ዓ.ም 43.5 ትርፍ ያስገኘው አክሲዮን ➾የንግድ ሱቆች ሽያጭ!/ Ground Floor ዋጋ በካሬ 👉119,416 ብር G+1 ዋጋ በካሬ 👉165,186 ብር G+2 ዋጋ በካሬ👉 159,953 ብር G+3 ዋጋ በካሬ”
-- 1967 (Apartments_store, ayat_zone): “ና ማቆሚያ ያለው 🌴 2 መኝታ - 96.75, 102, 107, 112 ካሬ 🌴 3 መኝታ - 172 ካሬ 💰በካሬ 68,000 🤝15% ቅድመ ክፍያ 💰በካሬ 63,920 🤝30% ቅድመ ክፍያ ለበለጠ፡ ☎<contact>”
+- 1972 (Apartments_store, ayat_49): “#ቅናሹእንደቀጠለነው 💥ዋጋ: 65,000/በካሬ 💥3,770,000 ብር በ15 ዓመት በድርጅቱ በኩል በተመቻቸ የባንክ ብድር የሚከፈል አሁን ቅድመ ክፍያ:3”
 
 ## Ready Bole apartments, for comparison
 
 | Bole apartments for sale | Count | usable | in the sale sample |
 |---|---|---|---|
-| Ready, any | 138 | 111 | 64 |
-| **Ready, with price and size** | **92** | 92 | 64 |
-| Off-plan, with price and size | 33 | 28 | 23 |
-| Unclear, in Bole | 8 | 7 | 5 |
+| Ready, any | 143 | 115 | 68 |
+| **Ready, with price and size** | **96** | 96 | 68 |
+| Off-plan, with price and size | 32 | 27 | 22 |
+| Unclear, in Bole | 5 | 4 | 2 |
 | Government condominiums with price and size (kept apart) | 54 | 54 | 54 |
 
-- Ready Bole apartments: median asking price 130,000 birr per m² over 92 listings (stored total price ÷ stored size; not cleaned for outliers).
-- Off-plan Bole apartments: median asking price 95,000 birr per m² over 33 listings (stored total price ÷ stored size; not cleaned for outliers).
+- Ready Bole apartments: median asking price 128,713 birr per m² over 96 listings (stored total price ÷ stored size; not cleaned for outliers).
+- Off-plan Bole apartments: median asking price 95,000 birr per m² over 32 listings (stored total price ÷ stored size; not cleaned for outliers).
 
 ## Channels and forum topics with the most off-plan adverts with payment terms
 
-207 of the 261 off-plan adverts state a down payment, an instalment plan or a discount; 61 of them have their stored place in Bole.
+211 of the 265 off-plan adverts state a down payment, an instalment plan or a discount; 59 of them have their stored place in Bole.
 
 | Channel or group | Off-plan with payment terms | of them in Bole |
 |---|---|---|
 | TemerApartmentShop | 72 | 10 |
 | luxury_freelancers | 38 | 18 |
-| giftrealestateee | 25 | 8 |
+| giftrealestateee | 26 | 8 |
 | ApartmentForYouAyatRealEstate | 19 | 12 |
-| Apartments_store | 13 | 7 |
 | menoriarealestatesalesconsultant | 12 | 0 |
-| jamborealestat | 7 | 2 |
+| Apartments_store | 10 | 4 |
+| jamborealestat | 8 | 3 |
 | Temerproperties2m | 5 | 1 |
 | championrealestate | 5 | 1 |
+| Bamaconrealestateplc | 4 | 0 |
 | brokercom11 | 4 | 1 |
 | dmcrealestateofficial | 2 | 0 |
 | jamborealestate | 2 | 1 |
+| realityaddisababa | 2 | 0 |
 | ETHIOhouseagents | 1 | 0 |
-| Bamaconrealestateplc | 1 | 0 |
-| condoaddis | 1 | 0 |
 
 Forum topics (each topic is usually one developer project):
 
@@ -281,25 +282,25 @@ Forum topics (each topic is usually one developer project):
 
 | Code | Place | Written in the adverts as | Sub-city now | Sure? | Adverts naming it | Stored as the listing's place |
 |---|---|---|---|---|---|---|
-| ayat_zone | Ayat | አያት, Ayat, በአያት | Bole | check: a large area at the Bole–Yeka border | 63 | 33 |
-| bole_main | Bole | ቦሌ, Bole, bole | Bole | check: may mean the whole sub-city or Bole Road | 46 | 29 |
+| ayat_zone | Ayat | አያት, Ayat, በአያት | Bole | check: a large area at the Bole–Yeka border | 58 | 29 |
+| bole_main | Bole | ቦሌ, Bole, bole | Bole | check: may mean the whole sub-city or Bole Road | 48 | 30 |
 | cmc_michael | CMC | CMC, በሲኤምሲ, ሲኤምሲ | Yeka | check: near a sub-city border (Yeka–Bole) | 31 | 15 |
-| piassa | Piassa | Piassa, ፒያሳ, በፒያሳ | Arada | likely | 29 | 22 |
-| sarbet_old_airport | Sarbet / Old Airport | ሳርቤት, sarbet, Sarbet | Nifas Silk | check: near a sub-city border (Nifas Silk–Kolfe–Kirkos) | 28 | 16 |
+| sarbet_old_airport | Sarbet / Old Airport | ሳርቤት, sarbet, Sarbet | Nifas Silk | check: near a sub-city border (Nifas Silk–Kolfe–Kirkos) | 29 | 17 |
+| piassa | Piassa | Piassa, ፒያሳ, በፒያሳ | Arada | likely | 28 | 21 |
 | kazanchis | Kazanchis | ካዛንቺስ, ካሳንቺስ, በካዛንቺስ | Kirkos | likely | 24 | 15 |
-| megenagna | Megenagna | መገናኛ, Megenagna, በመገናኛ | Yeka | check: near a sub-city border (Yeka–Bole) | 21 | 16 |
+| megenagna | Megenagna | መገናኛ, Megenagna, በመገናኛ | Yeka | check: near a sub-city border (Yeka–Bole) | 20 | 15 |
 | awere | Awere | አዋሬ, በአዋሬ | — | **no sub-city in the place table** | 20 | 11 |
-| la_gare | La Gare | በለገሃር, ለገሃር, La Gare | Kirkos | likely | 19 | 12 |
+| la_gare | La Gare | በለገሃር, ለገሃር, La Gare | Kirkos | likely | 20 | 13 |
 | bulgaria | Bulgaria | ቡልጋሪያ, Bulgaria, በቡልጋሪያ | — | **no sub-city in the place table** | 17 | 8 |
 | summit | Summit | ሰሚት | — | **no sub-city in the place table** | 17 | 5 |
-| ayat_49 | Ayat 49 | አያት 49, በአያት 49, Ayat49 | Bole | check: Ayat, at the Bole–Yeka border | 15 | 9 |
 | haya_hulet | Haya Hulet (22) | 22 ማዞሪያ, ሀያሁለት, ሃያሁለት | Bole | check: near a sub-city border (Bole–Yeka) | 13 | 10 |
 | mexico | Mexico | Mexico, ሜክሲኮ, በሜክሲኮ | Kirkos | check: near a sub-city border (Kirkos–Lideta) | 13 | 8 |
+| ayat_49 | Ayat 49 | አያት 49, Ayat49, በአያት 49 | Bole | check: Ayat, at the Bole–Yeka border | 13 | 8 |
 | garment | Garment | ጋርመንት, Garment | — | **no sub-city in the place table** | 11 | 2 |
 | summit_72 | Summit 72 | ሰሚት72, ሰሚት 72 | — | **no sub-city in the place table** | 9 | 15 |
+| dembel | Dembel | ደንበል, Dembel, ወደ ደንበል | — | **no sub-city in the place table** | 9 | 1 |
+| meskel_flower | Meskel Flower | Meskel Flower, መስቀል ፍላወር, Meskel flower | Kirkos | check: near a sub-city border (Kirkos–Bole) | 8 | 8 |
 | tafo | Tafo | Tafo, ጣፎ | Lemi Kura | check: at the city edge (Yeka–Lemi Kura–Sheger) | 8 | 0 |
-| dembel | Dembel | ደንበል, Dembel, ወደ ደንበል | — | **no sub-city in the place table** | 8 | 0 |
-| meskel_flower | Meskel Flower | Meskel Flower, Meskel flower, መስቀል ፍላወር | Kirkos | check: near a sub-city border (Kirkos–Bole) | 7 | 8 |
 | yeka | Yeka | የካ, ከየካ, Yeka | Yeka | check: may be a false match inside a longer word | 7 | 1 |
 | haile_garment | Haile Garment | Haile Garment, ሀይሌ ጋርመንት, ሃይሌ ጋርመንት | — | **no sub-city in the place table** | 7 | 2 |
 | german | German Square | ጀርመን | — | **no sub-city in the place table** | 7 | 8 |
@@ -308,17 +309,17 @@ Forum topics (each topic is usually one developer project):
 | 4kilo | Arat Kilo | አራት ኪሎ, 4 Kilo, 4kilo | Arada | likely | 5 | 2 |
 | kality | Kality | ቃሊቲ, Kaliti, Kality | Akaki | likely | 5 | 1 |
 | gerji | Gerji | Gerji, ገርጂ | Yeka | check: near a sub-city border (Bole–Yeka) | 4 | 2 |
-| bole_atlas | Atlas | Atlas | Bole | check: Atlas is near the Bole–Kirkos border | 4 | 1 |
 | imperial | Imperial | Imperial, IMPERIAL, ኢምፔሪያል | Yeka | check: near a sub-city border (Bole–Yeka) | 4 | 2 |
 | mekanisa_abo | Mekanisa / Abo Mazoria | mekanisa | Nifas Silk | check: near a sub-city border (Nifas Silk–Kolfe) | 4 | 4 |
+| gotera | Gotera | Gotera, ጎተራ | Nifas Silk | check: near a sub-city border (Kirkos–Nifas Silk) | 4 | 1 |
+| bole_atlas | Atlas | Atlas | Bole | check: Atlas is near the Bole–Kirkos border | 3 | 0 |
 | teklehaimanot | Teklehaimanot | Teklehaimanot | — | **no sub-city in the place table** | 3 | 1 |
+| bambis | Bambis | ባምቢስ, በባምቢስ, ከባምቢስ | Kirkos | check: near a sub-city border (Kirkos–Bole) | 3 | 2 |
 | lemi_kura | Lemi Kura | በለሚ ኩራ, ለሚኩራ | Lemi Kura | likely | 3 | 0 |
-| gotera | Gotera | Gotera, ጎተራ | Nifas Silk | check: near a sub-city border (Kirkos–Nifas Silk) | 3 | 1 |
 | bole_bulbula | Bole Bulbula | ቦሌ ቡልቡላ | Bole | likely | 2 | 8 |
 | sholla | Shola | ሾላ, Shola | Yeka | check: near a sub-city border (Yeka–Bole) | 2 | 1 |
 | lebu | Lebu | ለቡ | Kolfe | check: near a sub-city border (Nifas Silk–Kolfe) | 2 | 1 |
 | merkato | Merkato | Merkato, መርካቶ | Addis Ketema | likely | 2 | 0 |
-| bambis | Bambis | በባምቢስ, ከባምቢስ | Kirkos | check: near a sub-city border (Kirkos–Bole) | 2 | 1 |
 | addisu_gebeya | Addisu Gebeya | አዲሱ ገበያ, የአዲሱ ገበያ | — | **no sub-city in the place table** | 2 | 1 |
 | bethel | Bethel | Bethel | — | **no sub-city in the place table** | 2 | 2 |
 | wello_sefer | Wello Sefer | ወሎ ሰፈር | — | **no sub-city in the place table** | 2 | 3 |
@@ -341,7 +342,7 @@ Forum topics (each topic is usually one developer project):
 | bisrate_gabriel | Bisrate Gabriel | (from the topic title) | — | **no sub-city in the place table** | 0 | 1 |
 | bole_michael | Bole Michael | (from the topic title) | Bole | likely | 0 | 1 |
 
-## What the parser extracts now (tasks S36 to S39), and what is left
+## What the parser extracts now (tasks S36 to S40), and what is left
 
 Task S36 added these fields to `processed_listings`, filled by `src/payment_terms.py` and checked by `tests/test_payment_terms.py`
 (wordings from real adverts). They are protected like other parser fields: a value corrected by hand is kept.
@@ -386,9 +387,16 @@ line after it) count; a tender's or an expo's dates do not. 19 listings have one
 the post's date is known; none of the 19 has one (they were collected before posting dates were saved), so their months stay
 empty until the thesis decides which date to count from.
 
-**Still left, in order of value:**
+Developer names (S40): `src/developers.py` holds one name per developer and the spellings that mean it ("ቴምር", "Temer
+Properties" and "ተመር" are Temer Real Estate; "ሪያሊቲ ሪልእስቴት" and "reality real estate" are Reality Real Estate). A developer's own
+channel names it (TemerApartmentShop), then a forum topic (championallsites' "Legacy_Green Valley" is Legacy), then the post's words.
+A name that is also a place or a word counts only beside "real estate" or a project word, so "አያት 49" is no longer Ayat Real Estate
+(267 listings lost that wrong name) and "Prime Hotel" is not Prime Real Estate. The old rule's fragments ("everyone has an opinion
+about") are gone. Comparing old and new parser on all 6,304 listings: the developer changed on 2,121 (89 spellings on 1,334
+listings became 76 names on 2,247), the developer flag on 299, the listing class on 14 (a promotion or not) and the valuation flag
+on 5; usable listings and the sale sample did not change. `tests/test_developers.py` checks the rules.
 
-1. **Developer and project names written one way:** the `developer` field holds several spellings of one developer ("ሪያሊቲ
-   ሪልእስቴት reality", "ሪያሊቲ ሪልስቴት reality", "at reality"); the forum topic title often names the project.
-2. **The photo-only developer posts:** championallsites alone holds 1,043, one topic per project. Reading them with `media_pilot.py`
+**Still left:**
+
+1. **The photo-only developer posts:** championallsites alone holds 1,043, one topic per project. Reading them with `media_pilot.py`
    (Gemini, free tier) needs the owner's approval for a full run (`CLAUDE.md`).

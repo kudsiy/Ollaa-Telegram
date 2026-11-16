@@ -164,8 +164,8 @@ full run needs the owner's approval again.
   released 14 "advert" labels on real rentals in S13, 423 after S14 (192 retired as
   the parser agreed, 7 wrong Bet_afri labels released by the owner), 332 after S25 (the
   owner released 91 built-up sizes copied from one stated size), 324 after S26 (8 retired
-  as the parser agreed), 321 after S27 (the owner released 3 wrong types on flats), and 320 after S28 (the owner released
-  1 size not in its advert). Do not release them without asking.
+  as the parser agreed), 321 after S27 (the owner released 3 wrong types on flats), 320 after S28 (the owner released
+  1 size not in its advert), and 315 after S40 (5 retired as the parser agreed). Do not release them without asking.
 
 ## How the project runs
 
@@ -223,6 +223,10 @@ full run needs the owner's approval again.
   adverts get none. `tests/test_payment_terms.py` checks the rules; run it after any change to them. `listener.py` does not
   write these columns: its listings get them at the next `reprocess.py`. `database/thesis_data_check.py` (read-only) writes
   the counts in `THESIS_DATA_CHECK.md`.
+- Developers (task S40): `src/developers.py` is the one list of developer names and their spellings, and the
+  developers' own channels; the `developer` column holds only its names, or the words before "real estate" for one not
+  in the list. To add a developer or a spelling, add it there and run `tests/test_developers.py`, then `reprocess.py`.
+  A name that is also a place ("Ayat") counts only beside "real estate" or a project word.
 - One row per unit (task S38): `src/listing_units.py` rebuilds the table `listing_units` from the stored listings (report
   first, then `--apply`): every unit of a multi-unit advert whose total price the advert states, one row per unit and payment
   option. It is derived data: change the rules in the script, never the rows; a deleted listing takes its units with it.
