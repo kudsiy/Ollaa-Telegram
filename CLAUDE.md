@@ -20,6 +20,15 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
   needs no account: `src/media_web_fetch.py`, one request every 20–40 seconds (random), a
   hard cap per run (50 for the pilot), stopping at the first error or sign of blocking.
   A channel without a public preview (forum groups) is skipped and reported.
+  **One exception, the owner's decision of 16 November 2026:** the championallsites photo pilot,
+  30 photos from the forum topics of developers with projects in Bole, may be downloaded with
+  the existing login by `src/telegram_photo_pilot.py` only (checked by `tests/test_photo_pilot.py`
+  with a fake Telegram). Its limits are in its code: never on a day of the scheduled scrape
+  (the 1st, 4th, 7th, … of a month) or a day the scraper ran, never with the listener (the
+  same lock), at most 30 downloads a day and 30 in all, a random 60–180 seconds between two,
+  each download counted in the daily 150 requests, and the first FloodWait or other warning
+  stops everything for the day, with no retry. Any photo beyond these 30 needs the owner's
+  approval again.
 - **The safety stops are in the code** (`src/telegram_safety.py`, used by
   `telegram_scraper.py` and `listener.py`; checked by `tests/test_telegram_safety.py`
   with a fake Telegram, never the real one). Never weaken them, raise the limits, or add
@@ -243,3 +252,8 @@ full run needs the owner's approval again.
   wider area ("bole bulbula" before "bole"); to retire a code, add it to `RENAMED_CODES`
   and rename it in the database. `tests/test_locations.py` checks the matching rules;
   run it, and compare old and new parser output, after any change to places.
+  Sub-cities follow the owner's rules shared with the ollaa-web project (16 November 2026;
+  `C:\Projects\ollaa-web\ollaa-web-scraper\data\subcity_rules.csv` and `neighbourhood_subcity.csv`,
+  read only, never changed from here): every place starting with "Bole" is in Bole except Bole
+  Arabsa, and Gerji is Bole; Ayat, CMC, Summit, Figa, Wesen, Yetebaberut, Feyel Bet, Safari and
+  Gurd Shola are Lemi Kura; Sarbet and Bulgaria are Kirkos, Awere Yeka, Haya Hulet Bole.

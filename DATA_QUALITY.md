@@ -78,52 +78,56 @@ them out permanently (`processing_exclusions`).
 
 ## Where the listings are
 
+Sub-cities follow the owner's rules (16 November 2026, shared with the ollaa-web project; see `src/locations.py`): every place whose
+name starts with Bole is in Bole except Bole Arabsa, and Gerji is Bole; Ayat, CMC, Summit, Figa, Wesen, Yetebaberut, Feyel Bet,
+Safari and Gurd Shola are Lemi Kura; Sarbet and Bulgaria are Kirkos, Awere is Yeka. Lemi Kura is therefore the largest sub-city
+here, and Bole much smaller than before (549 listings before, 292 now).
+
 | Sub-city | Sale | Rent | Both | Total |
 |---|---|---|---|---|
-| Bole | 458 | 89 | 2 | 549 |
-| Yeka | 119 | 77 | 0 | 196 |
-| Kirkos | 89 | 18 | 1 | 108 |
+| Lemi Kura | 500 | 72 | 1 | 573 |
+| Bole | 196 | 95 | 1 | 292 |
+| Kirkos | 144 | 29 | 1 | 174 |
+| Yeka | 91 | 12 | 0 | 103 |
 | Kolfe | 72 | 13 | 0 | 85 |
 | Arada | 70 | 0 | 0 | 70 |
-| Nifas Silk | 53 | 13 | 0 | 66 |
 | Akaki | 27 | 4 | 0 | 31 |
+| Sheger City (outside Addis Ababa) | 28 | 0 | 0 | 28 |
+| Nifas Silk | 16 | 3 | 0 | 19 |
 | Lideta | 13 | 1 | 0 | 14 |
+| Gelan, Dukem (counted as Addis Ababa) | 9 | 1 | 0 | 10 |
 | Addis Ketema | 3 | 1 | 0 | 4 |
 | Gulele | 1 | 2 | 0 | 3 |
-| Lemi Kura | 1 | 0 | 0 | 1 |
-| Sheger City (outside Addis Ababa) | 28 | 0 | 0 | 28 |
-| Gelan, Dukem (counted as Addis Ababa) | 9 | 1 | 0 | 10 |
-| Place named, sub-city not in the place table | 333 | 59 | 0 | 392 |
 | No place found in the text | 163 | 30 | 2 | 195 |
+| Place named, sub-city not in the place table | 106 | 45 | 0 | 151 |
 
-The 392 listings without a sub-city name a real place (Summit, Figa, Jacros, Bulgaria,
-German Square and others) that `src/locations.py` does not yet assign to a sub-city.
+The 151 listings without a sub-city name a real place (Jacros, German Square, Addisu Gebeya, Addis Sefer, Gofa and others)
+that `src/locations.py` does not yet assign to a sub-city.
 
-85 different places are named. The 20 most frequent (21, as two share 20th place):
+88 different places are named. The 20 most frequent:
 
 | Place | Sub-city | Sale | Rent | Both | Total |
 |---|---|---|---|---|---|
-| Ayat | Bole | 207 | 14 | 1 | 222 |
-| Bole | Bole | 98 | 33 | 0 | 131 |
-| Summit | — | 93 | 7 | 0 | 100 |
+| Ayat | Lemi Kura | 207 | 14 | 1 | 222 |
+| Bole | Bole | 97 | 33 | 0 | 130 |
+| Summit | Lemi Kura | 87 | 6 | 0 | 93 |
 | Megenagna | Yeka | 68 | 8 | 0 | 76 |
-| CMC | Yeka | 37 | 35 | 0 | 72 |
+| CMC | Lemi Kura | 33 | 34 | 0 | 67 |
 | Piassa | Arada | 60 | 0 | 0 | 60 |
 | Kazanchis | Kirkos | 46 | 11 | 1 | 58 |
-| Figa | — | 49 | 5 | 0 | 54 |
+| Figa | Lemi Kura | 49 | 5 | 0 | 54 |
 | Bole Bulbula | Bole | 40 | 10 | 0 | 50 |
-| Sarbet / Old Airport | Nifas Silk | 37 | 10 | 0 | 47 |
+| Sarbet / Old Airport | Kirkos | 37 | 10 | 0 | 47 |
 | Jemo | Kolfe | 42 | 5 | 0 | 47 |
-| Ayat 49 | Bole | 38 | 3 | 0 | 41 |
-| Gerji | Yeka | 7 | 26 | 0 | 33 |
-| Summit 72 | — | 32 | 0 | 0 | 32 |
+| Ayat 49 | Lemi Kura | 38 | 3 | 0 | 41 |
+| Gerji | Bole | 7 | 26 | 0 | 33 |
+| Summit 72 | Lemi Kura | 32 | 0 | 0 | 32 |
 | Mexico | Kirkos | 26 | 5 | 0 | 31 |
 | Jacros | — | 17 | 13 | 0 | 30 |
 | Haya Hulet (22) | Bole | 13 | 15 | 1 | 29 |
 | Kality | Akaki | 23 | 4 | 0 | 27 |
-| Bole Arabsa | Bole | 23 | 3 | 0 | 26 |
-| Sheger City | Sheger City | 22 | 0 | 0 | 22 |
-| Wello Sefer | Bole | 20 | 2 | 0 | 22 |
+| Bole Arabsa | Lemi Kura | 23 | 3 | 0 | 26 |
+| Wello Sefer | Bole | 21 | 2 | 0 | 23 |
 
 ## How complete each field is (usable listings)
 
@@ -134,7 +138,7 @@ German Square and others) that `src/locations.py` does not yet assign to a sub-c
 | Bedrooms | 52% | 49% | 60% | 52% |
 | Bathrooms | 17% | 4% | 20% | 14% |
 | Named place | 89% | 90% | 60% | 89% |
-| Sub-city | 66% | 71% | 60% | 66% |
+| Sub-city | 81% | 76% | 60% | 80% |
 | Map coordinates (from the place table) | 76% | 73% | 60% | 75% |
 | Property type | 89% | 98% | 80% | 91% |
 | Floor | 20% | 24% | 20% | 21% |
@@ -415,7 +419,7 @@ Whole buildings and houses with a plot size only are not in it (no built-up size
 |---|---|---|
 | Price, size, type, named place | 100% (by definition; see "Accuracy check") | core variables |
 | Map coordinates | 85% | usable (rough, one point per place) |
-| Sub-city | 76% | usable once the place table assigns the missing sub-cities |
+| Sub-city | 93% | usable (the owner's sub-city rules, 16 November 2026) |
 | Bedrooms | 74% (homes only: 88% of 433) | usable for homes, with the missing ones handled (a "not stated" category or a smaller sample) |
 | Floor | 41% | too incomplete |
 | Bathrooms | 25% (homes: 30%) | too incomplete |
@@ -424,8 +428,8 @@ Whole buildings and houses with a plot size only are not in it (no built-up size
 | Finishing | 20% | too incomplete |
 | Payment terms | 17% | too incomplete |
 
-Location is thin at the neighbourhood level. The 523 listings fall in 62 places, but only
-28 places have 5 or more listings and 16 have 10 or more. Only 28 place-and-type
+Location is thin at the neighbourhood level. The 523 listings fall in 64 places, but only
+28 places have 5 or more listings and 15 have 10 or more. Only 28 place-and-type
 combinations have 5 or more. Sub-city fixed effects, or distance from coordinates, are
 more realistic than one dummy per neighbourhood.
 
@@ -568,4 +572,4 @@ Other things seen, not counted as wrong:
    post 40 messages in about two days, so a run at least every two days avoids new gaps.
 4. Fetch the real posting dates from Telegram for the 858 undated usable listings (the
    message ids are stored), so the model can include time.
-5. Give a sub-city to the places that lack one in `src/locations.py` (392 listings).
+5. Give a sub-city to the places that lack one in `src/locations.py` (151 listings).

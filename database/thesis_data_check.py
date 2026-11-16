@@ -79,10 +79,17 @@ PLACE_NOTES = {
 }
 
 
+# Settled by the owner's rules of 16 November 2026 (shared with the ollaa-web project; see src/locations.py).
+OWNER_RULE_RE = re.compile(r"^(?:bole|gerji|ayat|summit|figa|cmc|wesen|safari|yetebaberut|gurd shola|feyel bet)", re.I)
+OWNER_TABLE = {"sarbet_old_airport", "bulgaria", "awere", "haya_hulet"}
+
+
 def place_note(code) -> str:
     place = locations.PLACES.get(code)
     if not place or not place.sub_city:
         return "**no sub-city in the place table**"
+    if code in OWNER_TABLE or OWNER_RULE_RE.match(place.name):
+        return "owner's rule (16 Nov 2026)"
     return PLACE_NOTES.get(code, "likely")
 PAYMENT_WORDS = re.compile(r"ክፍያ|ይከፈ|የሚከፈ|ዙር|pay|instal", re.I)
 # Forum topic titles in luxury_freelancers start with how far the building is: "97% ካዛንቺስ Joberg", "100% ያለቀ ሰሚት Golden".
@@ -190,9 +197,9 @@ def main() -> None:
         ["No place found", sum(r.location in (None, locations.UNKNOWN) for r in off)],
     ])
     in_bole_places = Counter(r.location for r in off_bole)
-    print(f"Of the {len(off_bole)} off-plan adverts placed in Bole, {in_bole_places['ayat_zone'] + in_bole_places['ayat_49']} are at Ayat "
-          f"(Ayat or Ayat 49), whose sub-city should be checked (see the last table); the others: "
-          + ", ".join(f"{k} {v}" for k, v in in_bole_places.most_common() if k not in ("ayat_zone", "ayat_49")) + ".\n")
+    print(f"The {len(off_bole)} off-plan adverts placed in Bole, by place: "
+          + ", ".join(f"{locations.PLACES[k].name if k in locations.PLACES else k} {v}" for k, v in in_bole_places.most_common())
+          + ". Ayat, CMC, Summit and Figa are in Lemi Kura under the owner's rules (16 November 2026).\n")
     by_sub = Counter(sub_city(r.location) or "(none)" for r in off)
     print("Off-plan adverts by the sub-city of their stored place: "
           + ", ".join(f"{k} {v}" for k, v in by_sub.most_common()) + ".\n")
@@ -217,6 +224,38 @@ def main() -> None:
          and CASH_EARLY.search(r.raw_text or "")),
         ("Price per m² written in the advert", lambda r: PER_SQM.search(r.raw_text or "")),
     ]
+    print("## Bole off-plan apartments: what they state\n")
+    print(f"Under the owner's sub-city rules (16 November 2026), {len(off_bole)} off-plan apartment adverts are placed in Bole. "
+          "These counts use the fields the parser stores (tasks S36 to S39):\n")
+    bole_fields = [
+        ("Total price", lambda r: r.sale_price_birr is not None),
+        ("Unit size", lambda r: r.builtup_sqm is not None),
+        ("Down payment %", lambda r: r.down_payment_pct is not None),
+        ("Instalment plan (number of instalments or their period)", lambda r: r.instalment_count is not None or r.instalment_months is not None),
+        ("…with its timing (the period in months)", lambda r: r.instalment_months is not None),
+        ("Instalments linked to construction stages", lambda r: bool(r.instalments_follow_construction)),
+        ("Handover date", lambda r: r.handover_date is not None),
+        ("Handover date or period", lambda r: r.handover_date is not None or r.handover_months is not None),
+        ("Cash or early-payment discount schedule", lambda r: r.discount_schedule is not None),
+    ]
+    table(["Stated", f"Bole off-plan adverts ({len(off_bole)})"], [[n, pct(sum(bool(t(r)) for r in off_bole), len(off_bole))] for n, t in bole_fields])
+    score = lambda r: sum(bool(t(r)) for n, t in bole_fields if not n.startswith(("…", "Handover date or")))
+    print("Number of these 7 terms stated (total price, size, down payment, instalments, construction link, handover date, discount "
+          "schedule): " + ", ".join(f"{k} terms: {v}" for k, v in sorted(Counter(score(r) for r in off_bole).items(), reverse=True)) + ".\n")
+    print("The 5 most complete (masked):\n")
+    for r in sorted(off_bole, key=lambda r: (-score(r), int(r.id) if r.id.isdigit() else 0))[:5]:
+        stated = [f"{int(r.sale_price_birr):,} birr" if r.sale_price_birr else None, f"{int(r.builtup_sqm)} m²" if r.builtup_sqm else None,
+                  f"down payment {r.down_payment_pct}%" if r.down_payment_pct is not None else None,
+                  f"{r.instalment_count} instalments" if r.instalment_count else None,
+                  f"over {r.instalment_months} months" if r.instalment_months else None,
+                  "tied to construction" if r.instalments_follow_construction else None,
+                  f"handover {r.handover_date:%d %b %Y}" if r.handover_date else (f"handover in {r.handover_months} months" if r.handover_months is not None else None),
+                  f"discounts {r.discount_schedule} (share paid : discount %)" if r.discount_schedule else None]
+        words = " / ".join(x.strip() for x in mask(r.raw_text or "").split("\n") if x.strip())
+        print(f"- **{r.id}** ({channel_name(r)}, {r.location}; {score(r)} of 7): " + "; ".join(s for s in stated if s)
+              + f". “{words[:260].replace('|', '/')}…”")
+    print()
+
     print("## What the off-plan adverts state\n")
     results = []
     for name, test in fields:
