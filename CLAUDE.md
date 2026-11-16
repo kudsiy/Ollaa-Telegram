@@ -187,8 +187,10 @@ full run needs the owner's approval again.
   differences like a greeting or a discount line), remove the newer copy without asking and keep the one
   with the most complete details: read each pair in the report, then `dedup_strict.py --apply --same-source`
   (it backs up first), and list what was removed in `DATA_QUALITY.md`. Ask the owner only when the price or
-  size differs between the copies; such pairs are not removed. Repeats from different channels and different
-  agents are not covered by this rule, so show them to the owner before removing them. `semantic_dedup.py` was removed: it compared how texts look, ignored
+  size differs between the copies; such pairs are not removed. **Widened by the owner on 16 November 2026:** the
+  same property posted by different agents (same place, size, price and floor; land and whole houses have no
+  floor) is one property too: read the pair, keep the most complete copy and remove the other with
+  `dedup_strict.py --apply --only <id>`. Different floors are different units: keep both. Unclear cases: keep both. `semantic_dedup.py` was removed: it compared how texts look, ignored
   prices, and would have deleted different flats posted on one template; never bring it back.
   The first job of `dedup_and_fix_locations.py` (run without `--location-only`) and `dedup_fast.py`
   are just as crude: do not run them.
