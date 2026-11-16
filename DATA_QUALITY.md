@@ -108,9 +108,9 @@ that `src/locations.py` does not yet assign to a sub-city.
 
 | Place | Sub-city | Sale | Rent | Both | Total |
 |---|---|---|---|---|---|
-| Ayat | Lemi Kura | 207 | 14 | 1 | 222 |
+| Ayat | Lemi Kura | 208 | 14 | 1 | 223 |
 | Bole | Bole | 97 | 33 | 0 | 130 |
-| Summit | Lemi Kura | 87 | 6 | 0 | 93 |
+| Summit | Lemi Kura | 86 | 6 | 0 | 92 |
 | Megenagna | Yeka | 68 | 8 | 0 | 76 |
 | CMC | Lemi Kura | 33 | 34 | 0 | 67 |
 | Piassa | Arada | 60 | 0 | 0 | 60 |

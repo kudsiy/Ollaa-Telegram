@@ -491,7 +491,10 @@ def find_location(text: str, label: Optional[str] = None) -> str:
             break
     if top:
         # "ቦሌ : መድሃንያለም ... #መድሃንያለም": a hashtag can name the exact place inside a wide area at the top.
-        if top in WIDE_AREAS and tagged and tagged != top and PLACES[tagged].sub_city == PLACES[top].sub_city:
+        # Only a place inside it ("Bole Bulbula" in Bole, "Ayat 49" in Ayat), not a neighbour in the same sub-city
+        # (a channel's standing "#ሰሚት" under "አያት", both Lemi Kura since S41).
+        if top in WIDE_AREAS and tagged and tagged != top and (
+                PLACES[tagged].parent == top or PLACES[tagged].name.startswith(PLACES[top].name + " ")):
             return tagged
         return top
     return tagged or match_text(text) or UNKNOWN
