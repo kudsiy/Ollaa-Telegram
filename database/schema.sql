@@ -392,7 +392,12 @@ CREATE TABLE public.processed_listings (
     interest_free boolean,
     handover_months integer,
     construction_progress_pct integer,
-    price_per_sqm_stated numeric
+    price_per_sqm_stated numeric,
+    price_options text,
+    cash_price_per_sqm numeric,
+    instalment_price_per_sqm numeric,
+    cash_price_birr numeric,
+    instalment_price_birr numeric
 );
 
 
@@ -932,7 +937,7 @@ CREATE TRIGGER processed_listings_keep_deleted_out AFTER DELETE ON public.proces
 -- Name: processed_listings processed_listings_protect_repairs; Type: TRIGGER; Schema: public
 --
 
-CREATE TRIGGER processed_listings_protect_repairs AFTER UPDATE ON public.processed_listings FOR EACH ROW EXECUTE FUNCTION public.record_listing_override('listing_status', 'intent', 'listing_class', 'valuation_eligible', 'sale_analytics_eligible', 'developer_analytics_eligible', 'property_type', 'property_subtype', 'location', 'city', 'plot_sqm', 'builtup_sqm', 'bedrooms', 'bathrooms', 'sale_price_birr', 'rent_price_birr', 'rent_advance_birr', 'payment_type', 'bank_loan_pct', 'down_payment_pct', 'finish_state', 'developer', 'price_currency', 'price_usd', 'floor_level', 'contact_phone', 'contact_username', 'discount_schedule', 'instalment_count', 'instalment_months', 'instalments_follow_construction', 'interest_free', 'handover_months', 'construction_progress_pct', 'price_per_sqm_stated');
+CREATE TRIGGER processed_listings_protect_repairs AFTER UPDATE ON public.processed_listings FOR EACH ROW EXECUTE FUNCTION public.record_listing_override('listing_status', 'intent', 'listing_class', 'valuation_eligible', 'sale_analytics_eligible', 'developer_analytics_eligible', 'property_type', 'property_subtype', 'location', 'city', 'plot_sqm', 'builtup_sqm', 'bedrooms', 'bathrooms', 'sale_price_birr', 'rent_price_birr', 'rent_advance_birr', 'payment_type', 'bank_loan_pct', 'down_payment_pct', 'finish_state', 'developer', 'price_currency', 'price_usd', 'floor_level', 'contact_phone', 'contact_username', 'discount_schedule', 'instalment_count', 'instalment_months', 'instalments_follow_construction', 'interest_free', 'handover_months', 'construction_progress_pct', 'price_per_sqm_stated', 'price_options', 'cash_price_per_sqm', 'instalment_price_per_sqm', 'cash_price_birr', 'instalment_price_birr');
 
 
 --

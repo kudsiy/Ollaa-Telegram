@@ -890,7 +890,7 @@ class ValuationPipeline:
         finish, finish_c            = self.extract_finish(text)
         dev, dev_c                  = self.extract_developer(text)
         bank_loan_pct, down_pct     = self.extract_financing_details(text)
-        terms = payment_terms.extract_terms(unicodedata.normalize("NFKC", text or ""), record.get("topic_title"))
+        terms = payment_terms.extract_terms(unicodedata.normalize("NFKC", text or ""), record.get("topic_title"), built or plot)
         sale_price, rent_price, rent_advance = extract_prices(number_text, property_type=p_type, intent=intent)
         biggest = max((p for p in (sale_price, rent_price) if p is not None), default=0)
         if (intent in ("RENT", "UNKNOWN", "MIXED") and not photo_only and biggest >= SALE_ONLY_PRICE

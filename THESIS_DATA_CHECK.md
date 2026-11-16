@@ -17,9 +17,10 @@ State of the database on 16 November 2026: 6,304 stored listings, 1,752 usable (
   discounts, and 1 advert ties instalments to construction stages.
 - **Only 33 off-plan Bole adverts have both a unit size and a total price stored, and only 8 state a discount schedule.** That is too few
   for a market-implied discount rate model from text alone. Ready Bole apartments with price and size: **92**.
-- **Since task S36 the parser stores these terms as fields** (down payment %, discount schedule, instalments, interest-free,
-  months to handover, construction progress, price per m² as written): see "Stored by the parser". Only **9 off-plan Bole adverts**
-  have a discount schedule together with a stored size and total price.
+- **Since tasks S36 and S37 the parser stores these terms as fields** (down payment %, discount schedule, instalments, interest-free,
+  months to handover, construction progress, price per m² as written, and prices by payment option and finish): see "Stored by the
+  parser". Only **9 off-plan Bole adverts** have a discount schedule together with a stored size and total price, and only **7
+  off-plan adverts (2 in Bole)** state both a price paid at once and a price paid over time.
 - The largest source of developer adverts, **championallsites, is almost all photos (1,043 of 1,090 posts)**: its prices and payment
   terms are in the pictures, which only the photo reader (`media_pilot.py`, Gemini) could read.
 
@@ -78,7 +79,7 @@ Not counted above: 3,721 photo-only posts, whose words are in the picture; 1,043
 | Discount schedule (2 or more discount rates) | 16 (6%) | 8 (9%) | 13 |
 | Price per m² written in the advert | 66 (25%) | 28 (33%) | 50 |
 
-### Stored by the parser (task S36)
+### Stored by the parser (tasks S36 and S37)
 
 The same terms as fields of `processed_listings`, filled by `src/payment_terms.py` (stricter than the word counts above, which only show that a term is mentioned):
 
@@ -93,8 +94,15 @@ The same terms as fields of `processed_listings`, filled by `src/payment_terms.p
 | Months to handover | `handover_months` | 49 (19%) | 19 (22%) |
 | Construction progress % | `construction_progress_pct` | 64 (25%) | 33 (39%) |
 | Price per m² as written | `price_per_sqm_stated` | 54 (21%) | 21 (25%) |
+| Prices by payment option or finish (S37) | `price_options` | 25 (10%) | 9 (11%) |
+| Price per m² paid at once | `cash_price_per_sqm` | 10 (4%) | 2 (2%) |
+| Price per m² paid over time | `instalment_price_per_sqm` | 7 (3%) | 2 (2%) |
+| Total of one unit paid at once | `cash_price_birr` | 9 (3%) | 3 (4%) |
+| Total of one unit paid over time | `instalment_price_birr` | 4 (2%) | 3 (4%) |
 
 Off-plan Bole adverts with a discount schedule and a stored size and total price: 9.
+
+Off-plan adverts that state a price paid at once and a price paid over time (per m² or for one unit): 7, 2 of them in Bole: 1106 (ayat_zone) 61,750 against 95,000 birr per m²; 1108 (sarbet_old_airport) 75,000 against 115,000 birr per m²; 1110 (sarbet_old_airport) 75,000 against 110,000 birr per m²; 1123 (ayat_zone) 61,000 against 95,000 birr per m²; 1208 (megenagna) 90,000 against 95,000 birr per m²; 2440 (garment) 77,000 against 110,000 birr per m²; 2441 (sarbet_old_airport) 69,000 against 107,000 birr per m².
 
 ### Five real examples of each (masked; the listing number is the stored id)
 
@@ -317,13 +325,7 @@ Forum topics (each topic is usually one developer project):
 | bisrate_gabriel | Bisrate Gabriel | (from the topic title) | — | **no sub-city in the place table** | 0 | 1 |
 | bole_michael | Bole Michael | (from the topic title) | Bole | likely | 0 | 1 |
 
-"Adverts naming it" counts off-plan and unclear adverts that name the place anywhere; "Stored as the listing's place" counts those
-whose stored place it is (it can come from a hashtag or the forum topic's title, so it can be larger). "Sure?" is Claude's own reading
-of Addis Ababa's map, not an official source: "likely" places look well inside their sub-city, "check" places are near a border or
-wide, and places "with no sub-city in the place table" need one. To correct a sub-city, tell Claude the right one, or change it in
-`src/locations.py` (then run `tests/test_locations.py`); the Bole counts change with it, Ayat most of all.
-
-## What the parser extracts now (task S36), and what is left
+## What the parser extracts now (tasks S36 and S37), and what is left
 
 Task S36 added these fields to `processed_listings`, filled by `src/payment_terms.py` and checked by `tests/test_payment_terms.py`
 (wordings from real adverts). They are protected like other parser fields: a value corrected by hand is kept.
@@ -338,20 +340,26 @@ Task S36 added these fields to `processed_listings`, filled by `src/payment_term
 | Months to handover | `handover_months` | "መረከቢያ 2 አመት" = 24, "በ2አመት ከ4ወር ... የሚረከቡት" = 28, "አሁን የሚረከቡት" = 0 |
 | Construction progress | `construction_progress_pct` | "97% የደረሱ", or the forum topic's title ("85% ቦሌ ደንበል") |
 | Price per m² as written | `price_per_sqm_stated` | "በካሬ 95,000 ብር" |
+| Prices by payment option and finish (S37) | `price_options` | every price tied to a way of paying or to two finish levels: "100: 75,000/m²; slow: 115,000/m²; 65: 5,700,000 (81 m²)"; the option is the share paid at once (100 = cash), "slow" (paid over time) or "list" (no option given) |
+| Paid at once (S37) | `cash_price_per_sqm`, `cash_price_birr` | "75,000 Birr/sqm — for 100% cash payers", "100% ለሚከፍል ጠቅላላ ዋጋ = 5.3 ሚልዮን" |
+| Paid over time (S37) | `instalment_price_per_sqm`, `instalment_price_birr` | "115,000 Birr/sqm — for long-term payers"; the option with the smallest share paid at once; totals are of one unit size |
 
-Rent adverts get none of these (their "ቅድሚያ ክፍያ: የ3 ወር" is a rent advance). One correction came with them: the parser used to
+Rent adverts get none of these (their "ቅድሚያ ክፍያ: የ3 ወር" is a rent advance). "ሙሉ ክፍያ" alone is not read as cash: under a heading
+"ቀስ ብሎ ለሚከፍል" it means the total ("ሙሉ ክፍያ 9.3ሚሊዮን"). A discount ("100% ሲከፍሉ = 2.3 ሚልዮን ብር ቅናሽ") is not a price, "5 million in cash"
+beside a bank loan is not a cash price, and a single finish level ("only Fully Finished Apartment") is not stored. One correction came with them: the parser used to
 treat a down payment and a bank loan as adding up to 100%, so a developer's "5% ቅድመ ክፍያ" became a 95% bank loan. Each is now kept
 only as stated; `bank_loan_pct` also reads "45% የባንክ አማራጭ". Comparing the old and new parser on all 6,304 listings: 232 down payments
 and 160 bank-loan shares changed (208 down payments were found where the old rule found none), 14 developer flags followed the bank
 loan, and no other field changed.
 
+Prices by payment option (S37): comparing old and new parser on all 6,304 listings, no existing field changed; 41 listings got
+`price_options` (13 a price per m² paid at once, 8 one paid over time, 17 and 8 such totals of one unit).
+
 **Still left, in order of value:**
 
-1. **Prices by payment option and finish:** "በካሬ 95,000 ብር ቀስ እያለ ለሚከፍል" against the cash price, "Semi finished 127,000 / full
-   finished 144,000". With the discount schedule, this gives the cash-equivalent price.
-2. **One row per unit:** a developer advert usually lists several units, each with a size and a total price; only the first is kept.
-3. **Handover dates in the Ethiopian calendar** ("ሚያዝያ 30/2018", "2018 ዓ.ም"), turned into months from the posting date.
-4. **Developer and project names written one way:** the `developer` field holds several spellings of one developer ("ሪያሊቲ
+1. **One row per unit:** a developer advert usually lists several units, each with a size and a total price; only the first is kept.
+2. **Handover dates in the Ethiopian calendar** ("ሚያዝያ 30/2018", "2018 ዓ.ም"), turned into months from the posting date.
+3. **Developer and project names written one way:** the `developer` field holds several spellings of one developer ("ሪያሊቲ
    ሪልእስቴት reality", "ሪያሊቲ ሪልስቴት reality", "at reality"); the forum topic title often names the project.
-5. **The photo-only developer posts:** championallsites alone holds 1,043, one topic per project. Reading them with `media_pilot.py`
+4. **The photo-only developer posts:** championallsites alone holds 1,043, one topic per project. Reading them with `media_pilot.py`
    (Gemini, free tier) needs the owner's approval for a full run (`CLAUDE.md`).

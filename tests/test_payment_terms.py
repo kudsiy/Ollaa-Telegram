@@ -84,8 +84,37 @@ check("a down payment is not progress", pt.construction_progress_pct("20% ቅድ
 temer = ("🏦 ቅድመ ክፍያ 20% = 2.1 ሚልዮን ብር\n🏦 100% ለከፈለ 35% ቅናሽ = 7ሚልዮን ሙሉ ክፍያ\n☑️ መረከብያ 3 አመት\n"
          "☑️ ቀሪ ክፍያ ያለምንም ወለድ እና ዋጋ ጭማሪ ይክፈሉ\n14 ዙር ክፍያ እስከ 3 አመት ድረስ ግንባታ እያያቹ የምትከፍሉበት")
 check("all terms", pt.extract_terms(temer), {
-    "discount_schedule": "100:35", "instalment_count": 14, "instalment_months": 36, "instalments_follow_construction": True,
+    "price_options": "100: 7,000,000", "cash_price_per_sqm": None, "instalment_price_per_sqm": None,
+    "cash_price_birr": 7000000, "instalment_price_birr": None, "discount_schedule": "100:35", "instalment_count": 14, "instalment_months": 36, "instalments_follow_construction": True,
     "interest_free": True, "handover_months": 36, "construction_progress_pct": None})
+
+# Prices by payment option and finish (S37).
+po = pt.price_options("💰 Special Pricing\n✔️ 75,000 Birr/sqm — for 100% cash payers\n✔️ 115,000 Birr/sqm — for long-term payers")
+check("price per m²: cash and long-term", (po["cash_price_per_sqm"], po["instalment_price_per_sqm"]), (75000, 115000))
+po = pt.price_options("✅ ባለ 3 መኝታ / 108ካሬ\n🏦 ጠቅላላ ዋጋ = 6.6 ሚልዮን 100% ለሚከፍል\n🏦 ጠቅላላ ዋጋ = 10 ሚልዮን ቀስ እያለ 10% ለሚከፍል\n"
+                      "⭐ በካሬ ዋጋ 95,000 ብር ቀስ እያለ ለሚከፍል", 108)
+check("totals of one unit, paid at once and over time", (po["cash_price_birr"], po["instalment_price_birr"], po["instalment_price_per_sqm"]),
+      (6600000, 10000000, 95000))
+temer_65 = ("65/35 አከፍፈል\n👉 2መኝታ 81 ካሬ ሙሉ ክፍያ 5.7ሚሊዮን\n👉2መኝታ 1ዐ6ካሬ ሙሉ ክፍያ 7.9ሚሊዮን 👉3መኝታ 139ካሬሙሉ ክፍያ 1ዐ.3ሚሊዮን\n"
+            "ቀስ ብሎ ለሚከፍል\n2መኝታ 81 ካሬ\n20%ቅድመ ክፍያ 1.86ሚሊዮን\nሙሉ ክፍያ 9.3ሚሊዮን")
+po = pt.price_options(temer_65, 81)
+check("“ሙሉ ክፍያ” under a heading is a total, not cash", (po["cash_price_birr"], po["instalment_price_birr"]), (None, 9300000))
+check("two units on one line keep their own sizes", "65: 10,300,000 (139 m²)" in po["price_options"], True)
+check("a down payment is not a price", "1,860,000" in po["price_options"], False)
+po = pt.price_options("🔰100% በካሬ 86ሺ\n🔰50% በካሬ 90ሺ ቀሪውን በ1አመት")
+check("100% በካሬ and 50% በካሬ", (po["cash_price_per_sqm"], po["instalment_price_per_sqm"]), (86000, 90000))
+po = pt.price_options("✅  በከፊል ግንባታ በካሬ 99,935 ብር\nበሙሉ ግንባታ በካሬ 132,825 ብር")
+check("finish levels", po["price_options"], "list semi-finished: 99,935/m²; list fully finished: 132,825/m²")
+check("a resale's cash part beside a bank debt is not a cash price",
+      pt.price_options("ጠቅላላ ዋጋ፦ 26,000,000 ብር\nበጥሬ ገንዘብ (Cash)፦ 13.5 ሚሊዮን ብር ብቻ\nየባንክ ዕዳ፦ 12.5 ሚሊዮን ብር")["price_options"], None)
+check("one price without an option or finish is not stored", pt.price_options("💰 Price: 115,000 Birr per sqm")["price_options"], None)
+check("one finish level alone is not stored", pt.price_options("only Fully Finished Apartment\n137 sqm • 26,999,000 ETB")["price_options"], None)
+check("“in cash” beside a bank loan is not a cash price", pt.price_options("30 million total, 5 million in cash, rest bank loan")["price_options"], None)
+po = pt.price_options("✅ 100% ለሚከፍል 30% ቅናሽ\n💰 Price: 115,000 Birr per sqm\n👉 1 መኝታ 69 ካሬ\n° ጠቅላላ ዋጋ = 7.9 ሚልዮን ብር\n"
+                      "° 100% ሲከፍሉ = 2.3 ሚልዮን ብር ቅናሽ ያገኛሉ")
+check("a discount is neither a heading nor a price", (po["price_options"], po["cash_price_birr"]), (None, None))
+po = pt.price_options("👉 በአንዴ ለሚከፍል 35% ቅናሽ አግኝተው በካሬ 75ሺ መግዛት ይችላሉ አልያም ቀስ እያሉ በ 3 አመት በካሬ 110ሺ")
+check("two options on one line", (po["cash_price_per_sqm"], po["instalment_price_per_sqm"]), (75000, 110000))
 
 # Through the parser: a rent's advance is not a payment plan; a sale keeps its terms.
 from run_pipeline import ValuationPipeline  # noqa: E402

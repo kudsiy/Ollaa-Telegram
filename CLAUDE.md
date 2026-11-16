@@ -216,7 +216,9 @@ full run needs the owner's approval again.
 - Payment terms of developer adverts (task S36): `src/payment_terms.py` reads the discount schedule, down payment, instalments,
   interest-free, months to handover, construction progress and the price per m² as written; `run_pipeline.py` stores them
   (columns `discount_schedule`, `instalment_count`, `instalment_months`, `instalments_follow_construction`, `interest_free`,
-  `handover_months`, `construction_progress_pct`, `price_per_sqm_stated`; protected like the other parser fields). Rent
+  `handover_months`, `construction_progress_pct`, `price_per_sqm_stated`; protected like the other parser fields), and
+  (task S37, `price_options()`) the prices by payment option and finish (`price_options`, `cash_price_per_sqm`,
+  `instalment_price_per_sqm`, `cash_price_birr`, `instalment_price_birr`). Rent
   adverts get none. `tests/test_payment_terms.py` checks the rules; run it after any change to them. `listener.py` does not
   write these columns: its listings get them at the next `reprocess.py`. `database/thesis_data_check.py` (read-only) writes
   the counts in `THESIS_DATA_CHECK.md`.

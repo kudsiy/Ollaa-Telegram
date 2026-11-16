@@ -37,6 +37,8 @@ TRACKED_FIELDS = (
     # Payment terms of developer adverts (task S36, src/payment_terms.py).
     "discount_schedule", "instalment_count", "instalment_months", "instalments_follow_construction",
     "interest_free", "handover_months", "construction_progress_pct", "price_per_sqm_stated",
+    # Prices by payment option and finish (task S37).
+    "price_options", "cash_price_per_sqm", "instalment_price_per_sqm", "cash_price_birr", "instalment_price_birr",
 )
 
 # Always recalculated from the final values; never protected.

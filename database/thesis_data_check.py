@@ -224,7 +224,7 @@ def main() -> None:
     table(["Field", f"All off-plan ({len(off)})", f"Off-plan in Bole ({len(off_bole)})", "Usable off-plan"],
           [[n, pct(len(h), len(off)), pct(sum(in_bole(r) for r in h), len(off_bole)), sum(r.id in usable for r in h)] for n, h in results])
 
-    print("### Stored by the parser (task S36)\n")
+    print("### Stored by the parser (tasks S36 and S37)\n")
     print("The same terms as fields of `processed_listings`, filled by `src/payment_terms.py` (stricter than the word counts above, "
           "which only show that a term is mentioned):\n")
     stored_fields = [
@@ -233,6 +233,9 @@ def main() -> None:
         ("Instalments follow construction", "instalments_follow_construction"), ("Interest-free", "interest_free"),
         ("Months to handover", "handover_months"), ("Construction progress %", "construction_progress_pct"),
         ("Price per m² as written", "price_per_sqm_stated"),
+        ("Prices by payment option or finish (S37)", "price_options"),
+        ("Price per m² paid at once", "cash_price_per_sqm"), ("Price per m² paid over time", "instalment_price_per_sqm"),
+        ("Total of one unit paid at once", "cash_price_birr"), ("Total of one unit paid over time", "instalment_price_birr"),
     ]
     has = lambda r, f: getattr(r, f, None) not in (None, False)
     table(["Field", "Column", f"All off-plan ({len(off)})", f"Off-plan in Bole ({len(off_bole)})"],
@@ -240,6 +243,13 @@ def main() -> None:
            for n, f in stored_fields])
     usable_for_rate = [r for r in off_bole if r.discount_schedule and r.sale_price_birr is not None and r.builtup_sqm is not None]
     print(f"Off-plan Bole adverts with a discount schedule and a stored size and total price: {len(usable_for_rate)}.\n")
+    both = [r for r in off if (r.cash_price_per_sqm and r.instalment_price_per_sqm) or (r.cash_price_birr and r.instalment_price_birr)]
+    print(f"Off-plan adverts that state a price paid at once and a price paid over time (per m² or for one unit): {len(both)}, "
+          f"{sum(in_bole(r) for r in both)} of them in Bole"
+          + (": " + "; ".join(f"{r.id} ({r.location}) " + (f"{int(r.cash_price_per_sqm):,} against {int(r.instalment_price_per_sqm):,} birr per m²"
+                                                       if r.cash_price_per_sqm and r.instalment_price_per_sqm else
+                                                       f"{int(r.cash_price_birr):,} against {int(r.instalment_price_birr):,} birr")
+                              for r in both) if both else "") + ".\n")
 
     print("### Five real examples of each (masked; the listing number is the stored id)\n")
     pattern_of = {
