@@ -222,6 +222,10 @@ full run needs the owner's approval again.
   adverts get none. `tests/test_payment_terms.py` checks the rules; run it after any change to them. `listener.py` does not
   write these columns: its listings get them at the next `reprocess.py`. `database/thesis_data_check.py` (read-only) writes
   the counts in `THESIS_DATA_CHECK.md`.
+- One row per unit (task S38): `src/listing_units.py` rebuilds the table `listing_units` from the stored listings (report
+  first, then `--apply`): every unit of a multi-unit advert whose total price the advert states, one row per unit and payment
+  option. It is derived data: change the rules in the script, never the rows; a deleted listing takes its units with it.
+  `run_all.py` runs it after the duplicate step; `tests/test_units.py` checks the rules.
 - Photo-only posts: `src/media_pilot.py` (task S15) has Gemini copy the words in an image and
   runs them through the text parser; see `MEDIA_PILOT.md`. Its full output
   (`data/media_pilot/`) holds unmasked text with phone numbers: never commit it. Photos

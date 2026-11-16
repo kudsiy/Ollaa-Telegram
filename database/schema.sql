@@ -269,6 +269,22 @@ COMMENT ON TABLE public.listing_overrides IS 'Protected values: always win over 
 
 
 --
+-- Name: listing_units; Type: TABLE; Schema: public
+--
+
+CREATE TABLE public.listing_units (
+    listing_id text NOT NULL,
+    unit_no integer NOT NULL,
+    size_sqm numeric NOT NULL,
+    bedrooms integer,
+    payment_option text NOT NULL,
+    finish text DEFAULT ''::text NOT NULL,
+    price_birr numeric NOT NULL,
+    price_per_sqm numeric NOT NULL
+);
+
+
+--
 -- Name: listings; Type: TABLE; Schema: public
 --
 
@@ -797,6 +813,14 @@ ALTER TABLE ONLY public.listing_overrides
 
 
 --
+-- Name: listing_units listing_units_pkey; Type: CONSTRAINT; Schema: public
+--
+
+ALTER TABLE ONLY public.listing_units
+    ADD CONSTRAINT listing_units_pkey PRIMARY KEY (listing_id, unit_no, payment_option, finish);
+
+
+--
 -- Name: listings listings_pkey; Type: CONSTRAINT; Schema: public
 --
 
@@ -946,6 +970,14 @@ CREATE TRIGGER processed_listings_protect_repairs AFTER UPDATE ON public.process
 
 ALTER TABLE ONLY public.listing_overrides
     ADD CONSTRAINT listing_overrides_listing_id_fkey FOREIGN KEY (listing_id) REFERENCES public.processed_listings(id) ON DELETE CASCADE;
+
+
+--
+-- Name: listing_units listing_units_listing_id_fkey; Type: FK CONSTRAINT; Schema: public
+--
+
+ALTER TABLE ONLY public.listing_units
+    ADD CONSTRAINT listing_units_listing_id_fkey FOREIGN KEY (listing_id) REFERENCES public.processed_listings(id) ON DELETE CASCADE;
 
 
 --

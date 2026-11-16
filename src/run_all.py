@@ -358,6 +358,8 @@ def main():
     # ── STEP 6: SEMANTIC DEDUP ────────────────────────────────
     step(6, "Removing listings that repeat the same property")
     run_script("dedup_strict.py", extra_args=["--apply", "--same-source"], critical=False)
+    # One row per unit of the multi-unit adverts (task S38), rebuilt from the listings now stored.
+    run_script("listing_units.py", extra_args=["--apply"], critical=False)
 
     # ── STEP 7: REFRESH VIEWS ────────────────────────────────
     step(7, "Refreshing materialized views")

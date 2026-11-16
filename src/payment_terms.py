@@ -200,7 +200,8 @@ _SEMI_RE = re.compile(r"semi[\s-]*finish|ከፊል\s*ፊኒሺንግ|በከፊ�
 _FULL_FINISH_RE = re.compile(r"full(?:y)?[\s-]*finish|ሙሉ\s*ፊኒሺንግ|በሙሉ\s*ግንባታ|ፊኒሺንግን?\s*ጨምሮ", re.I)
 # An amount on these lines is not the unit's price: a down payment, a discount, a bank's part, an income.
 _NOT_A_PRICE_RE = re.compile(r"ቅድመ\s*-?\s*ክፍያ|ቅድሚያ|down\s*-?\s*payment|advance|ቅናሽ|discount|ባንክ|bank|ብድር|loan|ዕዳ|እዳ"
-                             r"|ገቢ|income|ኪራይ|rent|በወር|monthly|ኮሚሽን|commission", re.I)
+                             r"|ገቢ|income|ኪራይ|rent|በወር|monthly|ኮሚሽን|commission"
+                             r"|የበፊት|old\s*price|previous\s*price|\(\s*from\b", re.I)   # the old price: "👉የበፊት ዋጋ = 8.1 ሚልዮን"
 _TOTAL_WORD_RE = re.compile(r"ጠቅላላ|total", re.I)
 _DISCOUNT_WORD_RE = re.compile(r"ቅናሽ|discount", re.I)
 _DISCOUNT_AMOUNT_RE = re.compile(r"\s*(?:ብር|birr|etb)?\s*(?:ቅናሽ|discount)", re.I)

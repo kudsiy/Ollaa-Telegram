@@ -163,6 +163,7 @@ def main() -> None:
         rows = [SimpleNamespace(**r) for r in conn.execute(text("""
             SELECT p.*, t.channel, t.topic_title FROM processed_listings p
             JOIN telegram_listings t ON p.id = t.id::text""")).mappings()]
+        units = [SimpleNamespace(**u) for u in conn.execute(text("SELECT * FROM listing_units")).mappings()]
     usable = {r.id for r in rows if dq.is_usable(r)}
     sample = {r.id for r in dq.sale_sample(rows)}
     apartments = [r for r in rows if is_apartment_for_sale(r)]
@@ -250,6 +251,24 @@ def main() -> None:
                                                        if r.cash_price_per_sqm and r.instalment_price_per_sqm else
                                                        f"{int(r.cash_price_birr):,} against {int(r.instalment_price_birr):,} birr")
                               for r in both) if both else "") + ".\n")
+
+    print("### One row per unit (task S38)\n")
+    print("`listing_units` holds every unit of a multi-unit advert whose total price the advert states, one row per unit and "
+          "payment option (`src/listing_units.py`). The listing itself keeps only its first unit.\n")
+    off_ids, bole_ids = {r.id for r in off}, {r.id for r in off_bole}
+    unit_key = lambda u: (u.listing_id, u.unit_no)
+    table(["", "Adverts", "Units", "Unit rows (unit × payment option)"], [
+        [label, len({u.listing_id for u in group}), len({unit_key(u) for u in group}), len(group)]
+        for label, group in (("All adverts with 2 or more priced units", units),
+                             ("Off-plan apartment adverts", [u for u in units if u.listing_id in off_ids]),
+                             ("Off-plan apartment adverts in Bole", [u for u in units if u.listing_id in bole_ids]))])
+    options = defaultdict(dict)
+    for u in units:
+        options[unit_key(u)][u.payment_option] = u
+    paired = {k: v for k, v in options.items() if "100" in v and len(v) > 1}
+    print(f"Units priced both paid at once and another way: {len(paired)} in {len({k[0] for k in paired})} adverts "
+          f"({sum(k[0] in bole_ids for k in paired)} units in off-plan Bole adverts). Units priced both under the 65/35 option and "
+          f"paid over time: {sum('65' in v and 'slow' in v for v in options.values())}.\n")
 
     print("### Five real examples of each (masked; the listing number is the stored id)\n")
     pattern_of = {

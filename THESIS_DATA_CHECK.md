@@ -21,6 +21,9 @@ State of the database on 16 November 2026: 6,304 stored listings, 1,752 usable (
   months to handover, construction progress, price per m² as written, and prices by payment option and finish): see "Stored by the
   parser". Only **9 off-plan Bole adverts** have a discount schedule together with a stored size and total price, and only **7
   off-plan adverts (2 in Bole)** state both a price paid at once and a price paid over time.
+- **Since task S38 every priced unit of a multi-unit advert has its own row** (`listing_units`): 42 off-plan apartment adverts give
+  205 units (15 adverts and 82 units in Bole), where the listings kept one each. 16 units are priced both paid at once and another
+  way, none of them in Bole.
 - The largest source of developer adverts, **championallsites, is almost all photos (1,043 of 1,090 posts)**: its prices and payment
   terms are in the pictures, which only the photo reader (`media_pilot.py`, Gemini) could read.
 
@@ -103,6 +106,18 @@ The same terms as fields of `processed_listings`, filled by `src/payment_terms.p
 Off-plan Bole adverts with a discount schedule and a stored size and total price: 9.
 
 Off-plan adverts that state a price paid at once and a price paid over time (per m² or for one unit): 7, 2 of them in Bole: 1106 (ayat_zone) 61,750 against 95,000 birr per m²; 1108 (sarbet_old_airport) 75,000 against 115,000 birr per m²; 1110 (sarbet_old_airport) 75,000 against 110,000 birr per m²; 1123 (ayat_zone) 61,000 against 95,000 birr per m²; 1208 (megenagna) 90,000 against 95,000 birr per m²; 2440 (garment) 77,000 against 110,000 birr per m²; 2441 (sarbet_old_airport) 69,000 against 107,000 birr per m².
+
+### One row per unit (task S38)
+
+`listing_units` holds every unit of a multi-unit advert whose total price the advert states, one row per unit and payment option (`src/listing_units.py`). The listing itself keeps only its first unit.
+
+|  | Adverts | Units | Unit rows (unit × payment option) |
+|---|---|---|---|
+| All adverts with 2 or more priced units | 78 | 342 | 368 |
+| Off-plan apartment adverts | 42 | 205 | 228 |
+| Off-plan apartment adverts in Bole | 15 | 82 | 88 |
+
+Units priced both paid at once and another way: 16 in 5 adverts (0 units in off-plan Bole adverts). Units priced both under the 65/35 option and paid over time: 8.
 
 ### Five real examples of each (masked; the listing number is the stored id)
 
@@ -325,7 +340,7 @@ Forum topics (each topic is usually one developer project):
 | bisrate_gabriel | Bisrate Gabriel | (from the topic title) | — | **no sub-city in the place table** | 0 | 1 |
 | bole_michael | Bole Michael | (from the topic title) | Bole | likely | 0 | 1 |
 
-## What the parser extracts now (tasks S36 and S37), and what is left
+## What the parser extracts now (tasks S36 to S38), and what is left
 
 Task S36 added these fields to `processed_listings`, filled by `src/payment_terms.py` and checked by `tests/test_payment_terms.py`
 (wordings from real adverts). They are protected like other parser fields: a value corrected by hand is kept.
@@ -355,11 +370,16 @@ loan, and no other field changed.
 Prices by payment option (S37): comparing old and new parser on all 6,304 listings, no existing field changed; 41 listings got
 `price_options` (13 a price per m² paid at once, 8 one paid over time, 17 and 8 such totals of one unit).
 
+One row per unit (S38): `src/listing_units.py` fills the table `listing_units` (listing, unit number, size, bedrooms, payment
+option, finish, total price, price per m²) with every unit whose total the advert states, in adverts with 2 or more priced units
+(checked by `tests/test_units.py`). It is rebuilt from the stored listings after each scrape (`run_all.py` and the scheduled task
+run it). A size times the advert's price per m² is not used: in an advert for several sites the sizes of one site met the price per
+m² of another. An old price ("የበፊት ዋጋ = 8.1 ሚልዮን") is not read as a price. The listings themselves did not change.
+
 **Still left, in order of value:**
 
-1. **One row per unit:** a developer advert usually lists several units, each with a size and a total price; only the first is kept.
-2. **Handover dates in the Ethiopian calendar** ("ሚያዝያ 30/2018", "2018 ዓ.ም"), turned into months from the posting date.
-3. **Developer and project names written one way:** the `developer` field holds several spellings of one developer ("ሪያሊቲ
+1. **Handover dates in the Ethiopian calendar** ("ሚያዝያ 30/2018", "2018 ዓ.ም"), turned into months from the posting date.
+2. **Developer and project names written one way:** the `developer` field holds several spellings of one developer ("ሪያሊቲ
    ሪልእስቴት reality", "ሪያሊቲ ሪልስቴት reality", "at reality"); the forum topic title often names the project.
-4. **The photo-only developer posts:** championallsites alone holds 1,043, one topic per project. Reading them with `media_pilot.py`
+3. **The photo-only developer posts:** championallsites alone holds 1,043, one topic per project. Reading them with `media_pilot.py`
    (Gemini, free tier) needs the owner's approval for a full run (`CLAUDE.md`).
