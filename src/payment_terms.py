@@ -16,7 +16,10 @@ checks the rules.
                                    "payment based on construction progress")
   interest_free                    "ያለምንም ወለድ", "ከወለድ ነፃ", "interest-free"
   handover_months                  months to handover ("መረከቢያ 2 አመት" = 24, "6 ወር የሚረከብ",
-                                   "አሁን የሚረከቡት" = 0); dates in the Ethiopian calendar are not read yet
+                                   "አሁን የሚረከቡት" = 0); from a stated date when the post's date is known
+                                   (etl_runner.build_processed_values)
+  handover_date                    the stated handover date, Gregorian ("ሰኔ 30/2019" = 7 July 2027,
+                                   "Delivery time … March 09/2028 GC"); task S39
   construction_progress_pct        how far the building is ("97% የደረሱ", a forum topic "85% ቦሌ ደንበል")
 
 Prices by payment option and finish (task S37), see price_options():
@@ -172,6 +175,63 @@ def handover_months(text: str) -> int | None:
     if found:
         return int(round(max(found)))
     return 0 if _HANDOVER_NOW_RE.search(t) else None
+
+
+# ── Handover dates (S39) ─────────────────────────────────────────────────────────
+# Ethiopian months, with their common spellings; ጳጉሜ is the short 13th month.
+_EC_MONTHS = [r"መስከረም", r"ጥቅምት", r"[ኅህሕ]ዳር", r"ታ[ኅህሕ][ሣሳ][ሥስ]", r"ጥር", r"የካቲት", r"መጋቢት", r"ሚያዚ?ዝ?ያ", r"ግንቦት",
+              r"ሰኔ", r"[ሐሀሃ]ምሌ", r"ነ[ሐሀሃ]ሴ", r"ጳጉሜ?ን?"]
+_EC_DATE_RE = re.compile(r"(?<![ሀ-፿])(" + "|".join(f"(?:{m})" for m in _EC_MONTHS) + r")(?![ሀ-፿])"
+                         r"[ \t\-–.,:]*(?:(\d{1,2})[ \t]*)?[/,.\s]\s*((?:20)[12]\d)\b")
+_GC_MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+_GC_DATE_RE = re.compile(r"\b(" + "|".join(_GC_MONTHS) + r")[a-z]*\.?[ \t]*(?:(\d{1,2})(?:st|nd|rd|th)?[ \t]*)?[/,.\s]\s*(20[23]\d)\b", re.I)
+_HANDOVER_CONTEXT_RE = re.compile(_HANDOVER_WORD + r"|ይጠናቀቃሉ?|complet", re.I)
+_TENDER_RE = re.compile(r"ጨረታ|tender|auction|ኤክስፖ|expo", re.I)   # a tender's or an expo's dates are not a handover
+
+
+def ethiopian_to_gregorian(year: int, month: int, day: int):
+    """A date of the Ethiopian calendar in the Gregorian one. Meskerem 1 falls on 11 September, or on 12 September
+    before a Gregorian leap year; each month has 30 days ("ሰኔ 30/2019" = 7 July 2027)."""
+    from datetime import date, timedelta
+    g = year + 7
+    new_year = date(g, 9, 12 if (g + 1) % 4 == 0 else 11)
+    return new_year + timedelta(days=(month - 1) * 30 + day - 1)
+
+
+def _dates_on(line: str):
+    """(position, date) for each Ethiopian or Gregorian date on a line; a month without a day is its last day."""
+    from datetime import date
+    found = []
+    for m in _EC_DATE_RE.finditer(line):
+        month = next(i for i, name in enumerate(_EC_MONTHS, 1) if re.fullmatch(name, m.group(1)))
+        day = int(m.group(2)) if m.group(2) else (5 if month == 13 else 30)
+        if 1 <= day <= 30 and 2010 <= int(m.group(3)) <= 2030:
+            found.append((m.start(), ethiopian_to_gregorian(int(m.group(3)), month, day)))
+    for m in _GC_DATE_RE.finditer(line):
+        month = _GC_MONTHS.index(m.group(1).lower()[:3]) + 1
+        day = int(m.group(2)) if m.group(2) else 28
+        if 1 <= day <= 31:
+            try:
+                found.append((m.start(), date(int(m.group(3)), month, day)))
+            except ValueError:
+                pass
+    return sorted(found)
+
+
+def handover_date(text: str):
+    """The first handover date stated, on a line with a handover word or the line after it ("-Delivery time / ሚያዝያ
+    -30/2018"). The Ethiopian date is read even beside a converted one: "ሚያዝያ 30/2018 (April 8, 2026 GC)" is
+    8 May 2026, as the advert's own conversion is sometimes a month off."""
+    lines = (text or "").split("\n")
+    for i, line in enumerate(lines):
+        context = _HANDOVER_CONTEXT_RE.search(line) or (i and _HANDOVER_CONTEXT_RE.search(lines[i - 1]) and not _dates_on(lines[i - 1]))
+        if not context or _TENDER_RE.search(line):
+            continue
+        dates = _dates_on(line)
+        if dates:
+            ethiopian = [d for p, d in dates if _EC_DATE_RE.match(line, p)]
+            return ethiopian[0] if ethiopian else dates[0][1]
+    return None
 
 
 def construction_progress_pct(text: str, topic_title: str | None = None) -> int | None:
@@ -337,5 +397,6 @@ def extract_terms(text: str, topic_title: str | None = None, size=None) -> dict:
         "instalments_follow_construction": instalments_follow_construction(text),
         "interest_free":                   interest_free(text),
         "handover_months":                 handover_months(text),
+        "handover_date":                   handover_date(text),
         "construction_progress_pct":       construction_progress_pct(text, topic_title),
     }

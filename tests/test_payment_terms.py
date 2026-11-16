@@ -86,7 +86,36 @@ temer = ("🏦 ቅድመ ክፍያ 20% = 2.1 ሚልዮን ብር\n🏦 100% ለ�
 check("all terms", pt.extract_terms(temer), {
     "price_options": "100: 7,000,000", "cash_price_per_sqm": None, "instalment_price_per_sqm": None,
     "cash_price_birr": 7000000, "instalment_price_birr": None, "discount_schedule": "100:35", "instalment_count": 14, "instalment_months": 36, "instalments_follow_construction": True,
-    "interest_free": True, "handover_months": 36, "construction_progress_pct": None})
+    "interest_free": True, "handover_months": 36, "handover_date": None, "construction_progress_pct": None})
+
+# Handover dates (S39): the Ethiopian calendar turned into the Gregorian one.
+from datetime import date  # noqa: E402
+
+check("Meskerem 1, 2018 is the new year of 2025", pt.ethiopian_to_gregorian(2018, 1, 1), date(2025, 9, 11))
+check("before a leap year it falls on 12 September", pt.ethiopian_to_gregorian(2016, 1, 1), date(2023, 9, 12))
+check("Timket, Tir 11, 2018", pt.ethiopian_to_gregorian(2018, 5, 11), date(2026, 1, 19))
+check("Sene 30, 2019, as the advert converts it", pt.handover_date("📦 Delivery: ሰኔ 30/2019 EC (July 7, 2027 GC)"), date(2027, 7, 7))
+check("the Ethiopian date wins over a wrong conversion", pt.handover_date("📦 Delivery: ሚያዝያ 30/2018 (April 8, 2026 GC)"), date(2026, 5, 8))
+check("on the line after a handover word", pt.handover_date("-Delivery time for Imperial\nሚያዝያ -30/2018"), date(2026, 5, 8))
+check("የማስረከቢያ ቀን and another spelling", pt.handover_date("የማስረከቢያ ቀን :  ሚያዚያ 30/2019"), date(2027, 5, 8))
+check("a Gregorian date", pt.handover_date("-Delivery time for semi finished March 09/2028 GC"), date(2028, 3, 9))
+check("a tender's dates are not a handover", pt.handover_date("የጨረታ ሰነዱን ማስረከቢያ ከጥር 13/2018 እስከ ጥር 20/2018"), None)
+check("an expo's dates are not a handover", pt.handover_date("#ታላቅ የገና ቅናሽ ኤክስፖ (ታህሳስ 15-28/2018)\nየሚረከቡ ቤቶች"), None)
+check("a date without a handover word", pt.handover_date("ታህሳስ 15/2018 ጊፍት ሪል ስቴት"), None)
+
+# The months to handover from the posting date, when the advert gives a date and no period (no database used).
+from datetime import datetime  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+from etl_runner import build_processed_values  # noqa: E402
+from run_pipeline import ValuationPipeline as _Pipeline  # noqa: E402
+
+dated = SimpleNamespace(id=1, text="የሚሸጥ አፓርትመንት ከቴምር ሪልስቴት\nቅድመ ክፍያ 20%\n📦 Delivery: ሰኔ 30/2019 EC (July 7, 2027 GC)",
+                        channel="https://t.me/x", posted_at=datetime(2026, 11, 16, 10, 0), reply_to_top_id=None, topic_title=None)
+values, _, _ = build_processed_values(_Pipeline(), dated)
+check("months from the posting date", (values["handover_date"], values["handover_months"]), (date(2027, 7, 7), 8))
+values, _, _ = build_processed_values(_Pipeline(), SimpleNamespace(**{**dated.__dict__, "posted_at": None}))
+check("no posting date: no months", values["handover_months"], None)
 
 # Prices by payment option and finish (S37).
 po = pt.price_options("💰 Special Pricing\n✔️ 75,000 Birr/sqm — for 100% cash payers\n✔️ 115,000 Birr/sqm — for long-term payers")

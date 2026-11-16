@@ -218,7 +218,8 @@ full run needs the owner's approval again.
   (columns `discount_schedule`, `instalment_count`, `instalment_months`, `instalments_follow_construction`, `interest_free`,
   `handover_months`, `construction_progress_pct`, `price_per_sqm_stated`; protected like the other parser fields), and
   (task S37, `price_options()`) the prices by payment option and finish (`price_options`, `cash_price_per_sqm`,
-  `instalment_price_per_sqm`, `cash_price_birr`, `instalment_price_birr`). Rent
+  `instalment_price_per_sqm`, `cash_price_birr`, `instalment_price_birr`), and (task S39) the stated handover date,
+  `handover_date`, in the Gregorian calendar (Ethiopian dates converted by `payment_terms.ethiopian_to_gregorian`). Rent
   adverts get none. `tests/test_payment_terms.py` checks the rules; run it after any change to them. `listener.py` does not
   write these columns: its listings get them at the next `reprocess.py`. `database/thesis_data_check.py` (read-only) writes
   the counts in `THESIS_DATA_CHECK.md`.

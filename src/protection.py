@@ -39,6 +39,7 @@ TRACKED_FIELDS = (
     "interest_free", "handover_months", "construction_progress_pct", "price_per_sqm_stated",
     # Prices by payment option and finish (task S37).
     "price_options", "cash_price_per_sqm", "instalment_price_per_sqm", "cash_price_birr", "instalment_price_birr",
+    "handover_date",   # task S39
 )
 
 # Always recalculated from the final values; never protected.

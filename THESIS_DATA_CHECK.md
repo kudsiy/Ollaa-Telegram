@@ -82,7 +82,7 @@ Not counted above: 3,721 photo-only posts, whose words are in the picture; 1,043
 | Discount schedule (2 or more discount rates) | 16 (6%) | 8 (9%) | 13 |
 | Price per m² written in the advert | 66 (25%) | 28 (33%) | 50 |
 
-### Stored by the parser (tasks S36 and S37)
+### Stored by the parser (tasks S36, S37 and S39)
 
 The same terms as fields of `processed_listings`, filled by `src/payment_terms.py` (stricter than the word counts above, which only show that a term is mentioned):
 
@@ -95,6 +95,7 @@ The same terms as fields of `processed_listings`, filled by `src/payment_terms.p
 | Instalments follow construction | `instalments_follow_construction` | 7 (3%) | 1 (1%) |
 | Interest-free | `interest_free` | 35 (13%) | 7 (8%) |
 | Months to handover | `handover_months` | 49 (19%) | 19 (22%) |
+| Handover date (S39) | `handover_date` | 17 (7%) | 6 (7%) |
 | Construction progress % | `construction_progress_pct` | 64 (25%) | 33 (39%) |
 | Price per m² as written | `price_per_sqm_stated` | 54 (21%) | 21 (25%) |
 | Prices by payment option or finish (S37) | `price_options` | 25 (10%) | 9 (11%) |
@@ -340,7 +341,7 @@ Forum topics (each topic is usually one developer project):
 | bisrate_gabriel | Bisrate Gabriel | (from the topic title) | — | **no sub-city in the place table** | 0 | 1 |
 | bole_michael | Bole Michael | (from the topic title) | Bole | likely | 0 | 1 |
 
-## What the parser extracts now (tasks S36 to S38), and what is left
+## What the parser extracts now (tasks S36 to S39), and what is left
 
 Task S36 added these fields to `processed_listings`, filled by `src/payment_terms.py` and checked by `tests/test_payment_terms.py`
 (wordings from real adverts). They are protected like other parser fields: a value corrected by hand is kept.
@@ -376,10 +377,18 @@ option, finish, total price, price per m²) with every unit whose total the adve
 run it). A size times the advert's price per m² is not used: in an advert for several sites the sizes of one site met the price per
 m² of another. An old price ("የበፊት ዋጋ = 8.1 ሚልዮን") is not read as a price. The listings themselves did not change.
 
+Handover dates (S39): `handover_date` holds the date an advert states for handover, in the Gregorian calendar, read from the
+Ethiopian one ("ሰኔ 30/2019" = 7 July 2027; Meskerem 1 falls on 11 September, or 12 September before a Gregorian leap year) or
+from a Gregorian date ("Delivery time … March 09/2028 GC"). The Ethiopian date is used even when the advert adds a conversion,
+because one advert converts "ሚያዝያ 30/2018" to 8 April 2026 instead of 8 May. Only dates on a line with a handover word (or the
+line after it) count; a tender's or an expo's dates do not. 19 listings have one, between May 2025 and May 2028. A year alone
+("2018 ዓ.ም") is not read. When an advert gives a date but no period, `handover_months` is the months from the posting date, if
+the post's date is known; none of the 19 has one (they were collected before posting dates were saved), so their months stay
+empty until the thesis decides which date to count from.
+
 **Still left, in order of value:**
 
-1. **Handover dates in the Ethiopian calendar** ("ሚያዝያ 30/2018", "2018 ዓ.ም"), turned into months from the posting date.
-2. **Developer and project names written one way:** the `developer` field holds several spellings of one developer ("ሪያሊቲ
+1. **Developer and project names written one way:** the `developer` field holds several spellings of one developer ("ሪያሊቲ
    ሪልእስቴት reality", "ሪያሊቲ ሪልስቴት reality", "at reality"); the forum topic title often names the project.
-3. **The photo-only developer posts:** championallsites alone holds 1,043, one topic per project. Reading them with `media_pilot.py`
+2. **The photo-only developer posts:** championallsites alone holds 1,043, one topic per project. Reading them with `media_pilot.py`
    (Gemini, free tier) needs the owner's approval for a full run (`CLAUDE.md`).

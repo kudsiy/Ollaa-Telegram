@@ -45,6 +45,7 @@ INSERT INTO processed_listings (
     discount_schedule, instalment_count, instalment_months, instalments_follow_construction,
     interest_free, handover_months, construction_progress_pct, price_per_sqm_stated,
     price_options, cash_price_per_sqm, instalment_price_per_sqm, cash_price_birr, instalment_price_birr,
+    handover_date,
     finish_state, developer,
     price_currency, price_usd, floor_level,
     contact_phone, contact_username,
@@ -62,6 +63,7 @@ VALUES (
     :discount_schedule, :instalment_count, :instalment_months, :instalments_follow_construction,
     :interest_free, :handover_months, :construction_progress_pct, :price_per_sqm_stated,
     :price_options, :cash_price_per_sqm, :instalment_price_per_sqm, :cash_price_birr, :instalment_price_birr,
+    :handover_date,
     :finish_state, :developer,
     :price_currency, :price_usd, :floor_level,
     :contact_phone, :contact_username,
@@ -84,6 +86,7 @@ INSERT INTO processed_listings (
     discount_schedule, instalment_count, instalment_months, instalments_follow_construction,
     interest_free, handover_months, construction_progress_pct, price_per_sqm_stated,
     price_options, cash_price_per_sqm, instalment_price_per_sqm, cash_price_birr, instalment_price_birr,
+    handover_date,
     finish_state, developer,
     price_currency, price_usd, floor_level,
     contact_phone, contact_username,
@@ -101,6 +104,7 @@ VALUES (
     :discount_schedule, :instalment_count, :instalment_months, :instalments_follow_construction,
     :interest_free, :handover_months, :construction_progress_pct, :price_per_sqm_stated,
     :price_options, :cash_price_per_sqm, :instalment_price_per_sqm, :cash_price_birr, :instalment_price_birr,
+    :handover_date,
     :finish_state, :developer,
     :price_currency, :price_usd, :floor_level,
     :contact_phone, :contact_username,
@@ -317,6 +321,7 @@ def build_processed_values(pipeline, row):
         "instalment_price_per_sqm":      result.get("instalment_price_per_sqm"),
         "cash_price_birr":               result.get("cash_price_birr"),
         "instalment_price_birr":         result.get("instalment_price_birr"),
+        "handover_date":                 result.get("handover_date"),
         "finish_state":                  result.get("finish_state"),
         "developer":                     result.get("developer"),
         "price_currency":                result.get("price_currency"),
@@ -332,6 +337,12 @@ def build_processed_values(pipeline, row):
         "asking_price_per_sqm":          result.get("price_per_sqm_birr"),
     }
     values["price_per_builtup_sqm"], values["price_per_plot_sqm"] = price_per_sqm_values(values)
+    # A handover date but no period (S39): the months from the posting date, when the post's date is known.
+    posted = values["posted_at"]
+    if values["handover_months"] is None and values["handover_date"] and posted:
+        days = (values["handover_date"] - (posted.date() if hasattr(posted, "date") else posted)).days
+        if days >= 0:
+            values["handover_months"] = round(days / 30.44)
     return values, blob, is_forum
 
 
