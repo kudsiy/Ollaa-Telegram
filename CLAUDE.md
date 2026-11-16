@@ -73,7 +73,11 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
   messages, no joining or leaving channels, no reactions, no contacting anyone.
 - **Run the scraper once or twice a day, never in a loop**, and never at the same time
   as the listener. `run_all.py` carries on with the other steps when the scraper stops
-  for safety (what was read before the stop is saved).
+  for safety (what was read before the stop is saved). The app's scheduled task "Ollaa: scrape
+  every 3 days" (owner's decision, 16 November 2026) runs one scrape at 10:07 every third day of
+  the month (1st, 4th, 7th, …) with these limits; if the app was closed it runs once when the app
+  opens, and it does nothing if messages were saved in the last 48 hours, so it never catches up
+  with several runs.
 - **After a revocation or ban:** stop everything, wait at least 24 hours (longer after
   repeated ones), then the owner logs in once, by hand, on the one computer.
 - **Same identity:** always the owner's own `TG_API_ID` / `TG_API_HASH` from
@@ -130,6 +134,10 @@ full run needs the owner's approval again.
   `database/export_schema.py` from the live database; never edit it by hand. After any
   change to tables, views or functions, run `database\export_schema.py` and then
   `database\export_schema.py --check` (it must say "identical"), and commit both.
+  The separate `ollaa-web` project keeps its own objects in the same database (`web_listings`, its
+  sequence, and the view `web_offplan_properties`): by the owner's decision (16 November 2026) they
+  stay out of this project's `schema.sql`, and the check ignores them (`OTHER_PROJECT_OBJECTS` in
+  `export_schema.py`; add any new ollaa-web object there). `web_scraped_listings` is this project's.
 - Repairs and deletions are protected automatically (task S4, `src/protection.py`):
   - Changing a parser field of a listing by anything other than the parser (a repair
     script, pgAdmin, a hand-written UPDATE) is recorded in `listing_overrides`, and that

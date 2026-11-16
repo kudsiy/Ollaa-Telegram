@@ -15,6 +15,9 @@ Usage (from the project root):
 --check builds a temporary empty database (ollaa_schema_check) from schema.sql,
 compares its structure with the live database, and deletes it again.
 
+Both leave out the objects of the separate ollaa-web project that share the database
+(OTHER_PROJECT_OBJECTS below).
+
 It uses the administrator login (DB_ADMIN_USER / DB_ADMIN_PASSWORD in .env),
 because creating and deleting databases is an admin job.
 """
@@ -37,6 +40,9 @@ import psycopg2  # noqa: E402
 import settings  # noqa: E402
 
 SCHEMA_FILE = BASE_DIR / "database" / "schema.sql"
+# Objects of the separate ollaa-web project, which shares the database (its load_web_listings.py): left out of
+# schema.sql and of the check, by the owner's decision of 16 November 2026. web_scraped_listings is this project's.
+OTHER_PROJECT_OBJECTS = ("public.web_listings", "public.web_listings_id_seq", "public.web_offplan_properties")
 CHECK_DB = "ollaa_schema_check"
 PG_BIN = Path(r"C:\Program Files\PostgreSQL\18\bin")
 
@@ -80,7 +86,8 @@ def pg_env() -> dict:
 def dump_structure(dbname: str) -> str:
     result = subprocess.run(
         [pg_tool("pg_dump"), "-h", settings.DB_HOST, "-p", str(settings.DB_PORT), "-U", settings.DB_ADMIN_USER,
-         "--schema-only", "--no-owner", "--no-privileges", dbname],
+         "--schema-only", "--no-owner", "--no-privileges",
+         *(f"--exclude-table={name}" for name in OTHER_PROJECT_OBJECTS), dbname],
         env=pg_env(), capture_output=True,
     )
     if result.returncode != 0:
