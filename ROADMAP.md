@@ -49,6 +49,7 @@ Estate IQ fed daily from the Ollaa database, then launched. To be planned when p
 
 ## Log
 
+- 19 Nov 2026: the scheduled scrape ran once (S43, 203 new messages, no warning); the listener stepped aside for it and came back after it. No new feature.
 - 19 Nov 2026: the Phase 1 code committed (all tests passing); the live test to be repeated.
 - 16 Nov 2026: roadmap written. Phase 1 started: listener rebuilt on the scraper's and the ETL's code, the
   service (autostart, restarts, internet wait, step aside), the health log, the pre-push test check.

@@ -6,7 +6,7 @@ asked: nothing contacted Telegram. Every number comes from `database/thesis_data
 
     venv\Scripts\python.exe database\thesis_data_check.py
 
-State of the database on 16 November 2026: 6,304 stored listings, 1,752 usable (see `DATA_QUALITY.md`).
+State of the database on 19 November 2026: 6,500 stored listings, 1,819 usable (see `DATA_QUALITY.md`).
 
 ## In short
 
@@ -19,9 +19,9 @@ State of the database on 16 November 2026: 6,304 stored listings, 1,752 usable (
   states more than 4 of the 7 terms; the 5 most complete are shown under "Bole off-plan apartments: what they state".
 - **Too few for a discount-rate model from text alone:** 17 Bole off-plan adverts have a unit size and total price, 1 has those and
   a discount schedule, and none states both a price paid at once and a price paid over time. Ready Bole apartments with price and
-  size: **69**.
+  size: **72**.
 - **The one-row-per-unit table** (`listing_units`, task S38) gives 87 units in 14 Bole off-plan adverts.
-- **championallsites is almost all photos (1,043 of 1,090 posts)**: its prices and payment terms are in the pictures. A 30-photo pilot
+- **championallsites is almost all photos (1,045 of 1,092 posts)**: its prices and payment terms are in the pictures. A 30-photo pilot
   from its Bole developers' topics (task S41) is prepared; see "Photo pilot".
 
 ## How adverts were sorted (please read: these are word rules, so the counts are estimates)
@@ -44,10 +44,10 @@ State of the database on 16 November 2026: 6,304 stored listings, 1,752 usable (
 
 |  | All stored adverts with text | of them usable listings | in the sale sample |
 |---|---|---|---|
-| Apartment adverts for sale (text read) | 832 | 621 | 309 |
+| Apartment adverts for sale (text read) | 857 | 646 | 322 |
 | **Off-plan** (being built or sold on a developer's plan) | **265** | 169 | 69 |
-| Unclear (off-plan words and finished-building words) | 57 | 47 | 19 |
-| Ready (no off-plan words) | 510 | 405 | 221 |
+| Unclear (off-plan words and finished-building words) | 58 | 48 | 19 |
+| Ready (no off-plan words) | 534 | 429 | 234 |
 
 | Off-plan adverts | Count |
 |---|---|
@@ -61,7 +61,7 @@ The 49 off-plan adverts placed in Bole, by place: Bole 26, Haya Hulet (22) 10, B
 
 Off-plan adverts by the sub-city of their stored place: Kirkos 65, Lemi Kura 49, Bole 49, (none) 46, Yeka 29, Arada 20, Nifas Silk 4, Sheger 1, Kolfe 1, Akaki 1.
 
-Not counted above: 3,721 photo-only posts, whose words are in the picture; 1,043 of them are in championallsites and 1,488 are in a forum topic or name a developer.
+Not counted above: 3,839 photo-only posts, whose words are in the picture; 1,045 of them are in championallsites and 1,491 are in a forum topic or name a developer.
 
 ## Bole off-plan apartments: what they state
 
@@ -229,13 +229,13 @@ Units priced both paid at once and another way: 16 in 5 adverts (0 units in off-
 
 | Bole apartments for sale | Count | usable | in the sale sample |
 |---|---|---|---|
-| Ready, any | 112 | 86 | 33 |
-| **Ready, with price and size** | **69** | 69 | 33 |
+| Ready, any | 116 | 90 | 35 |
+| **Ready, with price and size** | **72** | 72 | 35 |
 | Off-plan, with price and size | 17 | 17 | 14 |
 | Unclear, in Bole | 7 | 6 | 4 |
-| Government condominiums with price and size (kept apart) | 4 | 4 | 4 |
+| Government condominiums with price and size (kept apart) | 5 | 5 | 5 |
 
-- Ready Bole apartments: median asking price 151,515 birr per m² over 69 listings (stored total price ÷ stored size; not cleaned for outliers).
+- Ready Bole apartments: median asking price 152,318 birr per m² over 72 listings (stored total price ÷ stored size; not cleaned for outliers).
 - Off-plan Bole apartments: median asking price 105,000 birr per m² over 17 listings (stored total price ÷ stored size; not cleaned for outliers).
 
 ## Channels and forum topics with the most off-plan adverts with payment terms
@@ -281,14 +281,14 @@ Forum topics (each topic is usually one developer project):
 | luxury_freelancers | Merit Realestate 4ኪሎ | 1 | 0 | 8 |
 | luxury_freelancers | Dream builders Realestate | 1 | 0 | 7 |
 
-**championallsites** (a forum group, one topic per developer project): 1,090 stored posts in 46 topics; 1,043 are photo-only, so their prices and payment terms are in the pictures, which the text parser cannot read. Of the 47 with text, 9 are construction-progress updates, and 0 is read as an off-plan apartment advert. Its busiest topics:
+**championallsites** (a forum group, one topic per developer project): 1,092 stored posts in 46 topics; 1,045 are photo-only, so their prices and payment terms are in the pictures, which the text parser cannot read. Of the 47 with text, 9 are construction-progress updates, and 0 is read as an off-plan apartment advert. Its busiest topics:
 
 | Topic (project) | Stored posts | Photo-only | With text |
 |---|---|---|---|
 | Nor Sheger_Arada Grand Mall (ፒያሳ) | 51 | 50 | 1 |
 | #Champion_Site Gazebo Skyline | 50 | 45 | 5 |
+| 3NASeyoum_Sholla(ሾላ) | 41 | 39 | 2 |
 | Visco_BoleMeskelFlower(መስቀልፍላወር) | 40 | 40 | 0 |
-| 3NASeyoum_Sholla(ሾላ) | 39 | 37 | 2 |
 | Star_Properties_Grove Apartment Sarbet | 35 | 35 | 0 |
 | Nexus_Sunset (ለቡ ቫርኔሮ) | 35 | 33 | 2 |
 | Laphto_Life_Real Estate (Biserat Gbreal) | 31 | 30 | 1 |
@@ -311,7 +311,7 @@ Forum topics (each topic is usually one developer project):
 | sarbet_old_airport | Sarbet / Old Airport | ሳርቤት, sarbet, Sarbet | Kirkos | owner's rule (16 Nov 2026) | 29 | 17 |
 | piassa | Piassa | Piassa, ፒያሳ, በፒያሳ | Arada | likely | 28 | 21 |
 | kazanchis | Kazanchis | ካዛንቺስ, ካሳንቺስ, በካዛንቺስ | Kirkos | likely | 24 | 15 |
-| megenagna | Megenagna | መገናኛ, Megenagna, በመገናኛ | Yeka | check: near a sub-city border (Yeka–Bole) | 20 | 15 |
+| megenagna | Megenagna | መገናኛ, Megenagna, በመገናኛ | Yeka | check: near a sub-city border (Yeka–Bole) | 21 | 16 |
 | awere | Awere | አዋሬ, በአዋሬ | Yeka | owner's rule (16 Nov 2026) | 20 | 11 |
 | la_gare | La Gare | በለገሃር, ለገሃር, La Gare | Kirkos | likely | 20 | 13 |
 | bulgaria | Bulgaria | ቡልጋሪያ, Bulgaria, በቡልጋሪያ | Kirkos | owner's rule (16 Nov 2026) | 17 | 8 |
@@ -320,8 +320,8 @@ Forum topics (each topic is usually one developer project):
 | mexico | Mexico | Mexico, ሜክሲኮ, በሜክሲኮ | Kirkos | check: near a sub-city border (Kirkos–Lideta) | 13 | 8 |
 | ayat_49 | Ayat 49 | አያት 49, Ayat49, በአያት 49 | Lemi Kura | owner's rule (16 Nov 2026) | 13 | 8 |
 | garment | Garment | ጋርመንት, Garment | — | **no sub-city in the place table** | 11 | 2 |
+| dembel | Dembel | ደንበል, Dembel, ወደ ደንበል | — | **no sub-city in the place table** | 10 | 1 |
 | summit_72 | Summit 72 | ሰሚት72, ሰሚት 72 | Lemi Kura | owner's rule (16 Nov 2026) | 9 | 15 |
-| dembel | Dembel | ደንበል, Dembel, ወደ ደንበል | — | **no sub-city in the place table** | 9 | 1 |
 | meskel_flower | Meskel Flower | Meskel Flower, መስቀል ፍላወር, Meskel flower | Kirkos | check: near a sub-city border (Kirkos–Bole) | 8 | 8 |
 | tafo | Tafo | Tafo, ጣፎ | Lemi Kura | check: at the city edge (Yeka–Lemi Kura–Sheger) | 8 | 0 |
 | yeka | Yeka | የካ, ከየካ, Yeka | Yeka | check: may be a false match inside a longer word | 7 | 1 |
