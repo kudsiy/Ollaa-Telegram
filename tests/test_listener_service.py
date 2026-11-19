@@ -82,7 +82,13 @@ service.online, service.database_up = (lambda: True), (lambda: False)
 check("the database not answering: waits", "database" in reason())
 service.database_up = lambda: True
 
-print("3. Crashes")
+print("3. The daily upkeep")
+steps = [s[0] for s in service.MAINTENANCE_STEPS]
+check("only the safe steps: the ETL and the units table (no Telegram)", steps == ["etl_runner.py", "listing_units.py"])
+check("never run_all.py or its repair scripts, which write guesses as protected values",
+      not {"run_all.py", "Fix_extraction.py", "dedup_and_fix_locations.py", "telegram_scraper.py"} & set(steps))
+
+print("4. Crashes")
 check("restarts after a crash slow down: 1, 2, 5, 10, then 30 minutes", service.CRASH_WAITS == [60, 120, 300, 600, 1800])
 check("at most 10 restarts a day", service.CRASHES_PER_DAY == 10)
 waits, codes = [], iter([1, 1, 0])

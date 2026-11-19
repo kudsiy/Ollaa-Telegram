@@ -11,8 +11,8 @@ Each new message goes into the database at once, by the same code as the scraper
   2) etl_runner.save_listing: the parser with the channel rules, the listing, and its rental row;
   3) dedup_strict.remove_new_repeat: a new listing that clearly repeats an older advert from the same
      channel or agent is removed at once (the owner's standing rule).
-The repair steps, the full repeat check, the units table and the views follow in the daily run of
-`run_all.py --skip-scrape` (listener_service.py). Each day's counts and warnings: listener_health.py.
+The ETL (for any message whose live processing failed), the units table and the views follow daily
+(listener_service.py); the full repeat review stays in the attended scrape run. Each day's counts and warnings: listener_health.py.
 
 Account safety (see "Telegram account safety" in CLAUDE.md and telegram_safety.py):
 - it uses the existing login file and stops if that is missing or no longer valid; it never logs in;

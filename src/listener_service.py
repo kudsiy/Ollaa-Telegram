@@ -11,8 +11,9 @@ Keeps the live listener running all day (Phase 1 of ROADMAP.md). It starts with 
   - after any warning from Telegram it waits until the pause in telegram_usage.json has ended;
   - makes way for the scraper and the photo pilot (telegram_safety.StepAside): the listener disconnects,
     and starts again when they are done; it never runs at the same time as them (one lock);
-  - once a day (after 03:00 Addis Ababa time) runs `run_all.py --skip-scrape` with no Telegram use: the
-    repair steps, the full repeat check (with its backup), the units table and the views, as after a scrape.
+  - once a day (after 03:00 Addis Ababa time), with no Telegram use: etl_runner.py (any message whose live
+    processing failed), listing_units.py --apply and the views. Never run_all.py: its repair scripts write
+    rough guesses that become protected values; the full repeat review stays in the attended scrape run.
 
 Only one copy runs (data/listener/service.lock). Its log: data/listener/service.log; the day's counts and
 warnings: listener_health.py (database\scrape_check.py shows them).
@@ -114,16 +115,33 @@ def maintenance_due() -> bool:
     return done != today and safety.now().hour >= MAINTENANCE_HOUR
 
 
+def refresh_views() -> None:
+    from sqlalchemy import create_engine, text
+
+    from settings import DB_URL
+    with create_engine(DB_URL).begin() as conn:
+        conn.execute(text("REFRESH MATERIALIZED VIEW market_price_model"))
+        conn.execute(text("REFRESH MATERIALIZED VIEW rental_yields"))
+
+
 def run_maintenance() -> None:
-    """The steps after a scrape, without scraping (no Telegram use)."""
+    """The safe daily steps, no Telegram use: the ETL (for any message whose live processing failed), the units
+    table and the views. Never run_all.py: its repair scripts (Fix_extraction.py, the location fix) write rough
+    guesses that become protected values; the full repeat review stays in the attended scrape run."""
     MAINTENANCE_FILE.write_text(safety.now().date().isoformat(), encoding="utf-8")
-    log("daily maintenance: run_all.py --skip-scrape")
+    log("daily maintenance: " + "; ".join(" ".join(s) for s in MAINTENANCE_STEPS) + "; the views")
     with open(SERVICE_DIR / "maintenance.log", "w", encoding="utf-8") as out:
-        code = subprocess.call([str(PYTHON), "-X", "utf8", str(BASE_DIR / "src" / "run_all.py"), "--skip-scrape"],
-                               cwd=BASE_DIR, stdout=out, stderr=subprocess.STDOUT, creationflags=_NO_WINDOW)
-    log(f"daily maintenance ended (exit code {code})")
-    if code:
-        health.note("error", f"daily run_all.py --skip-scrape ended with exit code {code} (data/listener/maintenance.log)")
+        for step in MAINTENANCE_STEPS:
+            code = subprocess.call([str(PYTHON), "-X", "utf8", str(BASE_DIR / "src" / step[0]), *step[1:]],
+                                   cwd=BASE_DIR, stdout=out, stderr=subprocess.STDOUT, creationflags=_NO_WINDOW)
+            if code:
+                log(f"daily maintenance: {step[0]} ended with exit code {code}")
+                health.note("error", f"daily {step[0]} ended with exit code {code} (data/listener/maintenance.log)")
+    refresh_views()
+    log("daily maintenance done")
+
+
+MAINTENANCE_STEPS = [["etl_runner.py"], ["listing_units.py", "--apply"]]
 
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)

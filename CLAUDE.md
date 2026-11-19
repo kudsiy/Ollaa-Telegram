@@ -94,8 +94,9 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
   (a shortcut in the owner's Startup folder, `src/listener_autostart.py --install` / `--remove`), waits
   for the internet and the database, restarts the listener after a crash (1, 2, 5, 10, then 30 minutes,
   at most 10 a day), waits out any pause after a warning, never logs in (after an ended login it waits
-  until the owner has logged in again by hand), and runs `run_all.py --skip-scrape` once a day after
-  03:00 (no Telegram use). `tests/test_listener_service.py` checks when it starts and when it waits.
+  until the owner has logged in again by hand), and once a day after 03:00 runs only safe steps with
+  no Telegram use: `etl_runner.py`, `listing_units.py --apply` and the views. Never `run_all.py` unattended:
+  its repair scripts (`Fix_extraction.py`, the location fix) write rough guesses that become protected values. `tests/test_listener_service.py` checks when it starts and when it waits.
   Its daily health log (messages received, listings added, warnings) is in `data/listener/health/`,
   written by `src/listener_health.py` and shown by `database\scrape_check.py`. Tests must never write
   to the real health log, lock, step-aside note or database: point them at a temporary folder and stand-ins.
