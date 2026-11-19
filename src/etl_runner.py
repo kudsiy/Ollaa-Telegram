@@ -363,6 +363,50 @@ def price_per_sqm_values(values):
     return per_built, per_plot
 
 
+RAW_ROWS_SQL = """
+    SELECT id, text, channel, posted_at, reply_to_top_id, topic_title
+    FROM telegram_listings t
+    WHERE NOT EXISTS (SELECT 1 FROM processing_exclusions e WHERE e.raw_id = t.id)
+"""
+
+
+class StepError(Exception):
+    """A message that could not be turned into a listing: the step that failed, and why."""
+
+    def __init__(self, step, error):
+        super().__init__(f"{step}: {type(error).__name__}: {error}")
+        self.step, self.error = step, error
+
+
+def save_listing(pipeline, row):
+    """
+    The one path from a raw message to its listing, used by the ETL and by listener.py: parse it with the
+    channel rules (build_processed_values), store the listing (only if new) and, for a rent offer, its
+    rental_listings row. Returns (listing added, rental row added, rental error or None); raises StepError
+    when the parser or the listing's save fails.
+    """
+    try:
+        values, blob, is_forum = build_processed_values(pipeline, row)
+    except Exception as e:
+        raise StepError("parser", e)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(PARSER_WRITE_SQL))
+            stmt = UPSERT_FORUM_PROJECT if is_forum else INSERT_PROCESSED
+            if not conn.execute(text(stmt), values).rowcount:
+                return False, False, None   # already processed (ON CONFLICT DO NOTHING); its rental row too
+    except Exception as e:
+        raise StepError("save listing", e)
+    if not is_rental(values):
+        return True, False, None
+    try:
+        with engine.begin() as conn:
+            return True, bool(conn.execute(text(INSERT_RENTAL), rental_row(values, blob[:2000])).rowcount), None
+    except Exception as e:
+        # A rental insert failure does not undo the listing, but is reported.
+        return True, False, f"{type(e).__name__}: {e}"
+
+
 def run(limit=None):
     pipeline = ValuationPipeline()
 
@@ -373,11 +417,7 @@ def run(limit=None):
 
         # Fetch raw listings including posted_at, except messages deliberately
         # kept out (deleted duplicates and clean-ups, see processing_exclusions).
-        query = """
-            SELECT id, text, channel, posted_at, reply_to_top_id, topic_title
-            FROM telegram_listings t
-            WHERE NOT EXISTS (SELECT 1 FROM processing_exclusions e WHERE e.raw_id = t.id)
-        """
+        query = RAW_ROWS_SQL
         if limit:
             query += f" LIMIT {limit}"
         rows = conn.execute(text(query)).fetchall()
@@ -396,36 +436,16 @@ def run(limit=None):
             print(f"  {i}/{total} processed | inserted={inserted} rental={rental} errors={errors}")
 
         try:
-            values, blob, is_forum = build_processed_values(pipeline, row)
-        except Exception as e:
+            added, rental_added, rental_error = save_listing(pipeline, row)
+        except StepError as e:
             errors += 1
-            error_log.append((row.id, "parser", f"{type(e).__name__}: {e}"))
+            error_log.append((row.id, e.step, f"{type(e.error).__name__}: {e.error}"))
             continue
-
-        # ── Insert/Upsert into processed_listings (all records) ──────
-        try:
-            with engine.begin() as conn:
-                conn.execute(text(PARSER_WRITE_SQL))
-                stmt = UPSERT_FORUM_PROJECT if is_forum else INSERT_PROCESSED
-                if conn.execute(text(stmt), values).rowcount:
-                    inserted += 1
-                else:
-                    skipped += 1   # already processed (ON CONFLICT DO NOTHING)
-                    continue       # its rental row, if any, was made when it was new
-        except Exception as e:
-            errors += 1
-            error_log.append((row.id, "save listing", f"{type(e).__name__}: {e}"))
-            continue
-
-        # ── Insert into rental_listings (RENT intent only, new listings) ────
-        if is_rental(values):
-            try:
-                with engine.begin() as conn:
-                    result = conn.execute(text(INSERT_RENTAL), rental_row(values, blob[:2000]))
-                    rental += result.rowcount   # 0 when already there (ON CONFLICT DO NOTHING)
-            except Exception as e:
-                # A rental insert failure should not block the main insert, but is reported.
-                error_log.append((row.id, "save rental", f"{type(e).__name__}: {e}"))
+        inserted += added
+        skipped += not added
+        rental += rental_added
+        if rental_error:
+            error_log.append((row.id, "save rental", rental_error))
 
     # ── Final summary ─────────────────────────────────────────
     print(f"""

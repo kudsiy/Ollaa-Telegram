@@ -69,6 +69,8 @@ def detect_media_type(msg) -> str:
         mime = getattr(msg.document, 'mime_type', '') or ''
         if 'pdf' in mime.lower():
             return "PDF"
+        if mime.lower().startswith("video/"):
+            return "VIDEO"
         return "DOCUMENT"
     return "UNKNOWN"
 
@@ -190,7 +192,7 @@ async def main() -> int:
     try:
         session = safety.require_session_file()      # before anything else: no login file, no run
         api_id, api_hash = safety.api_credentials()
-        with safety.TelegramLock("scraper"):
+        with safety.StepAside("scraper"):   # a running listener disconnects first
             budget = safety.DailyBudget()
             budget.start_scraper_run()
             ensure_tables()

@@ -80,6 +80,7 @@ def fresh(day):
     TMP.mkdir()
     safety.SESSION, safety.LEGACY_SESSION = TMP / "ollaa_session.session", TMP / "legacy.session"
     safety.LOCK_FILE, safety.USAGE_FILE = TMP / "telegram.lock", TMP / "telegram_usage.json"
+    safety.STEP_ASIDE_FILE, safety.STEP_ASIDE_WAIT = TMP / "listener_step_aside.json", 2
     safety.SESSION.write_text("stand-in login file")
     safety.now = lambda: datetime(2026, 11, day, 14, 0, tzinfo=safety.ETHIOPIA)
     pilot.OUT_DIR, pilot.PHOTO_DIR, pilot.LOG_FILE = TMP, TMP / "photos", TMP / "downloads.json"

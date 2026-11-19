@@ -2,6 +2,12 @@
 
 Read `STATUS.md` first: it has the audit findings and the numbered fix list (S1, S2, …).
 
+**Roadmap (owner's decision, 16 November 2026).** Ollaa is first a company product, not just thesis data.
+`ROADMAP.md` holds its four phases: 1. the listener live 24/7; 2. Telegram and web data merged into one
+database; 3. photos, PDFs, then videos read automatically; 4. Estate IQ fed daily from the Ollaa database
+and launched. Finish one phase before starting the next; no new features outside the current phase.
+Read `ROADMAP.md` at the start of every session and update it before the session ends.
+
 ## Working with the owner
 
 - The owner is not a programmer. Explain in simple words, do the technical work yourself,
@@ -40,17 +46,21 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
     project root) and stop with a message if it is missing or no longer valid. They never
     start a new login and never ask for a code (no `client.start()`, no `async with
     TelegramClient`). An expired login also blocks Telegram use for 25 hours.
-  - **One at a time.** The scraper and the listener share one lock
-    (`data/sessions/telegram.lock`): while one runs, the other refuses to start. The lock
-    is freed when a program ends, even after a crash.
+  - **One at a time.** The scraper, the listener and the photo pilot share one lock
+    (`data/sessions/telegram.lock`): while one runs, the others refuse to start. The lock
+    is freed when a program ends, even after a crash. The scraper and the photo pilot first
+    ask a running listener to step aside (`telegram_safety.StepAside`,
+    `data/sessions/listener_step_aside.json`): it disconnects within seconds and does not
+    start again until they are done (the request ends by itself after 3 hours, 2 for the pilot).
   - **Slow and small.** Per scraper run: the 40 newest messages per channel; per forum
     group the 10 topics with the newest messages, 20 messages each; random pauses of
     45–120 seconds between channels, 20–45 seconds between topics and 5–15 seconds
     between two requests for one channel. Channels the login file already knows cost one
     request each. At most 2 scraper runs and 150 requests a day (scraper and listener
     together, counted in `data/sessions/telegram_usage.json`; days start at midnight
-    Addis Ababa time). The listener only listens; it asks for each forum topic's title
-    once and skips titles when the day's requests are used up.
+    Addis Ababa time). The listener only listens; each start counts as one request, and it
+    asks for each forum topic's title once (remembered in `data/listener/topic_titles.json`)
+    and skips titles when the day's requests are used up.
   - **Any warning from Telegram stops everything.** A FloodWait (or any other error
     from Telegram about the account, such as an ended login) stops the whole run at
     once, with no retry; neither program may use Telegram again until the next midnight
@@ -80,8 +90,17 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
   raw messages saved in the last 24 hours per channel.
 - **Read only.** Scripts only read channels the account already follows: no sending
   messages, no joining or leaving channels, no reactions, no contacting anyone.
-- **Run the scraper once or twice a day, never in a loop**, and never at the same time
-  as the listener. `run_all.py` carries on with the other steps when the scraper stops
+- **The listener runs all day** (Phase 1, task S42): `src/listener_service.py` starts with Windows
+  (a shortcut in the owner's Startup folder, `src/listener_autostart.py --install` / `--remove`), waits
+  for the internet and the database, restarts the listener after a crash (1, 2, 5, 10, then 30 minutes,
+  at most 10 a day), waits out any pause after a warning, never logs in (after an ended login it waits
+  until the owner has logged in again by hand), and runs `run_all.py --skip-scrape` once a day after
+  03:00 (no Telegram use). `tests/test_listener_service.py` checks when it starts and when it waits.
+  Its daily health log (messages received, listings added, warnings) is in `data/listener/health/`,
+  written by `src/listener_health.py` and shown by `database\scrape_check.py`. Tests must never write
+  to the real health log, lock, step-aside note or database: point them at a temporary folder and stand-ins.
+- **Run the scraper once or twice a day, never in a loop**; it makes the listener step aside.
+  `run_all.py` carries on with the other steps when the scraper stops
   for safety (what was read before the stop is saved). The app's scheduled task "Ollaa: scrape
   every 3 days" (owner's decision, 16 November 2026) runs one scrape at 10:07 every third day of
   the month (1st, 4th, 7th, …) with these limits; if the app was closed it runs once when the app
@@ -109,6 +128,12 @@ full run needs the owner's approval again.
   approval; a copy made earlier must be deleted and cloned again.
 - Commit and push after every finished task, so work never stays on one computer.
   Do each task on its own branch, then merge into `main` when it is safe.
+- **Commit and push only after all tests pass** (owner, 16 November 2026). Run
+  `venv\Scripts\python.exe tests\run_all_tests.py` (every `tests/test_*.py` and the database structure
+  check) and commit only when it says "ALL PASSED"; chain the commands so a failure stops them. The git
+  pre-push check `.githooks/pre-push` runs it again before every push and stops the push on a failure;
+  switch it on in each copy of the project with `git config core.hooksPath .githooks`. Never skip it
+  (`--no-verify`). A new test file is picked up by `run_all_tests.py` by itself.
 - After a task is finished, update its row in the `STATUS.md` fix list.
 - Never commit: `.env`, `*.session` (Telegram logins), `venv/`, `data/`, or the large
   `*.txt` / `*.csv` dumps in the project root. They hold secrets or other people's phone
@@ -189,12 +214,15 @@ full run needs the owner's approval again.
   `rental_listings`. It only adds listings; `src/reprocess.py` updates existing ones
   with the same code (`build_processed_values`) and keeps `rental_listings` in step (one
   row per rent or mixed listing with a rent, made by `etl_runner.rental_row`).
-- `src/listener.py` does the same live, as messages arrive (configured chats only).
+- `src/listener.py` does the same live, as messages arrive (configured chats only), with the same code
+  (task S42): the raw message and its media note by `telegram_scraper.save_messages` (under the channel's
+  name in `channels.py`, with the forum topic's title), the listing by `etl_runner.save_listing` (the code
+  the ETL uses), then `dedup_strict.remove_new_repeat`: a new listing that the repeat rules find repeats an
+  older one from the same channel or agent is removed at once (only that new listing, so no backup).
+  Photos, videos and PDFs are only noted in `media_queue` (Phase 3 reads them).
 - Bet_afri, Betafrivip and Bet_afri_Business are rent-only channels; a post's type is what
   it states after its rent (`etl_runner.bet_afri_type`, checked by
-  `tests/test_classification.py`). The ETL and `reprocess.py` apply it; `listener.py`
-  calls the parser without the channel rules, so its posts get them at the next
-  re-processing.
+  `tests/test_classification.py`). The ETL, `listener.py` and `reprocess.py` apply it.
 - `src/run_all.py` runs scrape → ETL → repair scripts → dedup → views → report.
 - Duplicates are removed only by `src/dedup_strict.py` (report first, then `--apply`; task S20):
   same words, same type+place+price+size, or nearly the same words with nothing in conflict.
@@ -229,8 +257,8 @@ full run needs the owner's approval again.
   (task S37, `price_options()`) the prices by payment option and finish (`price_options`, `cash_price_per_sqm`,
   `instalment_price_per_sqm`, `cash_price_birr`, `instalment_price_birr`), and (task S39) the stated handover date,
   `handover_date`, in the Gregorian calendar (Ethiopian dates converted by `payment_terms.ethiopian_to_gregorian`). Rent
-  adverts get none. `tests/test_payment_terms.py` checks the rules; run it after any change to them. `listener.py` does not
-  write these columns: its listings get them at the next `reprocess.py`. `database/thesis_data_check.py` (read-only) writes
+  adverts get none. `tests/test_payment_terms.py` checks the rules; run it after any change to them. `listener.py` writes them too
+  (it uses the ETL's code since S42). `database/thesis_data_check.py` (read-only) writes
   the counts in `THESIS_DATA_CHECK.md`.
 - Developers (task S40): `src/developers.py` is the one list of developer names and their spellings, and the
   developers' own channels; the `developer` column holds only its names, or the words before "real estate" for one not

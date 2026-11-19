@@ -1,0 +1,5 @@
+#!/bin/sh
+# Runs every test before a push (CLAUDE.md, "Git and GitHub"): nothing reaches GitHub unless all pass.
+# Switched on in each copy of the project with: git config core.hooksPath .githooks
+cd "$(git rev-parse --show-toplevel)" || exit 1
+venv/Scripts/python.exe -X utf8 tests/run_all_tests.py || { echo "PUSH STOPPED: a test failed (see above). Fix it, commit, and push again."; exit 1; }

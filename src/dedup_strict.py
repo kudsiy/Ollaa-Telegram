@@ -230,6 +230,35 @@ def backup() -> Path:
     return path
 
 
+def remove_new_repeat(engine, listing_id: str):
+    """
+    The live check of listener.py, for a listing just added: when the same rules find it repeats an older
+    listing from the same channel or agent (the owner's standing rule) and it is the copy that goes, it is
+    removed at once, and its message recorded in processing_exclusions. Only that new listing is ever removed,
+    so no backup is needed (its raw message stays); every other repeat waits for the next run of this script.
+    Returns the listing it repeats, or None.
+    """
+    with engine.connect() as conn:
+        rows = load(conn)
+        protected = {r[0] for r in conn.execute(text("SELECT DISTINCT listing_id FROM listing_overrides"))}
+    by_id = {r.id: r for r in rows}
+    if listing_id not in by_id or listing_id in protected:
+        return None
+    removals, _ = plan(rows, protected)
+    hit = next(((keep, rule) for gone, keep, rule in removals
+                if gone == listing_id and same_source(by_id[gone], by_id[keep])), None)
+    if not hit:
+        return None
+    keep, rule = hit
+    with engine.begin() as conn:
+        conn.execute(text("SET LOCAL application_name = 'dedup_strict.py (listener)'"))
+        conn.execute(text("DELETE FROM rental_listings WHERE id = :i"), {"i": f"{listing_id}_rent"})
+        conn.execute(text("DELETE FROM processed_listings WHERE id = :i"), {"i": listing_id})
+        conn.execute(text("UPDATE processing_exclusions SET reason = :why WHERE raw_id = :raw"),
+                     {"why": f"duplicate of listing {keep}: {RULES[rule]} (dedup_strict.py, listener)", "raw": int(listing_id)})
+    return keep
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--apply", action="store_true", help="remove the repeats (default: report only)")

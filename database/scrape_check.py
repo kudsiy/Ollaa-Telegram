@@ -7,6 +7,8 @@ What the Telegram scraper did, checked without contacting Telegram. Read-only.
 - Telegram use today (data/sessions/telegram_usage.json): scraper runs, requests used,
   and any pause with its reason
 - raw messages saved in the last 24 hours, per channel, with the newest post date
+- the live listener: whether it starts with Windows, and today's and yesterday's health log
+  (messages received, listings added, warnings; see src/listener_health.py)
 
 Usage:
     venv\Scripts\python.exe database\scrape_check.py
@@ -20,6 +22,8 @@ sys.path.insert(0, str(BASE_DIR / "src"))
 
 from sqlalchemy import create_engine, text  # noqa: E402
 
+import listener_autostart  # noqa: E402
+import listener_health  # noqa: E402
 import telegram_safety as safety  # noqa: E402
 from settings import DB_URL  # noqa: E402
 
@@ -45,6 +49,12 @@ def main() -> None:
         print("Telegram use: allowed")
     except safety.SafetyStop as e:
         print(str(e).replace("Telegram use is paused", "Telegram use: paused"))
+
+    print(f"\nListener autostart: {'on' if listener_autostart.SHORTCUT.exists() else 'off'}; in use now by: "
+          f"{safety.LOCK_FILE.with_suffix('.info').read_text(encoding='utf-8') if safety.LOCK_FILE.with_suffix('.info').exists() else 'nothing'}")
+    from datetime import timedelta
+    for day in (safety.now().date() - timedelta(days=1), safety.now().date()):
+        print(listener_health.summary(day.isoformat()))
 
     with create_engine(DB_URL).connect() as conn:
         rows = conn.execute(SAVED_SQL).fetchall()

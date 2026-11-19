@@ -105,7 +105,7 @@ async def download(chosen: list[dict]) -> int:
     session = safety.require_session_file()
     api_id, api_hash = safety.api_credentials()
     PHOTO_DIR.mkdir(parents=True, exist_ok=True)
-    with safety.TelegramLock("photo pilot"):
+    with safety.StepAside("photo pilot", hours=2):   # a running listener disconnects first
         budget = safety.DailyBudget()
         budget.new_day()
         budget.check_not_blocked()

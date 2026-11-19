@@ -32,6 +32,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -151,6 +152,8 @@ def fresh_state():
     STATE.mkdir()
     safety.SESSION, safety.LEGACY_SESSION = STATE / "ollaa_session.session", STATE / "legacy.session"
     safety.LOCK_FILE, safety.USAGE_FILE = STATE / "telegram.lock", STATE / "telegram_usage.json"
+    safety.STEP_ASIDE_FILE, safety.STEP_ASIDE_WAIT = STATE / "listener_step_aside.json", 2
+    listener.health.HEALTH_DIR, listener.TITLES_FILE = STATE / "health", STATE / "topic_titles.json"   # never the real ones
     safety.now = REAL_NOW
     FakeTelegram.made, FakeTelegram.authorized, FakeTelegram.fail_on = [], True, {}
     FakeTelegram.events_to_send = []
@@ -271,6 +274,20 @@ def test_one_at_a_time():
     holder.wait(10)
     code, said = run(scraper)
     check("scraper runs once the listener has ended", code == 0)
+
+    holder = hold_lock_elsewhere("listener")
+    asked_aside = []
+
+    def listener_lets_go():   # what the listener does when it sees the request
+        asked_aside.append(safety.step_aside_request())
+        holder.stdin.write("\n")
+        holder.stdin.flush()
+    threading.Timer(0.5, listener_lets_go).start()
+    code, said = run(scraper)
+    holder.wait(10)
+    check("the scraper asks a running listener to step aside, then runs once it lets go",
+          asked_aside == ["scraper"] and code == 0)
+    check("the request ends when the scraper ends", safety.step_aside_request() is None)
 
     with safety.TelegramLock("scraper"):
         made = len(FakeTelegram.made)
@@ -403,7 +420,7 @@ def test_channel_problem():
 def forum_event(topic, message_id):
     group = Channel(id=5, title="forum", photo=ChatPhotoEmpty(), date=None, username="championallsites", forum=True)
     msg = message(message_id)
-    msg.reply_to_top_id = topic
+    msg.reply_to = SimpleNamespace(reply_to_top_id=None, reply_to_msg_id=topic, forum_topic=True)   # a post in a topic
 
     async def get_chat():
         raise AssertionError("the chat came with the message: no request needed")
@@ -411,9 +428,19 @@ def forum_event(topic, message_id):
     return SimpleNamespace(message=msg, is_private=False, chat=group, get_chat=get_chat)
 
 
+def fake_store(pipeline, name, msg, topic_title):
+    """Stands in for the database step (listener.store): this test is about Telegram only."""
+    STORED.append((name, msg.id, topic_title))
+    return {"saved": True}
+
+
+STORED = []
+
+
 def test_listener():
     print("9. Listener")
-    listener.engine = FakeEngine()
+    listener.store = fake_store
+    listener.TITLES_FILE = STATE / "topic_titles.json"
     fresh_state()
     login_file()
     FakeTelegram.events_to_send = [forum_event(11, 1), forum_event(11, 2), forum_event(12, 3)]
@@ -421,8 +448,23 @@ def test_listener():
     client = last_client()
     check("listens and ends normally", code == 0 and client.handled == 3)
     check("Telethon never waits out a FloodWait by itself", client.settings.get("flood_sleep_threshold") == 0)
-    check("each forum topic's title is asked for once (2 topics, 3 messages)",
-          len(asked(client, "GetForumTopicsByIDRequest")) == 2 and usage()["requests"] == 2)
+    check("each forum topic's title is asked for once (2 topics, 3 messages); connecting counts as one request",
+          len(asked(client, "GetForumTopicsByIDRequest")) == 2 and usage()["requests"] == 3)
+    check("saved under the name in channels.py, with the topic's title",
+          STORED[-1] == ("@championallsites", 3, "topic 12"))
+    listener.TITLES_FILE.write_text(listener.TITLES_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+    FakeTelegram.events_to_send = [forum_event(11, 4)]
+    code, said = run(listener)
+    check("a topic's title is remembered after a restart: no new request", code == 0
+          and not asked(last_client(), "GetForumTopicsByIDRequest"))
+
+    fresh_state()
+    login_file()
+    with safety.StepAside("scraper"):
+        code, said = run(listener)
+        check("the listener does not start while the scraper has asked it to step aside",
+              code == 2 and "scraper" in said and FakeTelegram.made == [])
+    check("the request ends with the scraper", safety.step_aside_request() is None)
 
     fresh_state()
     login_file()

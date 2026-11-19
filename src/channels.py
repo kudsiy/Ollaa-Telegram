@@ -77,9 +77,25 @@ FORUM_GROUPS = dedupe_channels([
 ALLOWED_USERNAMES = {c.lstrip("@").lower() for c in REGULAR_CHANNELS + FORUM_GROUPS}
 
 
-def is_configured_chat(entity) -> bool:
-    """True only for a channel or group whose public @username is listed above."""
+_LISTED = {c.lstrip("@").lower(): c for c in REGULAR_CHANNELS + FORUM_GROUPS}
+
+
+def configured_name(entity) -> str | None:
+    """The chat's @username as written above ("@Bet_afri"), or None for any chat not listed (private
+    chats and groups without a username included). The listener saves under this name, as the scraper does."""
+    from telethon.tl.types import User
+    if isinstance(entity, User):   # a person (or a bot), even one whose username matches a listed channel
+        return None
     names = [getattr(entity, "username", None)]
     # Some channels have several usernames (Telethon puts the extra ones in .usernames).
     names += [getattr(u, "username", None) for u in (getattr(entity, "usernames", None) or [])]
-    return any(n and n.lower() in ALLOWED_USERNAMES for n in names)
+    return next((_LISTED[n.lower()] for n in names if n and n.lower() in _LISTED), None)
+
+
+def is_configured_chat(entity) -> bool:
+    """True only for a channel or group whose public @username is listed above."""
+    return configured_name(entity) is not None
+
+
+def is_forum_group(name: str) -> bool:
+    return name in FORUM_GROUPS

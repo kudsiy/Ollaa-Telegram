@@ -147,6 +147,56 @@ class TelegramLock:
             self.handle = None
 
 
+STEP_ASIDE_FILE = STATE_DIR / "listener_step_aside.json"
+STEP_ASIDE_WAIT = 180               # seconds the scraper or the photo pilot waits for the listener to let go
+
+
+def step_aside_request():
+    """The program the listener must make way for, while its request lasts; else None."""
+    try:
+        req = json.loads(STEP_ASIDE_FILE.read_text(encoding="utf-8"))
+        return req["by"] if datetime.fromisoformat(req["until"]) > now() else None
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+class StepAside:
+    """Taken by the scraper and the photo pilot in place of TelegramLock: asks a running listener to disconnect
+    (it checks every few seconds), waits for it to let go of the lock, and keeps it from starting again until
+    the program ends. Still one program at a time: the lock itself is never shared."""
+
+    def __init__(self, program: str, hours: float = 3):
+        self.program, self.hours, self.lock = program, hours, None
+
+    def __enter__(self):
+        STEP_ASIDE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        until = now() + timedelta(hours=self.hours)   # ends by itself if the program crashes
+        STEP_ASIDE_FILE.write_text(json.dumps({"by": self.program, "until": until.isoformat()}), encoding="utf-8")
+        import time
+        deadline = time.monotonic() + STEP_ASIDE_WAIT
+        while True:
+            try:
+                self.lock = TelegramLock(self.program).__enter__()
+                return self
+            except SafetyStop:
+                if time.monotonic() > deadline:
+                    self._clear()
+                    raise
+                time.sleep(5)
+
+    def _clear(self):
+        try:
+            if json.loads(STEP_ASIDE_FILE.read_text(encoding="utf-8")).get("by") == self.program:
+                STEP_ASIDE_FILE.unlink()
+        except (OSError, ValueError):
+            pass
+
+    def __exit__(self, *exc):
+        if self.lock:
+            self.lock.__exit__(*exc)
+        self._clear()
+
+
 class DailyBudget:
     """Requests and runs per day, and the "stopped until" mark after a warning."""
 
