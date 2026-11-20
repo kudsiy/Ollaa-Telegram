@@ -8,7 +8,9 @@ What the Telegram scraper did, checked without contacting Telegram. Read-only.
   and any pause with its reason
 - raw messages saved in the last 24 hours, per channel, with the newest post date
 - the live listener: whether it starts with Windows, and today's and yesterday's health log
-  (messages received, listings added, warnings; see src/listener_health.py)
+  (messages received, listings added, gaps and catch-up reads, warnings; see src/listener_health.py)
+- the Phase 1 test (database\web_completeness_check.py): the days in a row on which every post of the
+  channels' public web pages reached the database, and the last three days' results
 
 Usage:
     venv\Scripts\python.exe database\scrape_check.py
@@ -55,6 +57,13 @@ def main() -> None:
     from datetime import timedelta
     for day in (safety.now().date() - timedelta(days=1), safety.now().date()):
         print(listener_health.summary(day.isoformat()))
+
+    import web_completeness_check as wc   # the Phase 1 test: every post of a day in the database
+    print(f"\nPhase 1 test, days in a row with every post of the public pages in the database: {wc.streak()} of 3")
+    for back in (3, 2, 1):
+        r = wc.read(safety.now().date() - timedelta(days=back))
+        if r:
+            print("  " + wc.report(r).replace("\n", "\n  "))
 
     with create_engine(DB_URL).connect() as conn:
         rows = conn.execute(SAVED_SQL).fetchall()

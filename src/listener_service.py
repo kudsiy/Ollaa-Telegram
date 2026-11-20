@@ -13,7 +13,13 @@ Keeps the live listener running all day (Phase 1 of ROADMAP.md). It starts with 
     and starts again when they are done; it never runs at the same time as them (one lock);
   - once a day (after 03:00 Addis Ababa time), with no Telegram use: etl_runner.py (any message whose live
     processing failed), listing_units.py --apply and the views. Never run_all.py: its repair scripts write
-    rough guesses that become protected values; the full repeat review stays in the attended scrape run.
+    rough guesses that become protected values; the full repeat review stays in the attended scrape run;
+  - once a day, for yesterday (and the day before, if not done yet): database\web_completeness_check.py compares
+    the channels' public web pages (no account) with the database, the Phase 1 test of ROADMAP.md. It waits
+    until the listener has been connected for 15 minutes and no catch-up read is running, so that a gap's
+    messages are in before it counts;
+  - while the scraper has the account, it marks the listener as still alive: the scraper reads the channels
+    itself, so that time is no gap and brings no catch-up read.
 
 Only one copy runs (data/listener/service.lock). Its log: data/listener/service.log; the day's counts and
 warnings: listener_health.py (database\scrape_check.py shows them).
@@ -23,13 +29,14 @@ warnings: listener_health.py (database\scrape_check.py shows them).
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
 import sys
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import listener_health as health
@@ -44,6 +51,10 @@ PYTHON = BASE_DIR / "venv" / "Scripts" / "python.exe"
 CRASH_WAITS = [60, 120, 300, 600, 1800]   # seconds before the 1st, 2nd, … restart after a crash
 CRASHES_PER_DAY = 10
 MAINTENANCE_HOUR = 3
+COMPLETENESS_DIR = SERVICE_DIR / "completeness"
+COMPLETENESS_CHECK = BASE_DIR / "database" / "web_completeness_check.py"
+FIRST_CHECK_DAY = date(2026, 11, 20)   # the owner's Phase 1 test began on 20 November 2026
+LISTENER_STARTED: list = []           # when this service last started the listener
 
 
 def log(text: str) -> None:
@@ -144,6 +155,44 @@ def run_maintenance() -> None:
 MAINTENANCE_STEPS = [["etl_runner.py"], ["listing_units.py", "--apply"]]
 
 
+def completeness_due() -> list[date]:
+    """The ended days still to compare with the public web pages: yesterday and the day before, not yet checked
+    (or stopped early more than 3 hours ago); none while the listener is not connected, has been connected for
+    less than 15 minutes, or a catch-up read is running."""
+    alive = health.last_alive()
+    if not alive or (safety.now() - alive).total_seconds() > 300 or health.catch_up_running():
+        return []
+    if not LISTENER_STARTED or (safety.now() - LISTENER_STARTED[-1]).total_seconds() < 900:
+        return []
+    due = []
+    for back in (2, 1):
+        day = safety.now().date() - timedelta(days=back)
+        if day < FIRST_CHECK_DAY:
+            continue
+        try:
+            done = json.loads((COMPLETENESS_DIR / f"{day.isoformat()}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            done = None
+        if done is None or (done.get("stopped") and
+                            safety.now() - datetime.fromisoformat(done["checked_at"]) > timedelta(hours=3)):
+            due.append(day)
+    return due
+
+
+def run_completeness_check(day: date) -> None:
+    log(f"completeness check of {day} (public web pages, no account)")
+    with open(SERVICE_DIR / "completeness.log", "a", encoding="utf-8") as out:
+        code = subprocess.call([str(PYTHON), "-X", "utf8", str(COMPLETENESS_CHECK), "--day", day.isoformat()],
+                               cwd=BASE_DIR, stdout=out, stderr=subprocess.STDOUT, creationflags=_NO_WINDOW)
+    try:
+        r = json.loads((COMPLETENESS_DIR / f"{day.isoformat()}.json").read_text(encoding="utf-8"))
+        health.note("info", f"completeness of {day}: {r['posted']} posts on the public pages, {r['missing']} not in "
+                            f"the database: {'complete' if r['complete'] else 'NOT complete'}"
+                            + (f" (stopped early: {r['stopped']})" if r.get("stopped") else ""))
+    except (OSError, ValueError, KeyError):
+        health.note("error", f"the completeness check of {day} ended with exit code {code} (data/listener/completeness.log)")
+
+
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
@@ -154,13 +203,18 @@ def run_listener() -> int:
 
 
 def maintenance_loop() -> None:
-    """Beside the listener: the daily upkeep, once a day after 03:00."""
+    """Beside the listener: the daily upkeep, once a day after 03:00, and the daily completeness check."""
     while True:
         try:
             if maintenance_due():
                 run_maintenance()
         except Exception as e:
             log(f"daily maintenance failed: {type(e).__name__}: {e}")
+        try:
+            for day in completeness_due():
+                run_completeness_check(day)
+        except Exception as e:
+            log(f"completeness check failed: {type(e).__name__}: {e}")
         time.sleep(600)
 
 
@@ -176,10 +230,13 @@ def serve() -> None:
             if reason != last_wait:
                 log(f"waiting: {reason}")
                 last_wait = reason
+            if reason == "the scraper is using Telegram":
+                health.mark_alive()   # the scraper reads the channels itself: no gap, no catch-up after it
             time.sleep(seconds)
             continue
         last_wait = None
         log("starting the listener")
+        LISTENER_STARTED.append(safety.now())
         code = run_listener()
         log(f"the listener ended (exit code {code})")
         if code in (0, 2):   # ended normally, stepped aside, or a safety stop (why_not_start then explains)

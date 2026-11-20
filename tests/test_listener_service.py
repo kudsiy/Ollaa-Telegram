@@ -118,5 +118,42 @@ except Done:
 check("two crashes: restarted after 1, then 2 minutes; a normal end: back after 30 seconds", waits == [60, 120, 30])
 check("the crashes are in the day's health log", service.health.read()["restarts"] == 2)
 
+print("5. The gaps and the daily completeness check")
+service.COMPLETENESS_DIR = state / "completeness"
+service.health._alive_file().unlink(missing_ok=True)
+waits.clear()
+service.why_not_start = lambda: ("the scraper is using Telegram", 60)
+try:
+    service.serve()
+except Done:
+    pass
+check("while the scraper has the account, the listener counts as alive (the scraper reads the channels itself)",
+      service.health.last_alive() is not None and (safety.now() - service.health.last_alive()).total_seconds() < 60)
+service.LISTENER_STARTED[:] = [safety.now() - timedelta(minutes=30)]
+service.FIRST_CHECK_DAY = safety.now().date() - timedelta(days=10)
+service.health.mark_alive()
+yesterday, before = safety.now().date() - timedelta(days=1), safety.now().date() - timedelta(days=2)
+check("connected for 30 minutes, nothing checked yet: yesterday and the day before are due",
+      service.completeness_due() == [before, yesterday])
+service.COMPLETENESS_DIR.mkdir(parents=True, exist_ok=True)
+(service.COMPLETENESS_DIR / f"{before}.json").write_text(json.dumps({"day": str(before), "stopped": None}))
+check("a day already checked is not checked again", service.completeness_due() == [yesterday])
+(service.COMPLETENESS_DIR / f"{before}.json").write_text(json.dumps(
+    {"day": str(before), "stopped": "HTTP Error 429", "checked_at": (safety.now() - timedelta(hours=4)).isoformat()}))
+check("a check stopped early (a sign of blocking) is tried again only after 3 hours",
+      service.completeness_due() == [before, yesterday])
+service.health.catch_up_running(True)
+check("not while a catch-up read is running: its messages must be in first", service.completeness_due() == [])
+service.health.catch_up_running(False)
+service.LISTENER_STARTED[:] = [safety.now() - timedelta(minutes=5)]
+check("not in the first 15 minutes after the listener started (a catch-up may be about to begin)",
+      service.completeness_due() == [])
+service.LISTENER_STARTED[:] = [safety.now() - timedelta(minutes=30)]
+service.health._alive_file().write_text((safety.now() - timedelta(minutes=20)).isoformat())
+check("not while the listener is not connected", service.completeness_due() == [])
+service.health.mark_alive()
+service.FIRST_CHECK_DAY = yesterday
+check("never a day before the owner's test began (20 November 2026)", service.completeness_due() == [yesterday])
+
 print(f"\n{'PASS: the service starts the listener only when it is safe' if not failures else f'FAILED: {failures} check(s)'}")
 sys.exit(1 if failures else 0)

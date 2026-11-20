@@ -113,6 +113,9 @@ class FakeTelegram:
         self.requests.append((kind, peer, getattr(request, "limit", None)))
         if peer in FakeTelegram.fail_on:
             raise FakeTelegram.fail_on[peer]
+        if kind == "GetHistoryRequest" and request.min_id:   # the catch-up: only the messages after min_id
+            n = min(FakeTelegram.new_after.get(peer, 0), request.limit)
+            return SimpleNamespace(messages=[message(request.min_id + i) for i in range(n, 0, -1)])   # newest first
         if kind == "GetHistoryRequest":
             return SimpleNamespace(messages=[message(i) for i in range(request.limit)])
         if kind == "GetForumTopicsRequest":   # Telegram may send more topics than asked for
@@ -140,6 +143,9 @@ class FakeTelegram:
             await self.handler(ev)
             self.handled += 1
             await asyncio.sleep(0)   # lets a disconnect the handler asked for happen
+        deadline = time.monotonic() + 10
+        while FakeTelegram.until and self.connected and not FakeTelegram.until() and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)   # stays connected while the catch-up read runs
 
 
 async def no_pause(seconds_range):
@@ -156,7 +162,7 @@ def fresh_state():
     listener.health.HEALTH_DIR, listener.TITLES_FILE = STATE / "health", STATE / "topic_titles.json"   # never the real ones
     safety.now = REAL_NOW
     FakeTelegram.made, FakeTelegram.authorized, FakeTelegram.fail_on = [], True, {}
-    FakeTelegram.events_to_send = []
+    FakeTelegram.events_to_send, FakeTelegram.new_after, FakeTelegram.until = [], {}, None
     PAUSES.clear()
 
 
@@ -482,6 +488,123 @@ def test_listener():
     check("the scraper is refused today too", code == 2 and len(FakeTelegram.made) == made)
 
 
+def health_notes(kind):
+    return [n["text"] for n in listener.health.read()["notes"] if n["kind"] == kind]
+
+
+def catch_up_over():
+    return any(t.startswith("catch-up ") and "started" not in t or t.startswith("no catch-up")
+               for t in health_notes("catch-up"))
+
+
+def off_since(hours_ago):
+    """The listener was last connected this many hours ago (the mark it writes about once a minute)."""
+    listener.health.mark_alive()
+    listener.health._alive_file().write_text((REAL_NOW() - timedelta(hours=hours_ago)).isoformat(), encoding="utf-8")
+
+
+def test_catch_up():
+    print("11. The catch-up read after a gap")
+    listener.store = fake_store
+    listener.last_saved_ids = lambda: {name: 100 for name in SOURCES}   # the newest saved message of each chat
+    fresh_state()
+    login_file()
+    off_since(5)
+    STORED.clear()
+    FakeTelegram.new_after = {"@Temerproperties2m": 3, "@championallsites": 2}
+    FakeTelegram.until = catch_up_over
+    code, said = run(listener)
+    client = last_client()
+    history = asked(client, "GetHistoryRequest")
+    check("after 5 hours off: one catch-up read of every chat, then listening goes on (ends normally)",
+          code == 0 and len(history) == len(SOURCES) and "Catch-up after 5 h 0 min off" in said)
+    check("only the messages posted since the last one saved (min_id), at most 40 per chat",
+          all(r[2] == safety.MESSAGES_PER_CHANNEL for r in history)
+          and sorted(STORED) == sorted([("@Temerproperties2m", i, None) for i in (101, 102, 103)]
+                                       + [("@championallsites", i, None) for i in (101, 102)]))
+    check("saved oldest first, through the same steps as a live message",
+          [m[1] for m in STORED if m[0] == "@Temerproperties2m"] == [101, 102, 103])
+    check("it counts as one of the day's 2 scraper runs; each chat one request, connecting one, finding an unknown "
+          "chat one", usage()["runs"] == 1 and usage()["requests"] == 1 + len(SOURCES) + 1)
+    check("the scraper's random pauses between chats", PAUSES.count(safety.PAUSE_BETWEEN_CHANNELS) == len(SOURCES) - 1)
+    h = listener.health.read()
+    check("the gap and the catch-up are in the day's health log",
+          h["gaps"] == 1 and h["catch_ups"] == 1 and h["caught_up"] == 5
+          and any("off from" in t and "(5 h 0 min)" in t for t in health_notes("gap"))
+          and any(t.startswith("catch-up done") and "5 new messages saved" in t for t in health_notes("catch-up")))
+    check("the 'catch-up running' mark is cleared at its end", not listener.health.catch_up_running())
+
+    fresh_state()
+    login_file()
+    off_since(1)
+    code, said = run(listener)
+    check("after 1 hour off: the gap is logged, but no catch-up read and no scraper run",
+          code == 0 and not asked(last_client(), "GetHistoryRequest") and usage()["runs"] == 0
+          and listener.health.read()["gaps"] == 1)
+
+    fresh_state()
+    login_file()
+    off_since(0.05)
+    run(listener)
+    check("3 minutes off (a restart): not even logged as a gap", listener.health.read().get("gaps", 0) == 0)
+
+    fresh_state()
+    login_file()
+    safety.USAGE_FILE.write_text(json.dumps({"day": REAL_NOW().date().isoformat(), "requests": 4, "runs": 2}))
+    off_since(5)
+    FakeTelegram.until = catch_up_over
+    code, said = run(listener)
+    check("the day's 2 runs used: no catch-up (noted), and the listener goes on listening",
+          code == 0 and not asked(last_client(), "GetHistoryRequest") and usage()["runs"] == 2
+          and any(t.startswith("no catch-up") and "already ran 2 times" in t for t in health_notes("catch-up")))
+
+    fresh_state()
+    login_file()
+    safety.USAGE_FILE.write_text(json.dumps({"day": REAL_NOW().date().isoformat(), "requests": 140, "runs": 0}))
+    off_since(5)
+    FakeTelegram.until = catch_up_over
+    code, said = run(listener)
+    check("the day's 150 requests reached during the catch-up: it stops there, the listener goes on",
+          code == 0 and usage()["requests"] == safety.DAILY_REQUEST_CAP
+          and any(t.startswith("catch-up stopped: Today's limit") for t in health_notes("catch-up")))
+
+    fresh_state()
+    login_file()
+    off_since(5)
+    third = SOURCES[2]
+    FakeTelegram.fail_on = {third: FloodWaitError(request=None, capture=60)}
+    FakeTelegram.until = catch_up_over
+    code, said = run(listener)
+    client = last_client()
+    check("a FloodWait during the catch-up stops it and the listener at once, with no retry",
+          code == 2 and "FloodWaitError" in said and len(asked(client, "GetHistoryRequest")) == 3
+          and not client.connected)
+    check("Telegram not used again until midnight (or the wait plus an hour)", blocked_until_tomorrow(60))
+    check("the catch-up's stop is in the health log", any("stopped by a warning" in t for t in health_notes("catch-up")))
+
+    fresh_state()
+    login_file()
+    listener.health.mark_alive()   # connected a moment ago: no gap at the start
+    every, check_every = listener.ALIVE_EVERY, listener.STEP_ASIDE_CHECK
+    listener.ALIVE_EVERY, listener.STEP_ASIDE_CHECK = 0, 0.01
+    slept = []
+
+    def laptop_slept_while_running():
+        if not slept:   # the clock jumps 3 hours on, as after a sleep with the program still running
+            slept.append(1)
+            safety.now = lambda: REAL_NOW() + timedelta(hours=3)
+            return False
+        return catch_up_over()
+
+    FakeTelegram.until = laptop_slept_while_running
+    try:
+        code, said = run(listener)
+    finally:
+        listener.ALIVE_EVERY, listener.STEP_ASIDE_CHECK, safety.now = every, check_every, REAL_NOW
+    check("a sleep while the listener kept running is noticed too: the gap is logged and the catch-up runs",
+          code == 0 and "Catch-up after 3 h" in said and len(asked(last_client(), "GetHistoryRequest")) == len(SOURCES))
+
+
 def test_login_file_location():
     print("10. Which login file")
     fresh_state()
@@ -500,6 +623,7 @@ def main():
     safety.api_credentials = lambda: (12345, "test")
     safety.pause = no_pause
     scraper.TelegramClient = listener.TelegramClient = FakeTelegram
+    listener.online = lambda: True   # no network in this test
     scraper.engine = FakeEngine()
     listener.engine = FakeEngine()
     try:
@@ -513,6 +637,7 @@ def main():
         test_channel_problem()
         test_listener()
         test_login_file_location()
+        test_catch_up()
     finally:
         shutil.rmtree(STATE, ignore_errors=True)
     print("\nPASS: every safety stop works, and Telegram was never contacted.")

@@ -60,7 +60,13 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
     together, counted in `data/sessions/telegram_usage.json`; days start at midnight
     Addis Ababa time). The listener only listens; each start counts as one request, and it
     asks for each forum topic's title once (remembered in `data/listener/topic_titles.json`)
-    and skips titles when the day's requests are used up.
+    and skips titles when the day's requests are used up. **One exception, the owner's decision of
+    20 November 2026:** after a gap of more than 2 hours (power cut, sleep, no internet) the listener makes
+    ONE catch-up read while it goes on listening: per chat, the messages since the last one saved (at most the
+    40 newest), one request each, with the scraper's pauses between chats. It counts as one of the day's 2
+    scraper runs (so it blocks the photo pilot that day), is refused when those or the 150 requests are used up
+    or Telegram use is paused, and any warning stops it and the listener at once (`tests/test_telegram_safety.py`
+    section 11). The time the scraper has the account is no gap.
   - **Any warning from Telegram stops everything.** A FloodWait (or any other error
     from Telegram about the account, such as an ended login) stops the whole run at
     once, with no retry; neither program may use Telegram again until the next midnight
@@ -97,9 +103,13 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
   until the owner has logged in again by hand), and once a day after 03:00 runs only safe steps with
   no Telegram use: `etl_runner.py`, `listing_units.py --apply` and the views. Never `run_all.py` unattended:
   its repair scripts (`Fix_extraction.py`, the location fix) write rough guesses that become protected values. `tests/test_listener_service.py` checks when it starts and when it waits.
-  Its daily health log (messages received, listings added, warnings) is in `data/listener/health/`,
-  written by `src/listener_health.py` and shown by `database\scrape_check.py`. Tests must never write
-  to the real health log, lock, step-aside note or database: point them at a temporary folder and stand-ins.
+  Its daily health log (messages received, listings added, gaps, catch-up reads, warnings) is in
+  `data/listener/health/`, written by `src/listener_health.py` and shown by `database\scrape_check.py`. Tests must never write
+  to the real health log, lock, step-aside note, "alive" mark or database: point them at a temporary folder and stand-ins.
+  **Phase 1 is done** (owner, 20 November 2026) after 3 days in a row on which every post of the channels' public web
+  pages reached the database: `database\web_completeness_check.py` (no account; one web request every 20–40 seconds, at
+  most 4 pages per channel and 120 a run, stop at the first error) checks each ended day, run daily by the service once
+  the listener has been connected for 15 minutes and no catch-up is running; `tests/test_web_completeness.py` checks it.
 - **Run the scraper once or twice a day, never in a loop**; it makes the listener step aside.
   `run_all.py` carries on with the other steps when the scraper stops
   for safety (what was read before the stop is saved). The app's scheduled task "Ollaa: scrape
