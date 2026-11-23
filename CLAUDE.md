@@ -66,7 +66,8 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
     40 newest), one request each, with the scraper's pauses between chats. It counts as one of the day's 2
     scraper runs (so it blocks the photo pilot that day), is refused when those or the 150 requests are used up
     or Telegram use is paused, and any warning stops it and the listener at once (`tests/test_telegram_safety.py`
-    section 11). The time the scraper has the account is no gap.
+    section 11). The time the scraper has the account is no gap. With no "alive" mark (`data/listener/alive.txt`),
+    the gap starts at the newest saved message.
   - **Any warning from Telegram stops everything.** A FloodWait (or any other error
     from Telegram about the account, such as an ended login) stops the whole run at
     once, with no retry; neither program may use Telegram again until the next midnight
@@ -109,7 +110,9 @@ scraper depends on it (owner, 28 October 2026). Protecting it comes before every
   **Phase 1 is done** (owner, 20 November 2026) after 3 days in a row on which every post of the channels' public web
   pages reached the database: `database\web_completeness_check.py` (no account; one web request every 20–40 seconds, at
   most 4 pages per channel and 120 a run, stop at the first error) checks each ended day, run daily by the service once
-  the listener has been connected for 15 minutes and no catch-up is running; `tests/test_web_completeness.py` checks it.
+  the listener has been connected for 15 minutes and no catch-up is running (a day found incomplete is checked once
+  more after a later catch-up); `tests/test_web_completeness.py` checks it. Only the 13 broadcast channels have a
+  public page; the chat groups and forum groups cannot be checked this way.
 - **Run the scraper once or twice a day, never in a loop**; it makes the listener step aside.
   `run_all.py` carries on with the other steps when the scraper stops
   for safety (what was read before the stop is saved). The app's scheduled task "Ollaa: scrape

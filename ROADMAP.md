@@ -16,9 +16,10 @@ current phase.** This file is updated in every working session: what was done, w
 **Done (the owner's definition of 20 November 2026)** when, on 3 days in a row, every advert posted in the
 channels ended up in the database, through the listener or its catch-up read, checked against the channels'
 public web pages with no account (`database\web_completeness_check.py`, run daily by the service; the result is
-shown by `database\scrape_check.py`); then the scheduled scraper is changed to one weekly catch-up run. The forum
-groups (`@luxury_freelancers`, `@championallsites`) and channels without a public page cannot be checked this way;
-the check names them every day.
+shown by `database\scrape_check.py`); then the scheduled scraper is changed to one weekly catch-up run. Only the
+13 broadcast channels have a public web page: the 16 chat groups (for example `@apartama_21`, "274 members") and the
+2 forum groups (`@luxury_freelancers`, `@championallsites`) have none and cannot be checked this way; the check
+names them every day.
 
 | # | Task | State |
 |---|---|---|
@@ -27,10 +28,10 @@ the check names them every day.
 | 1.3 | `src/listener_service.py` starts with the laptop (`src/listener_autostart.py --install`), waits for the internet and the database, restarts the listener after a crash (1, 2, 5, 10, 30 minutes, at most 10 a day), never logs in, stops at any Telegram warning, and makes way for the scraper and the photo pilot (`tests/test_listener_service.py`, `tests/test_telegram_safety.py`) | built 16 Nov 2026; autostart installed 19 Nov 2026 22:40, started the listener by itself at 23:20 when the scrape ended |
 | 1.4 | Photos, videos and PDFs are only noted in `media_queue` for phase 3 (not downloaded) | done 16 Nov 2026 |
 | 1.5 | A daily health log: messages received, listings added, warnings (`data/listener/health/`, shown by `database\scrape_check.py`) | done 16 Nov 2026 |
-| 1.6 | A 1-hour live test, and what came in | done 19 Nov 2026, 23:20–00:20: connected with 1 request, no warning, no error, no crash; 0 messages arrived (normal for that hour: the 30 days before had 15 messages in all between 23:00 and 01:00, against about 100 in a daytime hour). The laptop was off on 20 Nov from 01:20 to 21:34, so the first live message is still to be checked |
+| 1.6 | A 1-hour live test, and what came in | done 19 Nov 2026, 23:20–00:20: connected with 1 request, no warning, no error, no crash; 0 messages arrived (normal for that hour: the 30 days before had 15 messages in all between 23:00 and 01:00, against about 100 in a daytime hour). The laptop was off on 20 Nov from 01:20 to 21:34, so the first live message is still to be checked. **23 Nov: the live part received nothing**: a post of @Apartments_for_rent_Addis_Ababa at 20:02, while the listener was connected, came in only through the catch-up read at 20:20 (and one of @condoaddis at 19:44 the same way); no live message has arrived since 16 Nov. To be looked into before Phase 1 can be done |
 | 1.7 | After 3 complete days in a row: the scheduled scraper becomes one weekly catch-up run. Its "skip if messages were saved in the last 48 hours" rule must then look at the last scraper run instead (the listener saves messages every day, so until then the every-3-days task skips, and the listener is the only source) | waiting for 3 complete days |
-| 1.8 | Self-healing after a power cut, sleep or no internet: about once a minute the listener marks that it is connected and the internet answers; every gap of 10 minutes or more goes into the health log; after a gap of more than 2 hours, ONE catch-up read while it goes on listening: per chat, the messages posted since the last one saved (at most the 40 newest), one request each, the scraper's pauses between chats; it counts as one of the day's 2 scraper runs, is refused when those or the 150 requests are used up, and any warning stops everything. The time the scraper has the account is no gap (it reads the channels itself) (`tests/test_telegram_safety.py` section 11) | built 20 Nov 2026; goes live on 21 Nov after the photo pilot (started before midnight, its first catch-up would have counted as a scraper run on the pilot's day) |
-| 1.9 | The daily completeness check: each ended day's posts on the public web pages (one request every 20–40 s, at most 4 pages per channel and 120 requests per run, stop at the first error) compared with the database; run by the service for yesterday once the listener has been connected for 15 minutes and no catch-up is running (`tests/test_web_completeness.py`, `tests/test_listener_service.py`) | built 20 Nov 2026 |
+| 1.8 | Self-healing after a power cut, sleep or no internet: about once a minute the listener marks that it is connected and the internet answers; every gap of 10 minutes or more goes into the health log; after a gap of more than 2 hours, ONE catch-up read while it goes on listening: per chat, the messages posted since the last one saved (at most the 40 newest), one request each, the scraper's pauses between chats; it counts as one of the day's 2 scraper runs, is refused when those or the 150 requests are used up, and any warning stops everything. The time the scraper has the account is no gap (it reads the channels itself) (`tests/test_telegram_safety.py` section 11) | built 20 Nov 2026; live since 23 Nov 2026 18:55 (the laptop was off 21–23 Nov). With no "alive" mark yet (its first start) it found no gap; fixed the same day: without a mark the gap starts at the newest saved message. Restarted at 19:49: the first catch-up read ran clean (see the log) |
+| 1.9 | The daily completeness check: each ended day's posts on the public web pages (one request every 20–40 s, at most 4 pages per channel and 120 requests per run, stop at the first error) compared with the database; run by the service for yesterday once the listener has been connected for 15 minutes and no catch-up is running; a day found incomplete before a later catch-up read is checked once more (`tests/test_web_completeness.py`, `tests/test_listener_service.py`) | built 20 Nov 2026; first run 23 Nov 2026 |
 
 Process rule (owner, 16 November 2026): commit and push only after **all** tests pass. `tests\run_all_tests.py`
 runs them all with the database structure check, and the git pre-push check (`.githooks/pre-push`) runs it
@@ -49,13 +50,30 @@ Read what `media_queue` holds: photos first, then PDFs (price lists), then video
 championallsites pilot the owner approved on 16 November 2026 (`src/telegram_photo_pilot.py`), which was
 approved and queued before this roadmap; it did not run (the app closed on 16 November). On 20 November
 the owner asked for it to run on 21 November (not a scrape day): the listener steps aside, the pilot runs with
-all its limits, then the listener starts again; its results go into the reports.
+all its limits, then the listener starts again; its results go into the reports. The laptop was off on 21 November
+and on 23 November the catch-up read counted as the day's scraper run, so it is moved to 24 November (a one-time
+task at 08:30 that first checks the pilot's rules).
 
 ## Phase 4: Estate IQ
 
 Estate IQ fed daily from the Ollaa database, then launched. To be planned when phase 3 is done.
 
 ## Log
+
+- 23 Nov 2026: the laptop was off from the night of 20 Nov until 18:53 today; nothing ran on 21–22 Nov (no
+  listener, no photo pilot, no scrape). At log-on the service started the listener on the S44 code, but its first
+  start found no "alive" mark (the older code wrote none) and so no gap and no catch-up. Fixed: without a mark the
+  gap starts at the newest saved message (19 Nov 23:15); a day found incomplete before a later catch-up is checked
+  once more against the web pages. Restarted at 19:49: gap of 92 h 33 min logged, ONE catch-up read, 33 of 33
+  chats, 229 new messages saved (posted 20 Nov: 70, 21 Nov: 32, 22 Nov: 74, 23 Nov: 53), 223 listings added,
+  6 repeats removed, 36 requests, 1 of the day's 2 runs, no warning. 4 chats had 40 or more new messages, so
+  their older ones may be missing (@houseapartmentcarreleator, @livingethio, @apartmentsaleboleayatcmckazanchi,
+  @luxury_freelancers). The first completeness checks (before the catch-up): 21 Nov 5 posts on the web pages, 5
+  missing; 22 Nov 3 posts, 3 missing. Only 13 of the 31 chats have a public web page (the others are chat
+  groups). The re-check after the catch-up (20:39) stopped at its first web error (a network timeout), as it
+  should, and is tried again after 3 hours; the second day's check had started right after the first stopped, so
+  now a stopped check makes the other days wait too. Found: the live part receives no messages (see 1.6). The photo pilot was moved to 24 Nov 08:30 (the
+  catch-up counts as today's scraper run). All 14 checks pass.
 
 - 20 Nov 2026 (late): the owner set the laptop to never sleep when plugged in, and asked for Phase 1 to heal
   itself after power cuts. Built: the gap log and the one catch-up read after more than 2 hours off (1.8), and the

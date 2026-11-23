@@ -167,5 +167,23 @@ for d in (before, yesterday):
     (service.COMPLETENESS_DIR / f"{d}.json").unlink()
 check("never a day before the owner's test began (20 November 2026)", service.completeness_due() == [yesterday])
 
+checked = []
+
+
+def stop_at_first_sleep(seconds):
+    raise Done
+
+
+service.time = type("T", (), {"sleep": staticmethod(stop_at_first_sleep)})   # one round of the loop only
+service.maintenance_due = lambda: False
+service.completeness_due = lambda: [before, yesterday]
+service.run_completeness_check = lambda day: checked.append(day) or True   # the web check stopped early
+try:
+    service.maintenance_loop()
+except Done:
+    pass
+check("a check that stopped early (a web error, a sign of blocking): the next day is not checked right after it",
+      checked == [before])
+
 print(f"\n{'PASS: the service starts the listener only when it is safe' if not failures else f'FAILED: {failures} check(s)'}")
 sys.exit(1 if failures else 0)

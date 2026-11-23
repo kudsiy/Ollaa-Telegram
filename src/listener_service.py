@@ -181,7 +181,9 @@ def completeness_due() -> list[date]:
     return due
 
 
-def run_completeness_check(day: date) -> None:
+def run_completeness_check(day: date) -> bool:
+    """Compares one day with the public web pages; True when the check stopped early (a web error or a sign of
+    blocking: then no other day is checked until it is tried again, 3 hours later)."""
     log(f"completeness check of {day} (public web pages, no account)")
     with open(SERVICE_DIR / "completeness.log", "a", encoding="utf-8") as out:
         code = subprocess.call([str(PYTHON), "-X", "utf8", str(COMPLETENESS_CHECK), "--day", day.isoformat()],
@@ -191,8 +193,10 @@ def run_completeness_check(day: date) -> None:
         health.note("info", f"completeness of {day}: {r['posted']} posts on the public pages, {r['missing']} not in "
                             f"the database: {'complete' if r['complete'] else 'NOT complete'}"
                             + (f" (stopped early: {r['stopped']})" if r.get("stopped") else ""))
+        return bool(r.get("stopped"))
     except (OSError, ValueError, KeyError):
         health.note("error", f"the completeness check of {day} ended with exit code {code} (data/listener/completeness.log)")
+        return True
 
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -214,7 +218,8 @@ def maintenance_loop() -> None:
             log(f"daily maintenance failed: {type(e).__name__}: {e}")
         try:
             for day in completeness_due():
-                run_completeness_check(day)
+                if run_completeness_check(day):
+                    break   # stopped early: the other days wait too
         except Exception as e:
             log(f"completeness check failed: {type(e).__name__}: {e}")
         time.sleep(600)
