@@ -152,7 +152,19 @@ service.LISTENER_STARTED[:] = [safety.now() - timedelta(minutes=30)]
 service.health._alive_file().write_text((safety.now() - timedelta(minutes=20)).isoformat())
 check("not while the listener is not connected", service.completeness_due() == [])
 service.health.mark_alive()
+for d in (before, yesterday):
+    (service.COMPLETENESS_DIR / f"{d}.json").write_text(json.dumps(
+        {"day": str(d), "stopped": None, "complete": d == before, "checked_at": (safety.now() - timedelta(hours=2)).isoformat()}))
+check("days checked and done: nothing due", service.completeness_due() == [])
+service.health.catch_up_ended()
+check("a catch-up read after the check: an incomplete day is checked again (its messages may be in now), "
+      "a complete one is not", service.completeness_due() == [yesterday])
+(service.COMPLETENESS_DIR / f"{yesterday}.json").write_text(json.dumps(
+    {"day": str(yesterday), "stopped": None, "complete": False, "checked_at": (safety.now() + timedelta(seconds=1)).isoformat()}))
+check("checked again after the catch-up: not a third time", service.completeness_due() == [])
 service.FIRST_CHECK_DAY = yesterday
+for d in (before, yesterday):
+    (service.COMPLETENESS_DIR / f"{d}.json").unlink()
 check("never a day before the owner's test began (20 November 2026)", service.completeness_due() == [yesterday])
 
 print(f"\n{'PASS: the service starts the listener only when it is safe' if not failures else f'FAILED: {failures} check(s)'}")

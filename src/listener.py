@@ -83,6 +83,14 @@ def last_saved_ids() -> dict:
     return {name: saved.get(scraper.channel_url(name), 0) for name in SOURCES}
 
 
+def last_saved_at() -> Optional[datetime]:
+    """When the newest message was saved (by the listener or the scraper): the start of the gap when there is no
+    "alive" mark yet (the first start of this code, or the mark was lost)."""
+    with scraper.engine.connect() as conn:
+        newest = conn.execute(text("SELECT MAX(created_at) FROM telegram_listings")).scalar()
+    return newest.replace(tzinfo=safety.ETHIOPIA) if newest else None   # the database keeps Addis Ababa time
+
+
 def hours(seconds: float) -> str:
     return f"{int(seconds // 3600)} h {int(seconds % 3600 // 60)} min"
 
@@ -270,6 +278,7 @@ async def listen(session: Path, api_id: int, api_hash: str, budget: safety.Daily
             raise
         finally:
             health.catch_up_running(False)
+            health.catch_up_ended()   # the days checked before it are checked again against the web pages
             health.note("catch-up", f"catch-up {why}: {read} of {len(SOURCES)} chats read, {saved} new messages saved, "
                                     f"{budget.state['requests'] - requests_before} requests"
                                     + (f"; skipped: {', '.join(skipped)}" if skipped else "")
@@ -310,6 +319,11 @@ async def listen(session: Path, api_id: int, api_hash: str, budget: safety.Daily
             await asyncio.sleep(STEP_ASIDE_CHECK)
 
     was_alive = health.last_alive()   # before this start: when the listener was last connected
+    if was_alive is None:   # no mark yet: the gap began when the newest message was saved
+        try:
+            was_alive = await asyncio.to_thread(last_saved_at)
+        except Exception as e:
+            print(f"Could not read when the last message was saved ({type(e).__name__}): no gap check", flush=True)
     try:
         budget.spend()   # connecting counts as a request
         await safety.connect_with_existing_login(client, budget)

@@ -59,6 +59,23 @@ def catch_up_running(on: bool | None = None) -> bool:
         return False
 
 
+def _last_catch_up_file() -> Path:
+    return HEALTH_DIR.parent / "last_catch_up.txt"
+
+
+def catch_up_ended() -> None:
+    """A catch-up read has just ended (listener_service.py then checks again the days checked before it)."""
+    _last_catch_up_file().parent.mkdir(parents=True, exist_ok=True)
+    _last_catch_up_file().write_text(safety.now().isoformat(), encoding="utf-8")
+
+
+def last_catch_up():
+    try:
+        return datetime.fromisoformat(_last_catch_up_file().read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+
+
 def _path(day: str) -> Path:
     return HEALTH_DIR / f"{day}.json"
 

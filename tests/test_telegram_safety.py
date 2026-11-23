@@ -532,7 +532,20 @@ def test_catch_up():
           h["gaps"] == 1 and h["catch_ups"] == 1 and h["caught_up"] == 5
           and any("off from" in t and "(5 h 0 min)" in t for t in health_notes("gap"))
           and any(t.startswith("catch-up done") and "5 new messages saved" in t for t in health_notes("catch-up")))
-    check("the 'catch-up running' mark is cleared at its end", not listener.health.catch_up_running())
+    check("the 'catch-up running' mark is cleared at its end, and its end time noted (for the completeness check)",
+          not listener.health.catch_up_running() and listener.health.last_catch_up() is not None)
+
+    fresh_state()
+    login_file()
+    listener.health._alive_file().unlink(missing_ok=True)   # no mark: the first start of this code
+    listener.last_saved_at = lambda: REAL_NOW() - timedelta(hours=60)   # the newest message was saved 60 hours ago
+    FakeTelegram.until = catch_up_over
+    try:
+        code, said = run(listener)
+    finally:
+        listener.last_saved_at = lambda: None
+    check("no 'alive' mark yet: the gap starts at the newest saved message, and the catch-up runs",
+          code == 0 and "Catch-up after 60 h" in said and len(asked(last_client(), "GetHistoryRequest")) == len(SOURCES))
 
     fresh_state()
     login_file()
@@ -624,6 +637,7 @@ def main():
     safety.pause = no_pause
     scraper.TelegramClient = listener.TelegramClient = FakeTelegram
     listener.online = lambda: True   # no network in this test
+    listener.last_saved_at = lambda: None   # no database in this test
     scraper.engine = FakeEngine()
     listener.engine = FakeEngine()
     try:

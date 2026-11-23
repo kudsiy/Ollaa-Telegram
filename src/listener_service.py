@@ -157,7 +157,7 @@ MAINTENANCE_STEPS = [["etl_runner.py"], ["listing_units.py", "--apply"]]
 
 def completeness_due() -> list[date]:
     """The ended days still to compare with the public web pages: yesterday and the day before, not yet checked
-    (or stopped early more than 3 hours ago); none while the listener is not connected, has been connected for
+    (or stopped early more than 3 hours ago, or found incomplete before a later catch-up read); none while the listener is not connected, has been connected for
     less than 15 minutes, or a catch-up read is running."""
     alive = health.last_alive()
     if not alive or (safety.now() - alive).total_seconds() > 300 or health.catch_up_running():
@@ -173,9 +173,11 @@ def completeness_due() -> list[date]:
             done = json.loads((COMPLETENESS_DIR / f"{day.isoformat()}.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             done = None
-        if done is None or (done.get("stopped") and
-                            safety.now() - datetime.fromisoformat(done["checked_at"]) > timedelta(hours=3)):
-            due.append(day)
+        caught_up = health.last_catch_up()
+        if (done is None
+                or (done.get("stopped") and safety.now() - datetime.fromisoformat(done["checked_at"]) > timedelta(hours=3))
+                or (not done.get("complete") and caught_up and datetime.fromisoformat(done["checked_at"]) < caught_up)):
+            due.append(day)   # not checked, stopped early, or found incomplete before a catch-up read brought more in
     return due
 
 
