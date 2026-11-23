@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import socket
 import sys
 from datetime import datetime
@@ -89,6 +90,44 @@ def last_saved_at() -> Optional[datetime]:
     with scraper.engine.connect() as conn:
         newest = conn.execute(text("SELECT MAX(created_at) FROM telegram_listings")).scalar()
     return newest.replace(tzinfo=safety.ETHIOPIA) if newest else None   # the database keeps Addis Ababa time
+
+
+def listed_ids(client) -> dict:
+    """Telegram's number for each chat in channels.py that the login file knows (read from the file: no request)."""
+    ids = {}
+    for name in SOURCES:
+        try:
+            peer = client.session.get_input_entity(name.lstrip("@"))
+        except Exception:   # not in the login file yet
+            continue
+        cid = getattr(peer, "channel_id", None) or getattr(peer, "id", None)
+        if cid:
+            ids[cid] = name
+    return ids
+
+
+def watch_updates(client, ids: dict) -> None:
+    """Writes to the log each update Telegram sends for a chat in channels.py, and any error while Telethon turns
+    it into a message for the listener (Telethon itself drops such errors without a word). Only a channel's name
+    and message number: no text, nothing from private chats. Makes no request."""
+    dispatch = getattr(client, "_dispatch_update", None)
+    if dispatch is None:   # a stand-in Telegram in the tests
+        return
+
+    async def dispatch_and_log(update):
+        msg = getattr(update, "message", None)
+        name = ids.get(getattr(getattr(msg, "peer_id", None), "channel_id", None))
+        if name:
+            print(f"{safety.now():%H:%M} update from {name}: {type(update).__name__} {getattr(msg, 'id', '')}", flush=True)
+        try:
+            await dispatch(update)
+        except Exception as e:
+            print(f"{safety.now():%H:%M} an update{' from ' + name if name else ''} could not be handled: "
+                  f"{type(e).__name__}: {e}", flush=True)
+            if name:
+                health.note("error", f"an update from {name} could not be handled: {type(e).__name__}: {e}")
+
+    client._dispatch_update = dispatch_and_log
 
 
 def hours(seconds: float) -> str:
@@ -163,6 +202,8 @@ async def listen(session: Path, api_id: int, api_hash: str, budget: safety.Daily
     ended: list = []          # why the listener ended without a stop
     one_at_a_time = asyncio.Lock()   # the database steps of two messages never overlap
     catching_up: list = []    # the catch-up task, once one has started (one per gap)
+    watched = listed_ids(client)   # Telegram's number -> name, for the log of what arrives
+    watch_updates(client, watched)
 
     @client.on(events.NewMessage)
     async def handler(event: events.NewMessage.Event) -> None:
@@ -195,6 +236,12 @@ async def listen(session: Path, api_id: int, api_hash: str, budget: safety.Daily
                 return
         name = configured_name(entity)
         if name is None:
+            known = watched.get(getattr(entity, "id", None))
+            if known:   # a listed chat that did not match: say why, so it can be fixed
+                print(f"{safety.now():%H:%M} {known} {msg.id} not saved: the chat came as {type(entity).__name__} "
+                      f"with username {getattr(entity, 'username', None)!r}", flush=True)
+                health.note("error", f"a message of {known} was not matched to channels.py "
+                                     f"({type(entity).__name__}, username {getattr(entity, 'username', None)!r})")
             return
         health.add(received=1)
         await process(name, entity, msg, forum=bool(getattr(entity, "forum", False)))
@@ -381,6 +428,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", type=float, help="listen this long, then stop (a test)")
     args = ap.parse_args()
+    # Telethon's own warnings with their time; its notes on missed updates it fetches (channel numbers only)
+    logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%Y-%m-%d %H:%M",
+                        level=logging.WARNING)
+    logging.getLogger("telethon.client.updates").setLevel(logging.INFO)
     try:
         sys.exit(asyncio.run(main(args.minutes)))
     except KeyboardInterrupt:
